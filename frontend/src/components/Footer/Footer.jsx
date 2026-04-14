@@ -1,4 +1,4 @@
-import { Mic, Github, Twitter, Linkedin, Heart } from 'lucide-react'
+import { Mic, MessageCircle, Info, Heart } from 'lucide-react'
 import './Footer.css'
 
 export default function Footer() {
@@ -20,10 +20,10 @@ export default function Footer() {
             </p>
             <div className="footer__socials">
               <a href="https://github.com/Satyam2006chh/KisaanVaani--AI" target="_blank" rel="noreferrer" className="footer__social-link" aria-label="GitHub">
-                <Github size={18} />
+                <Info size={18} />
               </a>
-              <a href="#" className="footer__social-link" aria-label="Twitter"><Twitter size={18} /></a>
-              <a href="#" className="footer__social-link" aria-label="LinkedIn"><Linkedin size={18} /></a>
+              <a href="#" className="footer__social-link" aria-label="Twitter"><MessageCircle size={18} /></a>
+              <a href="#" className="footer__social-link" aria-label="LinkedIn"><MessageCircle size={18} /></a>
             </div>
           </div>
 
