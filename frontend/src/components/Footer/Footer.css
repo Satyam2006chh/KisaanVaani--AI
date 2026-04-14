@@ -1,0 +1,97 @@
+.footer {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-glass);
+  padding: 64px 0 0;
+}
+.footer__top {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px;
+  padding-bottom: 48px;
+  border-bottom: 1px solid var(--border-glass);
+}
+.footer__logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.footer__logo-icon {
+  display: grid;
+  place-items: center;
+  width: 32px; height: 32px;
+  background: var(--green-primary);
+  color: #000;
+  border-radius: 8px;
+}
+.footer__tagline {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 20px;
+  max-width: 260px;
+}
+.footer__socials { display: flex; gap: 10px; }
+.footer__social-link {
+  width: 36px; height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+.footer__social-link:hover {
+  border-color: var(--green-primary);
+  color: var(--green-primary);
+  transform: translateY(-3px);
+}
+
+.footer__col-title {
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-bottom: 18px;
+  color: var(--text-primary);
+}
+.footer__links { display: flex; flex-direction: column; gap: 10px; }
+.footer__links a {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+.footer__links a:hover { color: var(--green-primary); padding-left: 4px; }
+
+.footer__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.footer__copy {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.footer__heart { color: #ef4444; }
+.footer__apis  { display: flex; gap: 8px; flex-wrap: wrap; }
+.footer__api-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px)  { .footer__top { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 580px)  { .footer__top { grid-template-columns: 1fr;     } }

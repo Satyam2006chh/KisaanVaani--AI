@@ -1,0 +1,68 @@
+.quotes__header { text-align: center; margin-bottom: 56px; }
+.quotes__header .divider { margin: 16px auto 0; }
+
+.quotes__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 64px;
+}
+.quotes__card { padding: 32px; display: flex; flex-direction: column; gap: 20px; }
+.quotes__icon { color: var(--green-primary); opacity: 0.6; flex-shrink: 0; }
+.quotes__text {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  font-style: italic;
+  flex: 1;
+}
+.quotes__author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-glass);
+}
+.quotes__avatar { font-size: 2rem; }
+.quotes__name   { font-weight: 600; font-size: 0.9rem; }
+.quotes__role   { font-size: 0.78rem; color: var(--text-muted); }
+
+/* Impact banner */
+.quotes__impact {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.quotes__impact-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 24px;
+  background: var(--bg-secondary);
+  transition: var(--transition);
+}
+.quotes__impact-item:hover { background: var(--bg-card); }
+.quotes__impact-num {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--green-light);
+}
+.quotes__impact-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .quotes__grid   { grid-template-columns: 1fr; }
+  .quotes__impact { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .quotes__impact { grid-template-columns: 1fr; }
+}
