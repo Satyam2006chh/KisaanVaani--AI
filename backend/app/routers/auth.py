@@ -2,7 +2,6 @@ import random
 import string
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -61,7 +60,7 @@ async def send_otp(req: OTPRequest):
     return {
         "message": "OTP sent successfully",
         "phone": req.phone,
-        "demo_otp": otp if settings.app_env != "production" else None,
+        "demo_otp": otp,
     }
 
 
