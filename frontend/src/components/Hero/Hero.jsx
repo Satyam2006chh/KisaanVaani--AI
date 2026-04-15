@@ -1,78 +1,113 @@
-import { useState, useRef } from 'react'
-import { Mic, MicOff, ArrowDown, Loader } from 'lucide-react'
-import { transcribeAudio, chatWithAgent, speakText } from '../../api'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowDown, Globe, Loader, MapPin, Mic, MicOff, User } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import { chatWithAgent, speakText } from '../../api'
 import './Hero.css'
 
-const STATES = { IDLE: 'idle', RECORDING: 'recording', PROCESSING: 'processing', SPEAKING: 'speaking' }
+const S = { IDLE: 'idle', RECORDING: 'recording', PROCESSING: 'processing', SPEAKING: 'speaking' }
+
+const HINTS = {
+  [S.IDLE]:       'Mic dabao aur bolna shuru karo',
+  [S.RECORDING]:  'Sun raha hoon… bolte raho',
+  [S.PROCESSING]: 'Soch raha hoon…',
+  [S.SPEAKING]:   'Jawab sun lo… dobara poochne ke liye mic dabao',
+}
 
 export default function Hero() {
-  const [status, setStatus] = useState(STATES.IDLE)
+  const { user, languages } = useAuth()
+  const [status,     setStatus]     = useState(S.IDLE)
   const [transcript, setTranscript] = useState('')
-  const [reply, setReply] = useState('')
-  const [error, setError] = useState('')
-  const mediaRef = useRef(null)
-  const chunksRef = useRef([])
+  const [reply,      setReply]      = useState('')
+  const [error,      setError]      = useState('')
+  const recognitionRef = useRef(null)
+  const audioRef       = useRef(null)
 
-  const hints = {
-    [STATES.IDLE]: 'Tap the mic to experience the demo',
-    [STATES.RECORDING]: 'Recording… tap again to stop',
-    [STATES.PROCESSING]: 'Processing your question…',
-    [STATES.SPEAKING]: 'Playing response…',
-  }
+  const userLang = languages.find(l => l.code === user?.language)?.name || 'Hindi'
+  const langCode = user?.language || 'hi-IN'
 
-  async function startRecording() {
-    setError('')
-    setTranscript('')
-    setReply('')
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      chunksRef.current = []
-      recorder.ondataavailable = e => chunksRef.current.push(e.data)
-      recorder.onstop = () => handleStop(stream)
-      recorder.start()
-      mediaRef.current = recorder
-      setStatus(STATES.RECORDING)
-    } catch {
-      setError('Microphone access denied.')
+  useEffect(() => () => {
+    recognitionRef.current?.abort()
+    audioRef.current?.pause()
+  }, [])
+
+  function startRecording() {
+    audioRef.current?.pause()
+    audioRef.current = null
+    setError(''); setTranscript(''); setReply('')
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) {
+      setError('Aapka browser voice input support nahi karta. Chrome use karein.')
+      return
     }
-  }
 
-  function stopRecording() {
-    mediaRef.current?.stop()
-  }
+    const rec = new SR()
+    rec.lang = langCode
+    rec.continuous = false
+    rec.interimResults = false
+    rec.maxAlternatives = 1
 
-  async function handleStop(stream) {
-    stream.getTracks().forEach(t => t.stop())
-    setStatus(STATES.PROCESSING)
-    try {
-      const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-      const text = await transcribeAudio(blob)
+    rec.onstart  = () => setStatus(S.RECORDING)
+    rec.onend    = () => { if (status === S.RECORDING) setStatus(S.IDLE) }
+    rec.onerror  = (e) => {
+      const msgs = {
+        'no-speech':   'Koi awaaz nahi aayi. Mic ke paas bolein.',
+        'not-allowed': 'Mic permission denied. Browser settings mein allow karein.',
+        'network':     'Network error. Internet check karein.',
+      }
+      setError(msgs[e.error] || `Voice error: ${e.error}`)
+      setStatus(S.IDLE)
+    }
+    rec.onresult = async (e) => {
+      const text = e.results[0][0].transcript.trim()
       setTranscript(text)
+      setStatus(S.PROCESSING)
+      await handleChat(text)
+    }
+
+    recognitionRef.current = rec
+    rec.start()
+  }
+
+  async function handleChat(text) {
+    try {
       const response = await chatWithAgent(text)
       setReply(response)
-      const audioUrl = await speakText(response)
-      setStatus(STATES.SPEAKING)
-      const audio = new Audio(audioUrl)
-      audio.onended = () => setStatus(STATES.IDLE)
-      audio.play()
+      try {
+        const url   = await speakText(response)
+        const audio = new Audio(url)
+        audioRef.current = audio
+        setStatus(S.SPEAKING)
+        audio.onended = audio.onerror = () => { setStatus(S.IDLE); audioRef.current = null }
+        await audio.play()
+      } catch {
+        setStatus(S.IDLE)
+      }
     } catch (e) {
-      setError(e?.response?.data?.detail || 'Something went wrong. Please try again.')
-      setStatus(STATES.IDLE)
+      setError('Error: ' + (e?.response?.data?.detail || e.message))
+      setStatus(S.IDLE)
     }
   }
 
   function handleMicClick() {
-    if (status === STATES.IDLE || status === STATES.SPEAKING) startRecording()
-    else if (status === STATES.RECORDING) stopRecording()
+    if (status === S.IDLE) {
+      startRecording()
+    } else if (status === S.RECORDING) {
+      recognitionRef.current?.stop()
+    } else if (status === S.SPEAKING) {
+      audioRef.current?.pause()
+      audioRef.current = null
+      setStatus(S.IDLE)
+      startRecording()
+    }
   }
 
-  const isActive = status === STATES.RECORDING
-  const isBusy = status === STATES.PROCESSING
+  const isRecording = status === S.RECORDING
+  const isBusy      = status === S.PROCESSING
 
   return (
     <section className="hero" id="hero">
-      <div className="hero__grid" aria-hidden="true" />
+      <div className="hero__grid"            aria-hidden="true" />
       <div className="hero__blob hero__blob--green" aria-hidden="true" />
       <div className="hero__blob hero__blob--gold"  aria-hidden="true" />
 
@@ -82,6 +117,17 @@ export default function Hero() {
           India's First Voice AI for Farmers &nbsp;🌾
         </div>
 
+        {user && (
+          <div className="hero__user-banner">
+            <span className="hero__user-info"><User size={13} /> {user.name}</span>
+            <span className="hero__user-info">
+              <MapPin size={13} />
+              {[user.city, user.district, user.state].filter(Boolean).join(', ')}
+            </span>
+            <span className="hero__user-info"><Globe size={13} /> {userLang}</span>
+          </div>
+        )}
+
         <h1 className="hero__title">
           Bolo, Samjho,<br />
           <span className="highlight">Badlo Apni Zindagi</span>
@@ -89,7 +135,7 @@ export default function Hero() {
 
         <p className="hero__sub">
           Sirf bolne se paayein sarkari yojanaon ki jankari,<br className="hero__br" />
-          mausam, mandi bhav aur fasal salah — Hindi, Punjabi ya apni bhasha mein.
+          mausam, mandi bhav aur fasal salah — {userLang} mein.
         </p>
 
         <div className="hero__mic-wrap">
@@ -97,23 +143,27 @@ export default function Hero() {
           <div className="hero__mic-ring hero__mic-ring--2" />
           <div className="hero__mic-ring hero__mic-ring--1" />
           <button
-            className={`hero__mic-btn${isActive ? ' hero__mic-btn--active' : ''}`}
-            aria-label="Start speaking"
+            className={`hero__mic-btn${isRecording ? ' hero__mic-btn--active' : ''}`}
             onClick={handleMicClick}
             disabled={isBusy}
+            aria-label="Mic"
           >
-            {isBusy ? <Loader size={36} className="spin" /> : isActive ? <MicOff size={36} /> : <Mic size={36} />}
+            {isBusy
+              ? <Loader size={34} className="spin" />
+              : isRecording
+                ? <MicOff size={34} />
+                : <Mic size={34} />}
           </button>
         </div>
 
-        <p className="hero__mic-hint">{hints[status]}</p>
+        <p className="hero__mic-hint">{HINTS[status]}</p>
 
         {transcript && <p className="hero__transcript">🗣 {transcript}</p>}
         {reply      && <p className="hero__reply">🤖 {reply}</p>}
         {error      && <p className="hero__error">⚠️ {error}</p>}
 
         <div className="hero__cta-row">
-          <a href="#features" className="btn-primary">Explore Features</a>
+          <a href="#features"    className="btn-primary">Explore Features</a>
           <a href="#how-it-works" className="btn-outline">How It Works</a>
         </div>
 
@@ -133,7 +183,7 @@ export default function Hero() {
       </div>
 
       <a href="#about" className="hero__scroll" aria-label="Scroll down">
-        <ArrowDown size={18} />
+        <ArrowDown size={17} />
       </a>
     </section>
   )

@@ -1,173 +1,141 @@
-from typing import TypedDict, List
-from langgraph.graph import StateGraph, END
-from app.config import settings
-from app.agents.tools import get_weather, get_mandi_price
+import logging
+from typing import List, TypedDict
+
 import httpx
-import re
+from langgraph.graph import END, StateGraph
 
-# ─── State ────────────────────────────────────────────────────
+from app.agents.tools import get_mandi_price, get_weather
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+LANG_MAP = {
+    "hi-IN": "Hindi",  "pa-IN": "Punjabi", "bn-IN": "Bengali",
+    "ta-IN": "Tamil",  "te-IN": "Telugu",  "en-IN": "English",
+    "kn-IN": "Kannada","ml-IN": "Malayalam","mr-IN": "Marathi",
+    "gu-IN": "Gujarati","od-IN": "Odia",
+}
+
+
 class AgentState(TypedDict):
-    messages:    List[dict]
-    farmer_id:   str
-    language:    str
-    district:    str
-    state_name:  str
-    intent:      str
-    tool_result: str
-    final_answer:str
+    messages:     List[dict]
+    farmer_id:    str
+    language:     str
+    district:     str
+    state_name:   str
+    intent:       str
+    tool_result:  str
+    final_answer: str
 
-# ─── LLM ─────────────────────────────────────────────────────
-async def call_groq(messages: list, temperature: float = 0.4, max_tokens: int = 512) -> str:
-    """Call Groq API directly using httpx (avoids langchain-groq bugs)."""
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {settings.groq_api_key}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
 
+async def _call_groq(messages: list, max_tokens: int = 512) -> str:
     async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(url, headers=headers, json=payload)
+        r = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
+            json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": 0.4, "max_tokens": max_tokens},
+        )
+    if r.status_code != 200:
+        logger.error(f"Groq error {r.status_code}: {r.text[:200]}")
+        return "Maaf kijiye, jawab dene mein samasya ho gayi. Dobara koshish karein."
+    return r.json()["choices"][0]["message"]["content"]
 
-    if response.status_code != 200:
-        error_text = response.text
-        print(f"[Groq API Error] {response.status_code}: {error_text}")
-        return "Maaf kijiye, jawab dene mein samasya ho gayi. Kripya dobara koshish karein."
 
-    data = response.json()
-    return data["choices"][0]["message"]["content"]
-
-def build_system_prompt(lang_name: str, district: str, state: str) -> str:
-    """Build system prompt for the AI."""
+def _system_prompt(lang: str, district: str, state: str) -> str:
+    lang_name = LANG_MAP.get(lang, "Hindi")
     return (
         f"Aap KisaanVaani AI hain — Indian farmers ke liye ek helpful AI assistant. "
-        f"Hamesha {lang_name} mein jawab dein. "
-        f"Simple, clear aur friendly language use karein. "
+        f"Hamesha {lang_name} mein jawab dein. Simple aur friendly language use karein. "
         f"Farmer {district}, {state} mein rehta hai. "
         f"Sarkari yojanaon (PM Kisan, PMFBY, MSP) ke baare mein accurate jankari dein. "
-        f"Jawab 3-4 sentences mein dein, zyada lamba mat karein."
+        f"Jawab 3-4 sentences mein dein."
     )
 
-# ─── Intent Detection Node ────────────────────────────────────
+
 def intent_router(state: AgentState) -> AgentState:
-    """Classify the user query into one of 5 intents."""
-    last_msg = state["messages"][-1]["content"].lower()
-
-    if any(w in last_msg for w in ["mausam", "baarish", "temperature", "rain", "weather", "barsat"]):
+    msg = state["messages"][-1]["content"].lower()
+    if any(w in msg for w in ["mausam", "baarish", "temperature", "rain", "weather", "barsat"]):
         intent = "weather"
-    elif any(w in last_msg for w in ["bhav", "mandi", "rate", "keemat", "price", "daam"]):
+    elif any(w in msg for w in ["bhav", "mandi", "rate", "keemat", "price", "daam"]):
         intent = "mandi"
-    elif any(w in last_msg for w in ["eligible", "patrata", "qualification", "apply", "registration"]):
-        intent = "eligibility"
-    elif any(w in last_msg for w in ["fasal", "crop", "ugao", "kheti", "kya lagao"]):
+    elif any(w in msg for w in ["fasal", "crop", "ugao", "kheti", "kya lagao"]):
         intent = "crop_advice"
+    elif any(w in msg for w in ["eligible", "patrata", "apply", "registration"]):
+        intent = "eligibility"
     else:
-        intent = "scheme"   # default → RAG
-
+        intent = "scheme"
     return {**state, "intent": intent}
 
-# ─── Weather Node ─────────────────────────────────────────────
+
 async def weather_node(state: AgentState) -> AgentState:
     result = await get_weather(state["district"], state["state_name"])
     return {**state, "tool_result": result}
 
-# ─── Mandi Node ───────────────────────────────────────────────
+
 async def mandi_node(state: AgentState) -> AgentState:
-    last_msg = state["messages"][-1]["content"]
-    # Simple crop extraction — improve with NLP later
+    msg = state["messages"][-1]["content"].lower()
     crops = ["gehun", "wheat", "dhan", "rice", "sarson", "mustard",
-             "makka", "maize", "bajra", "jowar", "cotton", "kapas"]
-    crop = next((c for c in crops if c in last_msg.lower()), "wheat")
+             "makka", "maize", "bajra", "jowar", "cotton", "kapas",
+             "chana", "gram", "moong", "urad", "masoor", "ganna"]
+    crop = next((c for c in crops if c in msg), "wheat")
     result = await get_mandi_price(crop, state["district"])
     return {**state, "tool_result": result}
 
-# ─── Scheme/General LLM Node ──────────────────────────────────
+
 async def llm_node(state: AgentState) -> AgentState:
-    """Handles scheme queries and general farming questions via Groq."""
-    lang_map = {
-        "hi-IN": "Hindi", "pa-IN": "Punjabi", "bn-IN": "Bengali",
-        "ta-IN": "Tamil",  "te-IN": "Telugu",  "en-IN": "English",
-        "kn-IN": "Kannada", "ml-IN": "Malayalam", "mr-IN": "Marathi",
-        "gu-IN": "Gujarati", "od-IN": "Odia",
-    }
-    lang_name = lang_map.get(state["language"], "Hindi")
-
     messages = [
-        {"role": "system", "content": build_system_prompt(lang_name, state["district"], state["state_name"])},
-        {"role": "user", "content": state["messages"][-1]["content"]}
+        {"role": "system", "content": _system_prompt(state["language"], state["district"], state["state_name"])},
+        {"role": "user",   "content": state["messages"][-1]["content"]},
     ]
+    result = await _call_groq(messages)
+    return {**state, "tool_result": result}
 
-    response = await call_groq(messages)
-    return {**state, "tool_result": response}
 
-# ─── Crop Advice Node ─────────────────────────────────────────
 async def crop_advice_node(state: AgentState) -> AgentState:
-    """Gives crop recommendation based on location and season."""
-    lang_map = {"hi-IN": "Hindi", "pa-IN": "Punjabi", "en-IN": "English",
-                 "bn-IN": "Bengali", "ta-IN": "Tamil", "te-IN": "Telugu"}
-    lang_name = lang_map.get(state["language"], "Hindi")
-
+    lang_name = LANG_MAP.get(state["language"], "Hindi")
     messages = [
         {"role": "system", "content": (
-            f"Aap ek experienced agriculture expert hain. "
-            f"Hamesha {lang_name} mein jawab dein. "
+            f"Aap ek experienced agriculture expert hain. Hamesha {lang_name} mein jawab dein. "
             f"Farmer {state['district']}, {state['state_name']} mein rehta hai. "
-            f"Mausam, mitti aur season ke hisaab se best fasal ki salah dein. "
-            f"Jawab 3-4 sentences mein dein."
+            f"Season aur mitti ke hisaab se best fasal ki salah dein. Jawab 3-4 sentences mein."
         )},
-        {"role": "user", "content": state["messages"][-1]["content"]}
+        {"role": "user", "content": state["messages"][-1]["content"]},
     ]
+    result = await _call_groq(messages)
+    return {**state, "tool_result": result}
 
-    response = await call_groq(messages)
-    return {**state, "tool_result": response}
 
-# ─── Format Final Answer ──────────────────────────────────────
 async def format_answer(state: AgentState) -> AgentState:
-    """Final formatting — combine tool result as the answer."""
     return {**state, "final_answer": state["tool_result"]}
 
-# ─── Routing Logic ────────────────────────────────────────────
-def route_intent(state: AgentState) -> str:
-    routes = {
+
+def _route(state: AgentState) -> str:
+    return {
         "weather":    "weather_node",
         "mandi":      "mandi_node",
         "crop_advice":"crop_advice_node",
-        "eligibility":"llm_node",
-        "scheme":     "llm_node",
-    }
-    return routes.get(state["intent"], "llm_node")
+    }.get(state["intent"], "llm_node")
 
-# ─── Build Graph ──────────────────────────────────────────────
-def build_agent():
-    graph = StateGraph(AgentState)
 
-    graph.add_node("intent_router",    intent_router)
-    graph.add_node("weather_node",     weather_node)
-    graph.add_node("mandi_node",       mandi_node)
-    graph.add_node("llm_node",         llm_node)
-    graph.add_node("crop_advice_node", crop_advice_node)
-    graph.add_node("format_answer",    format_answer)
-
-    graph.set_entry_point("intent_router")
-
-    graph.add_conditional_edges("intent_router", route_intent, {
+def _build_agent():
+    g = StateGraph(AgentState)
+    g.add_node("intent_router",    intent_router)
+    g.add_node("weather_node",     weather_node)
+    g.add_node("mandi_node",       mandi_node)
+    g.add_node("llm_node",         llm_node)
+    g.add_node("crop_advice_node", crop_advice_node)
+    g.add_node("format_answer",    format_answer)
+    g.set_entry_point("intent_router")
+    g.add_conditional_edges("intent_router", _route, {
         "weather_node":     "weather_node",
         "mandi_node":       "mandi_node",
         "llm_node":         "llm_node",
         "crop_advice_node": "crop_advice_node",
     })
-
     for node in ["weather_node", "mandi_node", "llm_node", "crop_advice_node"]:
-        graph.add_edge(node, "format_answer")
+        g.add_edge(node, "format_answer")
+    g.add_edge("format_answer", END)
+    return g.compile()
 
-    graph.add_edge("format_answer", END)
 
-    return graph.compile()
-
-# Singleton agent instance
-agent = build_agent()
+agent = _build_agent()

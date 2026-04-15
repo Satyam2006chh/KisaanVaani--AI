@@ -1,4 +1,4 @@
-# Python
+# ─── Python ───────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
@@ -12,24 +12,39 @@ venv/
 .venv/
 env/
 
-# Environment
+# ─── Environment / Secrets (NEVER push these) ─
 .env
+.env.*
+!.env.example
 *.env.local
 
-# Node / React
+# ─── Test files (contain hardcoded API keys) ──
+test_apis.py
+full_test.py
+manual_test.py
+
+# ─── Audio / Binary test files ────────────────
+*.wav
+*.mp3
+*.ogg
+
+# ─── Logs ─────────────────────────────────────
+*.log
+logs/
+backend_log.txt
+
+# ─── Node / React ─────────────────────────────
 node_modules/
 dist/
 .DS_Store
 
-# IDE
+# ─── IDE ──────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 
-# FAISS index (large binary)
+# ─── FAISS / ML model files ───────────────────
 *.index
 *.faiss
-
-# Logs
-*.log
-logs/
+*.pkl
+*.bin

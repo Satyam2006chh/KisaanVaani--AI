@@ -61,8 +61,35 @@
   font-size: 0.82rem;
   font-weight: 500;
   color: var(--green-light);
-  margin-bottom: 28px;
+  margin-bottom: 16px;
   animation: fadeInDown 0.6s ease both;
+}
+
+/* User Banner */
+.hero__user-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  animation: fadeInDown 0.6s ease 0.1s both;
+}
+
+.hero__user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.hero__user-info svg {
+  color: var(--green-primary);
 }
 .hero__badge-dot {
   width: 7px; height: 7px;

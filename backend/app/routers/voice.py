@@ -1,93 +1,112 @@
+import base64
+import io
+import logging
+import os
+import subprocess
+import tempfile
+
 import httpx
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+
 from app.config import settings
 from app.models.schemas import TTSRequest
-import io
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/voice", tags=["Voice"])
 
-SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
-SARVAM_TTS_URL = "https://api.sarvam.ai/text-to-speech"
+SARVAM_STT = "https://api.sarvam.ai/speech-to-text"
+SARVAM_TTS = "https://api.sarvam.ai/text-to-speech"
 
-# ─── Speech → Text ────────────────────────────────────────────
+SPEAKERS = {
+    "hi-IN": "anushka", "pa-IN": "manisha", "bn-IN": "manisha",
+    "ta-IN": "anushka", "te-IN": "anushka", "kn-IN": "anushka",
+    "ml-IN": "anushka", "mr-IN": "manisha", "gu-IN": "manisha",
+    "od-IN": "abhilash", "en-IN": "anushka",
+}
+
+
+def _to_wav(audio_bytes: bytes, ext: str) -> bytes:
+    inp_path = out_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as f:
+            f.write(audio_bytes)
+            inp_path = f.name
+        out_path = inp_path.replace(f".{ext}", "_out.wav")
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", inp_path, "-ar", "16000", "-ac", "1", "-sample_fmt", "s16", out_path],
+            capture_output=True, timeout=30,
+        )
+        if result.returncode != 0:
+            logger.warning(f"ffmpeg error: {result.stderr.decode()}")
+            return audio_bytes
+        with open(out_path, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        logger.warning("ffmpeg not found — sending raw audio")
+        return audio_bytes
+    except Exception as e:
+        logger.warning(f"Audio conversion failed: {e}")
+        return audio_bytes
+    finally:
+        for p in [inp_path, out_path]:
+            if p:
+                try:
+                    os.unlink(p)
+                except Exception:
+                    pass
+
+
 @router.post("/transcribe")
-async def transcribe_audio(
-    audio: UploadFile = File(...),
-    language: str = "hi-IN"
-):
-    """
-    Accepts audio file from React (WebM/WAV),
-    sends to Sarvam AI STT, returns Hindi/Punjabi transcript.
-    """
+async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
+    if not settings.sarvam_api_key:
+        raise HTTPException(status_code=500, detail="Sarvam API key not configured")
+
     audio_bytes = await audio.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio file")
 
-    headers = {"api-subscription-key": settings.sarvam_api_key}
+    fname = audio.filename or "audio.webm"
+    ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else "webm"
+    wav = _to_wav(audio_bytes, ext)
+    logger.info(f"Transcribe: original={len(audio_bytes)}B  wav={len(wav)}B  lang={language}")
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            SARVAM_STT_URL,
-            headers=headers,
-            files={"file": (audio.filename or "audio.webm", audio_bytes, "audio/webm")},
-            data={"language_code": language},
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            SARVAM_STT,
+            headers={"api-subscription-key": settings.sarvam_api_key},
+            files={"file": ("audio.wav", wav, "audio/wav")},
+            data={"language_code": language, "model": "saarika:v2.5"},
         )
 
-    if response.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Sarvam STT error: {response.text}")
+    if r.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Sarvam STT error: {r.text}")
 
-    data = response.json()
-    return {"transcript": data.get("transcript", ""), "language": language}
+    transcript = r.json().get("transcript", "").strip()
+    logger.info(f"Transcript: '{transcript}'")
+    return {"transcript": transcript, "language": language}
 
 
-# ─── Text → Speech ────────────────────────────────────────────
 @router.post("/speak")
-async def text_to_speech(req: TTSRequest):
-    """
-    Accepts Hindi/Punjabi text, returns MP3 audio stream from Sarvam TTS.
-    """
-    headers = {
-        "api-subscription-key": settings.sarvam_api_key,
-        "Content-Type": "application/json",
-    }
-
-    # Map language code to Sarvam speaker voice
-    speakers = {
-        "hi-IN": "meera",
-        "pa-IN": "pavithra",
-        "bn-IN": "bani",
-        "ta-IN": "siya",
-        "te-IN": "anushka",
-        "kn-IN": "tara",
-        "ml-IN": "dilasha",
-        "mr-IN": "maitreyi",
-        "gu-IN": "disha",
-        "od-IN": "arjun",
-        "en-IN": "maya",
-    }
-    speaker = speakers.get(req.language, "meera")
-
-    payload = {
-        "inputs": [req.text],
-        "target_language_code": req.language,
-        "speaker": speaker,
-        "enable_preprocessing": True,
-        "model": "bulbul:v1",
-    }
+async def speak(req: TTSRequest):
+    if not settings.sarvam_api_key:
+        raise HTTPException(status_code=500, detail="Sarvam API key not configured")
 
     async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(SARVAM_TTS_URL, headers=headers, json=payload)
+        r = await client.post(
+            SARVAM_TTS,
+            headers={"api-subscription-key": settings.sarvam_api_key, "Content-Type": "application/json"},
+            json={
+                "inputs": [req.text],
+                "target_language_code": req.language,
+                "speaker": SPEAKERS.get(req.language, "anushka"),
+                "enable_preprocessing": True,
+                "model": "bulbul:v2",
+            },
+        )
 
-    if response.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Sarvam TTS error: {response.text}")
+    if r.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Sarvam TTS error: {r.text}")
 
-    data = response.json()
-    # Sarvam returns base64 encoded audio
-    import base64
-    audio_b64 = data.get("audios", [""])[0]
-    audio_bytes = base64.b64decode(audio_b64)
-
-    return StreamingResponse(
-        io.BytesIO(audio_bytes),
-        media_type="audio/wav",
-        headers={"Content-Disposition": "inline; filename=response.wav"}
-    )
+    audio_bytes = base64.b64decode(r.json().get("audios", [""])[0])
+    return StreamingResponse(io.BytesIO(audio_bytes), media_type="audio/wav")
