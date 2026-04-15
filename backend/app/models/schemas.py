@@ -39,3 +39,24 @@ class ChatResponse(BaseModel):
 class TTSRequest(BaseModel):
     text: str
     language: str = "hi-IN"
+
+# ─── Auth ───────────────────────────────────────────────────────
+class OTPRequest(BaseModel):
+    phone: str
+
+class OTPVerify(BaseModel):
+    phone: str
+    otp: str
+    name: str = ""
+    language: str = "hi-IN"
+    district: str = ""
+    state: str = ""
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+class LoginRequest(BaseModel):
+    phone: str
+    otp: str

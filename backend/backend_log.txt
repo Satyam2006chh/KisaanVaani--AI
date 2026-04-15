@@ -1,0 +1,13 @@
+INFO:     Will watch for changes in these directories: ['c:\\Users\\ASUS\\OneDrive\\Desktop\\Kisaaan prpject\\KisaanVaani--AI\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [18472] using WatchFiles
+WARNING:  WatchFiles detected changes in 'venv\Lib\site-packages\sympy\algebras\quaternion.py'. Reloading...
+INFO:     Started server process [27628]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:49778 - "POST /api/voice/transcribe HTTP/1.1" 502 Bad Gateway
+INFO:     127.0.0.1:50149 - "POST /api/voice/transcribe HTTP/1.1" 502 Bad Gateway
+INFO:     127.0.0.1:60789 - "POST /api/voice/transcribe HTTP/1.1" 502 Bad Gateway
+INFO:     127.0.0.1:51860 - "POST /api/voice/transcribe HTTP/1.1" 502 Bad Gateway
+INFO:     127.0.0.1:53195 - "POST /api/voice/transcribe HTTP/1.1" 502 Bad Gateway
+INFO:     127.0.0.1:60416 - "POST /api/voice/transcribe HTTP/1.1" 502 Bad Gateway

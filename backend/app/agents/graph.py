@@ -1,9 +1,8 @@
-from typing import TypedDict, List, Annotated
+from typing import TypedDict, List
 from langgraph.graph import StateGraph, END
-from langchain_groq import ChatGroq
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from app.config import settings
 from app.agents.tools import get_weather, get_mandi_price
+import httpx
 import re
 
 # ─── State ────────────────────────────────────────────────────
@@ -18,12 +17,40 @@ class AgentState(TypedDict):
     final_answer:str
 
 # ─── LLM ─────────────────────────────────────────────────────
-def get_llm():
-    return ChatGroq(
-        api_key=settings.groq_api_key,
-        model="llama-3.3-70b-versatile",
-        temperature=0.4,
-        max_tokens=512,
+async def call_groq(messages: list, temperature: float = 0.4, max_tokens: int = 512) -> str:
+    """Call Groq API directly using httpx (avoids langchain-groq bugs)."""
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {settings.groq_api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.post(url, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        error_text = response.text
+        print(f"[Groq API Error] {response.status_code}: {error_text}")
+        return "Maaf kijiye, jawab dene mein samasya ho gayi. Kripya dobara koshish karein."
+
+    data = response.json()
+    return data["choices"][0]["message"]["content"]
+
+def build_system_prompt(lang_name: str, district: str, state: str) -> str:
+    """Build system prompt for the AI."""
+    return (
+        f"Aap KisaanVaani AI hain — Indian farmers ke liye ek helpful AI assistant. "
+        f"Hamesha {lang_name} mein jawab dein. "
+        f"Simple, clear aur friendly language use karein. "
+        f"Farmer {district}, {state} mein rehta hai. "
+        f"Sarkari yojanaon (PM Kisan, PMFBY, MSP) ke baare mein accurate jankari dein. "
+        f"Jawab 3-4 sentences mein dein, zyada lamba mat karein."
     )
 
 # ─── Intent Detection Node ────────────────────────────────────
@@ -65,43 +92,39 @@ async def llm_node(state: AgentState) -> AgentState:
     lang_map = {
         "hi-IN": "Hindi", "pa-IN": "Punjabi", "bn-IN": "Bengali",
         "ta-IN": "Tamil",  "te-IN": "Telugu",  "en-IN": "English",
+        "kn-IN": "Kannada", "ml-IN": "Malayalam", "mr-IN": "Marathi",
+        "gu-IN": "Gujarati", "od-IN": "Odia",
     }
     lang_name = lang_map.get(state["language"], "Hindi")
 
-    system = SystemMessage(content=(
-        f"Aap KisaanVaani AI hain — Indian farmers ke liye ek helpful AI assistant. "
-        f"Hamesha {lang_name} mein jawab dein. "
-        f"Simple, clear aur friendly language use karein. "
-        f"Sarkari yojanaon (PM Kisan, PMFBY, MSP) ke baare mein accurate jankari dein. "
-        f"Jawab 3-4 sentences mein dein, zyada lamba mat karein."
-    ))
-
-    history = [
-        HumanMessage(content=m["content"]) if m["role"] == "user"
-        else AIMessage(content=m["content"])
-        for m in state["messages"]
+    messages = [
+        {"role": "system", "content": build_system_prompt(lang_name, state["district"], state["state_name"])},
+        {"role": "user", "content": state["messages"][-1]["content"]}
     ]
 
-    llm = get_llm()
-    response = await llm.ainvoke([system] + history)
-    return {**state, "tool_result": response.content}
+    response = await call_groq(messages)
+    return {**state, "tool_result": response}
 
 # ─── Crop Advice Node ─────────────────────────────────────────
 async def crop_advice_node(state: AgentState) -> AgentState:
     """Gives crop recommendation based on location and season."""
-    lang_map = {"hi-IN": "Hindi", "pa-IN": "Punjabi", "en-IN": "English"}
+    lang_map = {"hi-IN": "Hindi", "pa-IN": "Punjabi", "en-IN": "English",
+                 "bn-IN": "Bengali", "ta-IN": "Tamil", "te-IN": "Telugu"}
     lang_name = lang_map.get(state["language"], "Hindi")
 
-    system = SystemMessage(content=(
-        f"Aap ek experienced agriculture expert hain. "
-        f"{lang_name} mein jawab dein. "
-        f"Farmer {state['district']}, {state['state_name']} mein hain. "
-        f"Mausam, mitti aur season ke hisaab se best fasal ki salah dein."
-    ))
-    llm = get_llm()
-    msgs = [HumanMessage(content=state["messages"][-1]["content"])]
-    response = await llm.ainvoke([system] + msgs)
-    return {**state, "tool_result": response.content}
+    messages = [
+        {"role": "system", "content": (
+            f"Aap ek experienced agriculture expert hain. "
+            f"Hamesha {lang_name} mein jawab dein. "
+            f"Farmer {state['district']}, {state['state_name']} mein rehta hai. "
+            f"Mausam, mitti aur season ke hisaab se best fasal ki salah dein. "
+            f"Jawab 3-4 sentences mein dein."
+        )},
+        {"role": "user", "content": state["messages"][-1]["content"]}
+    ]
+
+    response = await call_groq(messages)
+    return {**state, "tool_result": response}
 
 # ─── Format Final Answer ──────────────────────────────────────
 async def format_answer(state: AgentState) -> AgentState:

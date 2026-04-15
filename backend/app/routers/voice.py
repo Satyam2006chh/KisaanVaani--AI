@@ -29,7 +29,7 @@ async def transcribe_audio(
             SARVAM_STT_URL,
             headers=headers,
             files={"file": (audio.filename or "audio.webm", audio_bytes, "audio/webm")},
-            data={"language_code": language, "model": "saarika:v2"},
+            data={"language_code": language},
         )
 
     if response.status_code != 200:
