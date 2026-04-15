@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import settings
-from app.db.mongo import get_db
+from app.db.supabase import get_supabase
 from app.models.schemas import OTPRequest, OTPVerify, Token, UserOut
 
 logger = logging.getLogger(__name__)
@@ -41,11 +41,11 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    db = get_db()
-    user = await db["users"].find_one({"phone": phone}, {"_id": 0})
-    if not user:
+    sb = get_supabase()
+    res = sb.table("users").select("*").eq("phone", phone).execute()
+    if not res.data:
         raise HTTPException(status_code=401, detail="User not found")
-    return user
+    return res.data[0]
 
 
 @router.post("/otp/send", status_code=status.HTTP_200_OK)
@@ -57,11 +57,7 @@ async def send_otp(req: OTPRequest):
     _otp_store[req.phone] = (otp, datetime.utcnow() + timedelta(minutes=10))
     logger.info(f"OTP for {req.phone}: {otp}")
 
-    return {
-        "message": "OTP sent successfully",
-        "phone": req.phone,
-        "demo_otp": otp,
-    }
+    return {"message": "OTP sent successfully", "phone": req.phone, "demo_otp": otp}
 
 
 @router.post("/otp/verify", response_model=Token)
@@ -70,36 +66,34 @@ async def verify_otp(req: OTPVerify):
         raise HTTPException(status_code=400, detail="OTP not requested or expired")
 
     stored_otp, expiry = _otp_store[req.phone]
-
     if datetime.utcnow() > expiry:
         _otp_store.pop(req.phone, None)
         raise HTTPException(status_code=400, detail="OTP expired")
-
     if req.otp != stored_otp:
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
     _otp_store.pop(req.phone, None)
 
-    db = get_db()
-    existing = await db["users"].find_one({"phone": req.phone})
+    sb = get_supabase()
+    res = sb.table("users").select("*").eq("phone", req.phone).execute()
 
-    if existing:
-        await db["users"].update_one({"phone": req.phone}, {"$set": {"last_login": datetime.utcnow()}})
-        user_data = existing
+    if res.data:
+        user_data = res.data[0]
+        sb.table("users").update({"last_login": datetime.utcnow().isoformat()}).eq("phone", req.phone).execute()
     else:
         if not req.name:
             raise HTTPException(status_code=400, detail="Name required for new users")
-        user_data = {
+        new_user = {
             "phone": req.phone,
             "name": req.name,
             "language": req.language or "hi-IN",
             "district": req.district or "",
             "state": req.state or "",
-            "city": req.city or "",
-            "created_at": datetime.utcnow(),
-            "last_login": datetime.utcnow(),
+            "created_at": datetime.utcnow().isoformat(),
+            "last_login": datetime.utcnow().isoformat(),
         }
-        await db["users"].insert_one(user_data)
+        insert_res = sb.table("users").insert(new_user).execute()
+        user_data = insert_res.data[0]
 
     return Token(
         access_token=_make_token(req.phone),
@@ -110,7 +104,6 @@ async def verify_otp(req: OTPVerify):
             language=user_data.get("language", "hi-IN"),
             district=user_data.get("district", ""),
             state=user_data.get("state", ""),
-            city=user_data.get("city", ""),
         ),
     )
 
@@ -123,7 +116,6 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         language=current_user.get("language", "hi-IN"),
         district=current_user.get("district", ""),
         state=current_user.get("state", ""),
-        city=current_user.get("city", ""),
     )
 
 

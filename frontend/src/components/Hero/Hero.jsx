@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, Globe, Loader, MapPin, Mic, MicOff, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { chatWithAgent, speakText } from '../../api'
+import { chatWithAgent, speakText, transcribeAudio } from '../../api'
 import './Hero.css'
 
 const S = { IDLE: 'idle', RECORDING: 'recording', PROCESSING: 'processing', SPEAKING: 'speaking' }
@@ -19,54 +19,59 @@ export default function Hero() {
   const [transcript, setTranscript] = useState('')
   const [reply,      setReply]      = useState('')
   const [error,      setError]      = useState('')
-  const recognitionRef = useRef(null)
-  const audioRef       = useRef(null)
+  const [mediaRecorder, setMediaRecorder] = useState(null)
+  const chunksRef = useRef([])
 
   const userLang = languages.find(l => l.code === user?.language)?.name || 'Hindi'
   const langCode = user?.language || 'hi-IN'
 
   useEffect(() => () => {
-    recognitionRef.current?.abort()
+    mediaRecorder?.stop()
     audioRef.current?.pause()
-  }, [])
+  }, [mediaRecorder])
 
-  function startRecording() {
+  async function startRecording() {
     audioRef.current?.pause()
     audioRef.current = null
     setError(''); setTranscript(''); setReply('')
 
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) {
-      setError('Aapka browser voice input support nahi karta. Chrome use karein.')
-      return
-    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      chunksRef.current = []
 
-    const rec = new SR()
-    rec.lang = langCode
-    rec.continuous = false
-    rec.interimResults = false
-    rec.maxAlternatives = 1
-
-    rec.onstart  = () => setStatus(S.RECORDING)
-    rec.onend    = () => { if (status === S.RECORDING) setStatus(S.IDLE) }
-    rec.onerror  = (e) => {
-      const msgs = {
-        'no-speech':   'Koi awaaz nahi aayi. Mic ke paas bolein.',
-        'not-allowed': 'Mic permission denied. Browser settings mein allow karein.',
-        'network':     'Network error. Internet check karein.',
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
       }
-      setError(msgs[e.error] || `Voice error: ${e.error}`)
+
+      recorder.onstart = () => setStatus(S.RECORDING)
+      
+      recorder.onstop = async () => {
+        const mimeType = recorder.mimeType || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type: mimeType })
+        setStatus(S.PROCESSING)
+        try {
+          const text = await transcribeAudio(blob)
+          setTranscript(text)
+          if (text && text.trim()) {
+            await handleChat(text)
+          } else {
+            setError('Koi awaaz nahi aayi. Mic ke paas bolein.')
+            setStatus(S.IDLE)
+          }
+        } catch (e) {
+          setError('Transcription error: ' + (e?.response?.data?.detail || e.message))
+          setStatus(S.IDLE)
+        }
+        stream.getTracks().forEach(t => t.stop())
+      }
+
+      setMediaRecorder(recorder)
+      recorder.start()
+    } catch (e) {
+      setError('Mic access denied or error: ' + e.message)
       setStatus(S.IDLE)
     }
-    rec.onresult = async (e) => {
-      const text = e.results[0][0].transcript.trim()
-      setTranscript(text)
-      setStatus(S.PROCESSING)
-      await handleChat(text)
-    }
-
-    recognitionRef.current = rec
-    rec.start()
   }
 
   async function handleChat(text) {
@@ -93,10 +98,12 @@ export default function Hero() {
     if (status === S.IDLE) {
       startRecording()
     } else if (status === S.RECORDING) {
-      recognitionRef.current?.stop()
+      mediaRecorder?.stop()
     } else if (status === S.SPEAKING) {
-      audioRef.current?.pause()
-      audioRef.current = null
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
       setStatus(S.IDLE)
       startRecording()
     }

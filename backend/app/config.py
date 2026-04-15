@@ -3,8 +3,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     groq_api_key: str = ""
     sarvam_api_key: str = ""
-    mongodb_uri: str = ""
-    app_env: str = "production"
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+    app_env: str = "development"
     secret_key: str = "changeme"
 
     class Config:

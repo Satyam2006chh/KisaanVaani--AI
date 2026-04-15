@@ -32,3 +32,14 @@ INFO:     127.0.0.1:62069 - "POST /api/auth/otp/verify HTTP/1.1" 200 OK
 [OTP] Phone: 8445799110, OTP: 123456
 INFO:     127.0.0.1:60793 - "POST /api/auth/otp/send HTTP/1.1" 200 OK
 INFO:     127.0.0.1:58878 - "POST /api/auth/otp/verify HTTP/1.1" 200 OK
+[OTP] Phone: 8445799110, OTP: 123456
+INFO:     127.0.0.1:57861 - "POST /api/auth/otp/send HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58208 - "POST /api/auth/otp/verify HTTP/1.1" 200 OK
+[OTP] Phone: 8445799110, OTP: 123456
+INFO:     127.0.0.1:62271 - "POST /api/auth/otp/send HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65128 - "POST /api/auth/otp/verify HTTP/1.1" 200 OK
+[OTP] Phone: 1234567890, OTP: 123456
+INFO:     127.0.0.1:58996 - "POST /api/auth/otp/send HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56430 - "POST /api/auth/otp/verify HTTP/1.1" 400 Bad Request
+[OTP] Phone: 1234567890, OTP: 123456
+INFO:     127.0.0.1:60540 - "POST /api/auth/otp/send HTTP/1.1" 200 OK

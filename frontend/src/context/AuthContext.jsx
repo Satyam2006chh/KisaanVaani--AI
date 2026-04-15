@@ -15,8 +15,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('token')
     const saved = localStorage.getItem('user')
+    console.log('[AuthContext] Initializing:', { hasToken: !!token, hasSavedUser: !!saved })
     if (token && saved) {
-      try { setUser(JSON.parse(saved)) } catch { localStorage.clear() }
+      try { 
+        const parsed = JSON.parse(saved)
+        console.log('[AuthContext] Restoring user:', parsed.name)
+        setUser(parsed) 
+      } catch (e) { 
+        console.error('[AuthContext] Restore failed:', e)
+        localStorage.clear() 
+      }
     }
     setLoading(false)
   }, [])

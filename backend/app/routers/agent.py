@@ -1,10 +1,8 @@
 import logging
-
 from fastapi import APIRouter, HTTPException
-
 from app.agents.graph import agent
 from app.config import settings
-from app.db.mongo import get_db
+from app.db.supabase import get_supabase
 from app.models.schemas import ChatRequest, ChatResponse
 from app.routers.history import save_message
 
@@ -17,8 +15,9 @@ async def chat(req: ChatRequest):
     if not settings.groq_api_key:
         raise HTTPException(status_code=500, detail="Groq API key not configured")
 
-    db = get_db()
-    user = await db["users"].find_one({"phone": req.farmer_id})
+    sb = get_supabase()
+    res = sb.table("users").select("*").eq("phone", req.farmer_id).execute()
+    user = res.data[0] if res.data else None
 
     district   = user.get("district", "Delhi") if user else "Delhi"
     state_name = user.get("state", "Delhi")    if user else "Delhi"

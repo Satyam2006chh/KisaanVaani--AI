@@ -15,7 +15,8 @@ const STATES = [
 ]
 
 export default function AuthScreen() {
-  const { sendOTP, verifyOTP, languages } = useAuth()
+  const { sendOTP, verifyOTP, languages: availableLanguages } = useAuth()
+  console.log('[AuthScreen] Rendered with languages:', availableLanguages)
 
   const [step,     setStep]     = useState(STEP.PHONE)
   const [loading,  setLoading]  = useState(false)
@@ -178,7 +179,7 @@ export default function AuthScreen() {
             <div className="language-section">
               <p className="section-label"><Languages size={14} /> Bhasha chunein</p>
               <div className="language-grid">
-                {languages.map(l => (
+                {availableLanguages.map(l => (
                   <button key={l.code} type="button"
                     className={`language-btn ${language === l.code ? 'active' : ''}`}
                     onClick={() => setLanguage(l.code)}>

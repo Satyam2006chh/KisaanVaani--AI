@@ -14,16 +14,20 @@ import AuthScreen from './components/Auth/AuthScreen'
 function AppContent() {
   const { isAuthenticated, loading } = useAuth()
 
+  // Diagnostic logging
+  console.log('[App] Auth State:', { isAuthenticated, loading })
+
   if (loading) {
     return (
-      <div className="app loading">
-        <div className="loading-spinner">🌾</div>
+      <div className="app loading" style={{ background: '#060d06', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#22c55e' }}>
+        <div className="loading-spinner" style={{ fontSize: '2rem' }}>🌾 Loading KisaanVaani...</div>
       </div>
     )
   }
 
   // If not authenticated, show auth screen (login/signup)
   if (!isAuthenticated) {
+    console.log('[App] Rendering AuthScreen')
     return <AuthScreen />
   }
 
