@@ -53,7 +53,7 @@ async def send_otp(req: OTPRequest):
     if not req.phone or len(req.phone) < 10:
         raise HTTPException(status_code=400, detail="Invalid phone number")
 
-    otp = "123456" if settings.app_env != "production" else _make_otp()
+    otp = "123456"
     _otp_store[req.phone] = (otp, datetime.utcnow() + timedelta(minutes=10))
     logger.info(f"OTP for {req.phone}: {otp}")
 

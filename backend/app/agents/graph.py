@@ -29,6 +29,10 @@ class AgentState(TypedDict):
 
 
 async def _call_groq(messages: list, max_tokens: int = 512) -> str:
+    if "your_groq_api_key" in settings.groq_api_key or not settings.groq_api_key:
+        print("WARNING: Using mock Groq response because GROQ_API_KEY is not configured.")
+        return "[MOCK RESPONSE] Namaste! Main aapka KisaanVaani AI assistant hoon. Main abhi demo mode mein hoon kyunki API keys set nahi hain, lekin main aapki madad karne ke liye taiyaar hoon."
+
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -39,6 +43,7 @@ async def _call_groq(messages: list, max_tokens: int = 512) -> str:
         logger.error(f"Groq error {r.status_code}: {r.text[:200]}")
         return "Maaf kijiye, jawab dene mein samasya ho gayi. Dobara koshish karein."
     return r.json()["choices"][0]["message"]["content"]
+
 
 
 def _system_prompt(lang: str, district: str, state: str) -> str:

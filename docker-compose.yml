@@ -1,0 +1,34 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
+      - /app/.venv # Don't overwrite container's venv with local one
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    networks:
+      - kisaan-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # Don't overwrite container's node_modules
+    env_file:
+      - ./frontend/.env
+    ports:
+      - "5174:5174"
+    networks:
+      - kisaan-network
+    depends_on:
+      - backend
+
+networks:
+  kisaan-network:
+    driver: bridge

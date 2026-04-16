@@ -59,8 +59,10 @@ def _to_wav(audio_bytes: bytes, ext: str) -> bytes:
 
 @router.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
-    if not settings.sarvam_api_key:
-        raise HTTPException(status_code=500, detail="Sarvam API key not configured")
+    if "your_sarvam_api_key" in settings.sarvam_api_key or not settings.sarvam_api_key:
+        print("WARNING: Using mock Sarvam STT response because SARVAM_API_KEY is not configured.")
+        return {"transcript": "[MOCK TRANSCRIPT] Aap kaise hain?", "language": language}
+
 
     audio_bytes = await audio.read()
     if not audio_bytes:
@@ -89,8 +91,12 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
 
 @router.post("/speak")
 async def speak(req: TTSRequest):
-    if not settings.sarvam_api_key:
-        raise HTTPException(status_code=500, detail="Sarvam API key not configured")
+    if "your_sarvam_api_key" in settings.sarvam_api_key or not settings.sarvam_api_key:
+        print("WARNING: Using mock Sarvam TTS response because SARVAM_API_KEY is not configured.")
+        # Return a tiny silent WAV (1sec of silence, 16kHz, mono)
+        silent_wav = b'RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80>\x00\x00\x00}\x00\x00\x02\x00\x10\x00data\x00\x00\x00\x00'
+        return StreamingResponse(io.BytesIO(silent_wav), media_type="audio/wav")
+
 
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(

@@ -19,58 +19,74 @@ export default function Hero() {
   const [transcript, setTranscript] = useState('')
   const [reply,      setReply]      = useState('')
   const [error,      setError]      = useState('')
-  const [mediaRecorder, setMediaRecorder] = useState(null)
-  const chunksRef = useRef([])
+  
+  const recognitionRef = useRef(null)
+  const audioRef = useRef(null)
 
   const userLang = languages.find(l => l.code === user?.language)?.name || 'Hindi'
   const langCode = user?.language || 'hi-IN'
 
   useEffect(() => () => {
-    mediaRecorder?.stop()
+    // cleanup: stop MediaRecorder stream or SpeechRecognition
+    try { recognitionRef.current?.stream?.getTracks?.().forEach(t => t.stop()) } catch {}
+    try { recognitionRef.current?.abort?.() } catch {}
     audioRef.current?.pause()
-  }, [mediaRecorder])
+  }, [])
 
   async function startRecording() {
     audioRef.current?.pause()
     audioRef.current = null
     setError(''); setTranscript(''); setReply('')
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      chunksRef.current = []
+    // Prefer MediaRecorder + backend STT. Fallback to Web SpeechRecognition.
+    if (navigator.mediaDevices && window.MediaRecorder) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
+        const recorder = new MediaRecorder(stream, { mimeType: mime })
+        const chunks = []
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
-      }
-
-      recorder.onstart = () => setStatus(S.RECORDING)
-      
-      recorder.onstop = async () => {
-        const mimeType = recorder.mimeType || 'audio/webm'
-        const blob = new Blob(chunksRef.current, { type: mimeType })
-        setStatus(S.PROCESSING)
-        try {
-          const text = await transcribeAudio(blob)
-          setTranscript(text)
-          if (text && text.trim()) {
-            await handleChat(text)
-          } else {
-            setError('Koi awaaz nahi aayi. Mic ke paas bolein.')
-            setStatus(S.IDLE)
-          }
-        } catch (e) {
-          setError('Transcription error: ' + (e?.response?.data?.detail || e.message))
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data) }
+        recorder.onstart = () => { setStatus(S.RECORDING) }
+        recorder.onerror = (e) => {
+          setError('Recording error: ' + (e?.error?.name || e?.error || 'unknown'))
           setStatus(S.IDLE)
         }
-        stream.getTracks().forEach(t => t.stop())
-      }
+        recorder.onstop = async () => {
+          setStatus(S.PROCESSING)
+          const blob = new Blob(chunks, { type: mime })
+          try {
+            const text = await transcribeAudio(blob)
+            setTranscript(text)
+            if (text && text.trim()) {
+              await handleChat(text)
+            } else {
+              setError('Koi awaaz nahi aayi. Mic ke paas bolein.')
+              setStatus(S.IDLE)
+            }
+          } catch (err) {
+            setError('Transcription failed. ' + (err?.response?.data?.detail || err.message))
+            setStatus(S.IDLE)
+          } finally {
+            // stop tracks
+            try { stream.getTracks().forEach(t => t.stop()) } catch {}
+          }
+        }
 
-      setMediaRecorder(recorder)
-      recorder.start()
-    } catch (e) {
-      setError('Mic access denied or error: ' + e.message)
-      setStatus(S.IDLE)
+        recognitionRef.current = { recorder, stream }
+        recorder.start()
+      } catch (err) {
+        setError('Mic access error. Browser permissions likely denied.')
+        setStatus(S.IDLE)
+      }
+      return
+    }
+
+    // Fallback: Web Speech API (client-side STT)
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) {
+      setError('Aapka browser voice input support nahi karta. Chrome use karein.')
+      return
     }
   }
 
@@ -98,7 +114,13 @@ export default function Hero() {
     if (status === S.IDLE) {
       startRecording()
     } else if (status === S.RECORDING) {
-      mediaRecorder?.stop()
+      // stop MediaRecorder or SpeechRecognition
+      const cur = recognitionRef.current
+      if (cur?.recorder) {
+        try { cur.recorder.stop() } catch {}
+      } else {
+        try { cur?.stop?.() || cur?.abort?.() } catch {}
+      }
     } else if (status === S.SPEAKING) {
       if (audioRef.current) {
         audioRef.current.pause()

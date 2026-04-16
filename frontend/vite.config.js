@@ -5,8 +5,19 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5174,
+    host: true,
     proxy: {
-      '/api': 'http://localhost:8000',
+      '/api': 'http://127.0.0.1:8000',
     },
   },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'axios',
+      'lucide-react',
+      '@supabase/supabase-js'
+    ]
+  }
 })

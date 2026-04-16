@@ -4,8 +4,17 @@ import axios from 'axios'
 const AuthContext = createContext(null)
 
 const LANGUAGES = [
-  { name: 'Hindi',   native: 'हिंदी',   flag: '🇮🇳', code: 'hi-IN' },
-  { name: 'English', native: 'English', flag: '📖',  code: 'en-IN' },
+  { name: 'Hindi',     native: 'हिंदी',     flag: '🇮🇳', code: 'hi-IN' },
+  { name: 'Punjabi',   native: 'ਪੰਜਾਬੀ',    flag: '🏔️', code: 'pa-IN' },
+  { name: 'Bengali',   native: 'বাংলা',     flag: '🌊', code: 'bn-IN' },
+  { name: 'Tamil',     native: 'தமிழ்',     flag: '🔷', code: 'ta-IN' },
+  { name: 'Telugu',    native: 'తెలుగు',    flag: '🔶', code: 'te-IN' },
+  { name: 'Kannada',   native: 'ಕನ್ನಡ',     flag: '🟩', code: 'kn-IN' },
+  { name: 'Malayalam', native: 'മലയാളം',    flag: '🟦', code: 'ml-IN' },
+  { name: 'Marathi',   native: 'मराठी',     flag: '🟨', code: 'mr-IN' },
+  { name: 'Gujarati',  native: 'ગુજરાતી',    flag: '🟪', code: 'gu-IN' },
+  { name: 'Odia',      native: 'ଓଡ଼ିଆ',     flag: '🟫', code: 'od-IN' },
+  { name: 'English',   native: 'English',    flag: '📖',  code: 'en-IN' },
 ]
 
 export function AuthProvider({ children }) {
@@ -13,6 +22,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check for existing session
     const token = localStorage.getItem('token')
     const saved = localStorage.getItem('user')
     console.log('[AuthContext] Initializing:', { hasToken: !!token, hasSavedUser: !!saved })
