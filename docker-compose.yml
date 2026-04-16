@@ -5,9 +5,14 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend:/app
-      - /app/.venv # Don't overwrite container's venv with local one
-    env_file:
-      - ./backend/.env
+      - /app/.venv
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - SARVAM_API_KEY=${SARVAM_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - APP_ENV=${APP_ENV:-development}
+      - SECRET_KEY=${SECRET_KEY}
     ports:
       - "8000:8000"
     networks:
@@ -19,9 +24,10 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./frontend:/app
-      - /app/node_modules # Don't overwrite container's node_modules
-    env_file:
-      - ./frontend/.env
+      - /app/node_modules
+    environment:
+      - VITE_SUPABASE_URL=${SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
     ports:
       - "5174:5174"
     networks:

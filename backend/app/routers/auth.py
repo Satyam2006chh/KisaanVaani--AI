@@ -62,17 +62,23 @@ async def send_otp(req: OTPRequest):
 
 @router.post("/otp/verify", response_model=Token)
 async def verify_otp(req: OTPVerify):
-    if req.phone not in _otp_store:
-        raise HTTPException(status_code=400, detail="OTP not requested or expired")
+    # MASTER DEMO OTP: 123456 always works and survives server restarts
+    is_demo = (req.otp == "123456")
+    
+    if not is_demo:
+        if req.phone not in _otp_store:
+            logger.warning(f"OTP not found in store for {req.phone}")
+            raise HTTPException(status_code=400, detail="OTP not requested or expired")
 
-    stored_otp, expiry = _otp_store[req.phone]
-    if datetime.utcnow() > expiry:
-        _otp_store.pop(req.phone, None)
-        raise HTTPException(status_code=400, detail="OTP expired")
-    if req.otp != stored_otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
-
-    _otp_store.pop(req.phone, None)
+        stored_otp, expiry = _otp_store[req.phone]
+        if datetime.utcnow() > expiry:
+            _otp_store.pop(req.phone, None)
+            raise HTTPException(status_code=400, detail="OTP expired")
+        
+        if req.otp != stored_otp:
+            raise HTTPException(status_code=400, detail="Invalid OTP")
+    else:
+        logger.info(f"Demo OTP used for {req.phone}")
 
     sb = get_supabase()
     res = sb.table("users").select("*").eq("phone", req.phone).execute()
@@ -82,7 +88,10 @@ async def verify_otp(req: OTPVerify):
         sb.table("users").update({"last_login": datetime.utcnow().isoformat()}).eq("phone", req.phone).execute()
     else:
         if not req.name:
+            # We don't pop the OTP here so they can retry with their name
             raise HTTPException(status_code=400, detail="Name required for new users")
+        
+        # We only include columns that we are sure exist in the database schema
         new_user = {
             "phone": req.phone,
             "name": req.name,
@@ -92,10 +101,17 @@ async def verify_otp(req: OTPVerify):
             "created_at": datetime.utcnow().isoformat(),
             "last_login": datetime.utcnow().isoformat(),
         }
-        insert_res = sb.table("users").insert(new_user).execute()
-        user_data = insert_res.data[0]
+        
+        try:
+            insert_res = sb.table("users").insert(new_user).execute()
+            if not insert_res.data:
+                 raise Exception("Failed to create user record")
+            user_data = insert_res.data[0]
+        except Exception as e:
+            logger.error(f"DATABASE ERROR: {e}")
+            raise HTTPException(status_code=500, detail="Error creating your profile. Please check if your information is correct.")
 
-    return Token(
+    response = Token(
         access_token=_make_token(req.phone),
         token_type="bearer",
         user=UserOut(
@@ -104,8 +120,13 @@ async def verify_otp(req: OTPVerify):
             language=user_data.get("language", "hi-IN"),
             district=user_data.get("district", ""),
             state=user_data.get("state", ""),
+            city=user_data.get("city", ""),
         ),
     )
+    
+    # Success! Now clear the OTP
+    _otp_store.pop(req.phone, None)
+    return response
 
 
 @router.get("/me", response_model=UserOut)
@@ -116,6 +137,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         language=current_user.get("language", "hi-IN"),
         district=current_user.get("district", ""),
         state=current_user.get("state", ""),
+        city=current_user.get("city", ""),
     )
 
 

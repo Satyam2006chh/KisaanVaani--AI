@@ -89,7 +89,7 @@ export default function AuthScreen() {
           <p className="auth-tagline">Bolo, Samjho, Badlo Apni Zindagi</p>
         </div>
 
-        <div className="auth-steps">
+        <div className="auth-steps animate-entrance" style={{ animationDelay: '0.2s' }}>
           <div className={`auth-step ${step === 1 ? 'active' : step > 1 ? 'done' : ''}`}>1</div>
           <div className="auth-step-line" />
           <div className={`auth-step ${step === 2 ? 'active' : step > 2 ? 'done' : ''}`}>2</div>
@@ -99,103 +99,114 @@ export default function AuthScreen() {
 
         {error && <div className="auth-error">⚠️ {error}</div>}
 
-        {step === STEP.PHONE && (
-          <form onSubmit={handleSendOTP} className="auth-form">
-            <h2>Mobile Number Daalen</h2>
-            <p className="auth-subtitle">OTP aapke number par bheja jaayega</p>
-            <div className="input-group">
-              <Phone size={18} className="input-icon" />
-              <span className="input-prefix">+91</span>
-              <input
-                className="with-prefix"
-                type="tel"
-                placeholder="10-digit mobile number"
-                value={phone}
-                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                required autoFocus
-              />
-            </div>
-            <button className="auth-btn" disabled={loading || phone.length < 10}>
-              {loading ? <Loader size={18} className="spin" /> : 'OTP Bhejo →'}
-            </button>
-            <p className="auth-note">Testing OTP: <strong>123456</strong></p>
-          </form>
-        )}
-
-        {step === STEP.OTP && (
-          <form onSubmit={handleVerifyOTP} className="auth-form">
-            <h2>OTP Daalen</h2>
-            <p className="auth-subtitle">+91 {phone} par bheja gaya</p>
-            <div className="input-group">
-              <Lock size={18} className="input-icon" />
-              <input
-                type="text"
-                placeholder="6-digit OTP"
-                value={otp}
-                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                required autoFocus
-              />
-            </div>
-            <button className="auth-btn" disabled={loading || otp.length < 6}>
-              {loading ? <Loader size={18} className="spin" /> : 'Verify Karein →'}
-            </button>
-            <button type="button" className="auth-link" onClick={() => { setStep(STEP.PHONE); setOtp('') }}>
-              ← Phone number badlein
-            </button>
-          </form>
-        )}
-
-        {step === STEP.PROFILE && (
-          <form onSubmit={handleProfile} className="auth-form">
-            <h2>Apni Jaankari Bharein</h2>
-            <p className="auth-subtitle">Yeh jaankari aapki madad ke liye zaroori hai</p>
-
-            <div className="input-group">
-              <User size={18} className="input-icon" />
-              <input type="text" placeholder="Poora naam (e.g. Ramesh Kumar)"
-                value={name} onChange={e => setName(e.target.value)} required autoFocus />
-            </div>
-
-            <div className="input-group">
-              <Building2 size={18} className="input-icon" />
-              <input type="text" placeholder="Shehar / Gaon (e.g. Ludhiana)"
-                value={city} onChange={e => setCity(e.target.value)} required />
-            </div>
-
-            <div className="input-group">
-              <MapPin size={18} className="input-icon" />
-              <input type="text" placeholder="Zila / District (e.g. Amritsar)"
-                value={district} onChange={e => setDistrict(e.target.value)} required />
-            </div>
-
-            <div className="input-group">
-              <MapPin size={18} className="input-icon" />
-              <select className="state-select" value={state} onChange={e => setState(e.target.value)} required>
-                <option value="">-- Rajya chunein --</option>
-                {STATES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-
-            <div className="language-section">
-              <p className="section-label"><Languages size={14} /> Bhasha chunein</p>
-              <div className="language-grid">
-                {availableLanguages.map(l => (
-                  <button key={l.code} type="button"
-                    className={`language-btn ${language === l.code ? 'active' : ''}`}
-                    onClick={() => setLanguage(l.code)}>
-                    <span className="lang-flag">{l.flag}</span>
-                    <span className="lang-name">{l.name}</span>
-                    <span className="lang-native">{l.native}</span>
-                  </button>
-                ))}
+        <div className="glass-panel auth-card">
+          {step === STEP.PHONE && (
+            <form onSubmit={handleSendOTP} className="auth-form animate-reveal">
+              <h2>Welcome to <span className="highlight">KisaanVaani</span></h2>
+              <p className="auth-subtitle">Apna mobile number daalen shuru karne ke liye</p>
+              
+              <div className="input-field">
+                <label><Phone size={18} /> Mobile Number</label>
+                <div className="input-group">
+                  <span className="input-prefix">+91</span>
+                  <input
+                    type="tel"
+                    placeholder="00000 00000"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    required autoFocus
+                  />
+                </div>
               </div>
-            </div>
 
-            <button className="auth-btn" disabled={loading}>
-              {loading ? <Loader size={18} className="spin" /> : '🌾 Account Banao'}
-            </button>
-          </form>
-        )}
+              <button className="btn-premium w-full" disabled={loading || phone.length < 10}>
+                {loading ? <Loader size={20} className="spin" /> : <>Bhejo OTP <span className="arrow">→</span></>}
+              </button>
+              <p className="demo-hint">✨ Demo OTP: 123456</p>
+            </form>
+          )}
+
+          {step === STEP.OTP && (
+            <form onSubmit={handleVerifyOTP} className="auth-form animate-reveal">
+              <h2>Suraksha <span className="highlight">Jaanch</span></h2>
+              <p className="auth-subtitle">+91 {phone} par bheja gaya code daalen</p>
+              
+              <div className="input-field">
+                <label><Lock size={18} /> 6-Digit Verification Code</label>
+                <input
+                  type="text"
+                  placeholder="• • • • • •"
+                  value={otp}
+                  onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  required autoFocus
+                  className="otp-input"
+                  style={{ textAlign: 'center', letterSpacing: '12px', fontSize: '1.8rem', fontWeight: '800' }}
+                />
+              </div>
+
+              <button className="btn-premium w-full" disabled={loading || otp.length < 6}>
+                {loading ? <Loader size={20} className="spin" /> : 'Aage Badhein →'}
+              </button>
+              
+              <button type="button" className="btn-link" onClick={() => setStep(STEP.PHONE)}>
+                ← Mobile number badlein
+              </button>
+            </form>
+          )}
+
+          {step === STEP.PROFILE && (
+            <form onSubmit={handleProfile} className="auth-form animate-reveal">
+              <h2>Apni <span className="highlight">Pehchaan</span></h2>
+              <p className="auth-subtitle">Taki AI aapko aur aapke khet ko samajh sake</p>
+
+              <div className="profile-grid">
+                <div className="input-field">
+                  <label><User size={18} /> Poora Naam</label>
+                  <input type="text" placeholder="Ramesh Kumar"
+                    value={name} onChange={e => setName(e.target.value)} required />
+                </div>
+
+                <div className="input-field">
+                  <label><Building2 size={18} /> Shehar / Gaon</label>
+                  <input type="text" placeholder="Gaon ka naam"
+                    value={city} onChange={e => setCity(e.target.value)} required />
+                </div>
+
+                <div className="input-field">
+                  <label><MapPin size={18} /> Zila (District)</label>
+                  <input type="text" placeholder="Zila"
+                    value={district} onChange={e => setDistrict(e.target.value)} required />
+                </div>
+
+                <div className="input-field">
+                  <label><MapPin size={18} /> Rajya (State)</label>
+                  <select value={state} onChange={e => setState(e.target.value)} required>
+                    <option value="">Chunein...</option>
+                    {STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="language-selector">
+                <label><Languages size={18} /> Bhasha (Language)</label>
+                <div className="lang-chips">
+                  {availableLanguages.map(l => (
+                    <button key={l.code} type="button"
+                      className={`lang-chip ${language === l.code ? 'active' : ''}`}
+                      onClick={() => setLanguage(l.code)}>
+                      <span>{l.flag}</span>
+                      <span>{l.native}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button className="btn-premium w-full" disabled={loading}>
+                {loading ? <Loader size={20} className="spin" /> : 'Kheti Shuru Karein 🌾'}
+              </button>
+            </form>
+          )}
+        </div>
 
       </div>
     </div>

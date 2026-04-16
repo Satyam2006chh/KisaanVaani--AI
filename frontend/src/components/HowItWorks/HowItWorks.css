@@ -23,9 +23,9 @@
   transition: var(--transition);
 }
 .hiw__step:hover {
-  border-color: rgba(34,197,94,0.3);
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-glow);
+  border-color: var(--primary);
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(6, 182, 212, 0.2);
 }
 
 /* Connector */
@@ -34,21 +34,16 @@
 }
 
 .hiw__icon {
-  width: 64px; height: 64px;
-  border-radius: var(--radius-md);
+  width: 72px; height: 72px;
+  border-radius: 16px;
   display: grid;
   place-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
-.hiw__icon--green {
-  background: rgba(34,197,94,0.12);
-  color: var(--green-primary);
-  border: 1px solid rgba(34,197,94,0.2);
-}
-.hiw__icon--gold {
-  background: rgba(245,158,11,0.1);
-  color: var(--gold);
-  border: 1px solid rgba(245,158,11,0.2);
+.hiw__icon--green, .hiw__icon--gold {
+  background: var(--primary-glow);
+  color: var(--primary);
+  border: 1px solid rgba(6, 182, 212, 0.2);
 }
 
 .hiw__num {
@@ -81,13 +76,13 @@
   padding: 20px 32px;
 }
 .hiw__flow-step {
-  font-size: 0.9rem;
-  font-weight: 500;
-  padding: 8px 16px;
-  background: rgba(34,197,94,0.08);
-  border-radius: var(--radius-full);
-  border: 1px solid rgba(34,197,94,0.15);
-  color: var(--green-light);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  background: rgba(6, 182, 212, 0.1);
+  border-radius: 100px;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  color: var(--primary);
 }
 .hiw__arrow {
   color: var(--text-muted);

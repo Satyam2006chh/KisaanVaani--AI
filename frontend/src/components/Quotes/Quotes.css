@@ -7,8 +7,21 @@
   gap: 24px;
   margin-bottom: 64px;
 }
-.quotes__card { padding: 32px; display: flex; flex-direction: column; gap: 20px; }
-.quotes__icon { color: var(--green-primary); opacity: 0.6; flex-shrink: 0; }
+.quotes__card { 
+  padding: 36px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 20px; 
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-lg);
+  transition: var(--transition);
+}
+.quotes__card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--primary);
+}
+.quotes__icon { color: var(--primary); opacity: 0.8; flex-shrink: 0; }
 .quotes__text {
   font-size: 0.95rem;
   color: var(--text-secondary);
@@ -41,21 +54,25 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 32px 24px;
-  background: var(--bg-secondary);
+  gap: 12px;
+  padding: 40px 32px;
+  background: rgba(0, 0, 0, 0.2);
   transition: var(--transition);
 }
-.quotes__impact-item:hover { background: var(--bg-card); }
+.quotes__impact-item:hover { background: rgba(6, 182, 212, 0.05); }
 .quotes__impact-num {
   font-family: var(--font-heading);
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--green-light);
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.02em;
 }
 .quotes__impact-label {
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
   text-align: center;
 }
 

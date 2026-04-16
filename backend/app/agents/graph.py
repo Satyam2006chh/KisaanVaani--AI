@@ -4,7 +4,7 @@ from typing import List, TypedDict
 import httpx
 from langgraph.graph import END, StateGraph
 
-from app.agents.tools import get_mandi_price, get_weather
+from app.agents.tools import get_mandi_price, get_weather, scrape_agricultural_news
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,9 @@ LANG_MAP = {
 class AgentState(TypedDict):
     messages:     List[dict]
     farmer_id:    str
+    farmer_name:  str
     language:     str
+    city:         str
     district:     str
     state_name:   str
     intent:       str
@@ -46,12 +48,13 @@ async def _call_groq(messages: list, max_tokens: int = 512) -> str:
 
 
 
-def _system_prompt(lang: str, district: str, state: str) -> str:
-    lang_name = LANG_MAP.get(lang, "Hindi")
+def _system_prompt(state: AgentState) -> str:
+    lang_name = LANG_MAP.get(state["language"], "Hindi")
     return (
         f"Aap KisaanVaani AI hain — Indian farmers ke liye ek helpful AI assistant. "
         f"Hamesha {lang_name} mein jawab dein. Simple aur friendly language use karein. "
-        f"Farmer {district}, {state} mein rehta hai. "
+        f"Aap abhi {state['farmer_name']} se baat kar rahe hain jo {state['city']}, {state['district']}, {state['state_name']} se hain. "
+        f"Unka naam lekar unka swagat karein (e.g. 'Namaste {state['farmer_name']} ji'). "
         f"Sarkari yojanaon (PM Kisan, PMFBY, MSP) ke baare mein accurate jankari dein. "
         f"Jawab 3-4 sentences mein dein."
     )
@@ -65,6 +68,8 @@ def intent_router(state: AgentState) -> AgentState:
         intent = "mandi"
     elif any(w in msg for w in ["fasal", "crop", "ugao", "kheti", "kya lagao"]):
         intent = "crop_advice"
+    elif any(w in msg for w in ["new", "latest", "news", "update", "samachar", "khabar", "taza"]):
+        intent = "news"
     elif any(w in msg for w in ["eligible", "patrata", "apply", "registration"]):
         intent = "eligibility"
     else:
@@ -83,13 +88,18 @@ async def mandi_node(state: AgentState) -> AgentState:
              "makka", "maize", "bajra", "jowar", "cotton", "kapas",
              "chana", "gram", "moong", "urad", "masoor", "ganna"]
     crop = next((c for c in crops if c in msg), "wheat")
-    result = await get_mandi_price(crop, state["district"])
+    result = await get_mandi_price(crop, state["district"], state["state_name"])
+    return {**state, "tool_result": result}
+
+
+async def news_node(state: AgentState) -> AgentState:
+    result = await scrape_agricultural_news(state["messages"][-1]["content"])
     return {**state, "tool_result": result}
 
 
 async def llm_node(state: AgentState) -> AgentState:
     messages = [
-        {"role": "system", "content": _system_prompt(state["language"], state["district"], state["state_name"])},
+        {"role": "system", "content": _system_prompt(state)},
         {"role": "user",   "content": state["messages"][-1]["content"]},
     ]
     result = await _call_groq(messages)
@@ -101,7 +111,7 @@ async def crop_advice_node(state: AgentState) -> AgentState:
     messages = [
         {"role": "system", "content": (
             f"Aap ek experienced agriculture expert hain. Hamesha {lang_name} mein jawab dein. "
-            f"Farmer {state['district']}, {state['state_name']} mein rehta hai. "
+            f"Farmer {state['farmer_name']} {state['city']}, {state['state_name']} mein rehta hai. "
             f"Season aur mitti ke hisaab se best fasal ki salah dein. Jawab 3-4 sentences mein."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
@@ -118,6 +128,7 @@ def _route(state: AgentState) -> str:
     return {
         "weather":    "weather_node",
         "mandi":      "mandi_node",
+        "news":       "news_node",
         "crop_advice":"crop_advice_node",
     }.get(state["intent"], "llm_node")
 
@@ -127,6 +138,7 @@ def _build_agent():
     g.add_node("intent_router",    intent_router)
     g.add_node("weather_node",     weather_node)
     g.add_node("mandi_node",       mandi_node)
+    g.add_node("news_node",        news_node)
     g.add_node("llm_node",         llm_node)
     g.add_node("crop_advice_node", crop_advice_node)
     g.add_node("format_answer",    format_answer)
@@ -134,10 +146,11 @@ def _build_agent():
     g.add_conditional_edges("intent_router", _route, {
         "weather_node":     "weather_node",
         "mandi_node":       "mandi_node",
+        "news_node":        "news_node",
         "llm_node":         "llm_node",
         "crop_advice_node": "crop_advice_node",
     })
-    for node in ["weather_node", "mandi_node", "llm_node", "crop_advice_node"]:
+    for node in ["weather_node", "mandi_node", "news_node", "llm_node", "crop_advice_node"]:
         g.add_edge(node, "format_answer")
     g.add_edge("format_answer", END)
     return g.compile()

@@ -58,7 +58,7 @@ const features = [
 export default function Features() {
   return (
     <section className="features section" id="features">
-      <div className="container">
+      <div className="container centered-content">
         <div className="features__header">
           <span className="section-label">Features</span>
           <h2 className="section-title">

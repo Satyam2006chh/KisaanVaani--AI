@@ -86,29 +86,100 @@ async def get_weather(district: str, state: str) -> str:
         return f"{district} ka mausam abhi uplabdh nahi hai."
 
 
-async def get_mandi_price(crop: str, district: str) -> str:
-    key = crop.lower().strip()
-    info = MSP.get(key)
-    if not info:
-        for k, v in MSP.items():
-            if k in key or key in k:
-                info = v
-                break
+from app.config import settings
 
-    if not info:
+async def get_mandi_price(crop: str, district: str, state: str) -> str:
+    """Gets real-time mandi prices from data.gov.in (Agmarknet)"""
+    if not settings.datagov_api_key or "your_" in settings.datagov_api_key:
+        # Fallback to MSP logic if no API key
+        key = crop.lower().strip()
+        info = MSP.get(key)
+        if not info:
+            for k, v in MSP.items():
+                if k in key or key in k:
+                    info = v
+                    break
+        if not info:
+            return f"{crop} ka bhav abhi uplabdh nahi hai. Agmarknet check karein."
+        
+        name, msp_price = info
+        market_low = int(msp_price * 1.02)
+        market_high = int(msp_price * 1.12)
         return (
-            f"{crop} ka bhav abhi uplabdh nahi hai. "
-            f"Agmarknet (agmarknet.nic.in) ya nazdiki mandi par check karein."
+            f"[OFFLINE DATA] {district} mein {name} ke bhav:\n"
+            f"  MSP: Rs {msp_price}/quintal\n"
+            f"  Anumaanit Mandi bhav: Rs {market_low} - {market_high}/quintal\n"
+            f"  (Kripya data.gov.in API key set karein real-time rates ke liye)"
         )
 
-    name, msp_price = info
-    market_low = int(msp_price * 1.02)
-    market_high = int(msp_price * 1.12)
+    try:
+        url = "https://api.data.gov.in/resource/9ef2731d-98d9-458b-bc1d-ad031317b11d"
+        params = {
+            "api-key": settings.datagov_api_key,
+            "format": "json",
+            "limit": 5,
+            "filters[state]": state,
+            "filters[district]": district,
+        }
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(url, params=params)
+        
+        if r.status_code != 200:
+            return f"Mandi rates fetch karne mein error. Agmarknet par check karein."
+        
+        data = r.json().get("records", [])
+        if not data:
+            return f"{district}, {state} ki mandi mein abhi {crop} ka naya rate nahi mila."
+        
+        # Filter for the specific crop
+        crop_data = [d for d in data if crop.lower() in d.get("commodity", "").lower()]
+        if not crop_data:
+            crop_data = [data[0]] # Just show the first available arrival if crop not found
+        
+        d = crop_data[0]
+        res = (
+            f"Aaj {d['market']} mandi ({d['district']}) mein {d['commodity']} ka rate:\n"
+            f"  Minimum: Rs {d['min_price']}\n"
+            f"  Maximum: Rs {d['max_price']}\n"
+            f"  Modal (Average): Rs {d['modal_price']}\n"
+            f"  Update date: {d['arrival_date']}"
+        )
+        return res
+    except Exception as e:
+        return f"Mandi rate error: {str(e)}"
 
-    return (
-        f"{district} mein {name} ke bhav:\n"
-        f"  Sarkari MSP (2024-25): Rs {msp_price} per quintal\n"
-        f"  Mandi market bhav (anumaan): Rs {market_low} - {market_high} per quintal\n"
-        f"  Sahi bhav ke liye Agmarknet (agmarknet.nic.in) check karein.\n"
-        f"  Yaad rakhein: MSP se kam mein mat bechein, yeh aapka adhikar hai."
-    )
+
+async def scrape_agricultural_news(query: str) -> str:
+    """Uses Firecrawl to get the latest agricultural news or scheme details from live sites."""
+    if not settings.firecrawl_api_key or "your_" in settings.firecrawl_api_key:
+        return "Firecrawl API key missing. Latest news fetch nahi ho sakta."
+
+    try:
+        # We use Firecrawl Search/Crawl to find latest news
+        url = "https://api.firecrawl.dev/v1/scrape"
+        # For simplicity in demo, we'll scrape PIB India's agriculture section or a search
+        target_url = f"https://pib.gov.in/allRel.aspx" # Example target
+        
+        headers = {
+            "Authorization": f"Bearer {settings.firecrawl_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # In a real scenario, we'd search first, but here we simulate a scrape of latest releases
+        payload = {
+            "url": target_url,
+            "formats": ["markdown"],
+            "onlyMainContent": True
+        }
+        
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(url, json=payload, headers=headers)
+        
+        if r.status_code != 200:
+            return "Latest news fetch karne mein samasya aa rahi hai."
+        
+        content = r.json().get("data", {}).get("markdown", "")
+        # Return first 500 chars summarized
+        return content[:800] + "..." if content else "Abhi koi naya update nahi mila."
+    except Exception:
+        return "News scan error. Kripya thodi der baad try karein."

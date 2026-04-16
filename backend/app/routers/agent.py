@@ -21,12 +21,16 @@ async def chat(req: ChatRequest):
 
     district   = user.get("district", "Delhi") if user else "Delhi"
     state_name = user.get("state", "Delhi")    if user else "Delhi"
+    city       = user.get("city", district)    if user else district
+    name       = user.get("name", "Kisaan")    if user else "Kisaan"
     language   = user.get("language", req.language) if user else req.language
 
     initial_state = {
         "messages":     [{"role": "user", "content": req.message}],
         "farmer_id":    req.farmer_id,
+        "farmer_name":  name,
         "language":     language,
+        "city":         city,
         "district":     district,
         "state_name":   state_name,
         "intent":       "",

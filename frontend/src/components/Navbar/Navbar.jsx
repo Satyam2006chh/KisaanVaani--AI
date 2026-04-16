@@ -57,7 +57,7 @@ export default function Navbar() {
               </button>
             </div>
           )}
-          <a href="#hero" className="btn-primary navbar__btn">
+          <a href="#hero" className="btn-premium navbar__btn">
             <Mic size={16} /> Try Now
           </a>
           <button
@@ -65,22 +65,24 @@ export default function Navbar() {
             onClick={() => setMenuOpen(o => !o)}
             aria-label="Toggle menu"
           >
-            {menuOpen ? <X size={24} /> : <Menu size={24} />}
+            {menuOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
         </div>
       </div>
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="navbar__mobile">
+        <div className="navbar__mobile animate-reveal">
+          <div className="navbar__mobile-header">
+            <button onClick={() => setMenuOpen(false)} variant="ghost">Close <X size={18} /></button>
+          </div>
+          
           {isAuthenticated && user && (
-            <div className="navbar__mobile-user">
+            <div className="navbar__user">
               <User size={16} /> {user.name}
-              <button onClick={handleLogout} className="navbar__mobile-logout">
-                <LogOut size={16} /> Logout
-              </button>
             </div>
           )}
+
           {navLinks.map(l => (
             <a
               key={l.label}
@@ -91,9 +93,16 @@ export default function Navbar() {
               {l.label}
             </a>
           ))}
-          <a href="#hero" className="btn-primary" onClick={() => setMenuOpen(false)}>
-            <Mic size={16} /> Try Now
+          
+          <a href="#hero" className="btn-premium" onClick={() => setMenuOpen(false)}>
+            <Mic size={18} /> Try Now
           </a>
+
+          {isAuthenticated && (
+            <button onClick={handleLogout} className="btn-outline-premium">
+              <LogOut size={18} /> Logout
+            </button>
+          )}
         </div>
       )}
     </header>

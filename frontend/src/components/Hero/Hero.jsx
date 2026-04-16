@@ -135,85 +135,101 @@ export default function Hero() {
   const isBusy      = status === S.PROCESSING
 
   return (
-    <section className="hero" id="hero">
-      <div className="hero__grid"            aria-hidden="true" />
-      <div className="hero__blob hero__blob--green" aria-hidden="true" />
-      <div className="hero__blob hero__blob--gold"  aria-hidden="true" />
+    <section className="hero animate-reveal" id="hero">
+      <div className="hero__blob hero__blob--1" />
+      <div className="hero__blob hero__blob--2" />
 
-      <div className="container hero__inner">
-        <div className="hero__badge">
-          <span className="hero__badge-dot" />
-          India's First Voice AI for Farmers &nbsp;🌾
-        </div>
-
-        {user && (
-          <div className="hero__user-banner">
-            <span className="hero__user-info"><User size={13} /> {user.name}</span>
-            <span className="hero__user-info">
-              <MapPin size={13} />
-              {[user.city, user.district, user.state].filter(Boolean).join(', ')}
-            </span>
-            <span className="hero__user-info"><Globe size={13} /> {userLang}</span>
+      <div className="container hero__inner centered-content">
+        <div className="hero__top-bar">
+          <div className="hero__badge glass-panel">
+            <span className="hero__badge-dot" />
+            LIVE AI ASSISTANT
           </div>
-        )}
-
-        <h1 className="hero__title">
-          Bolo, Samjho,<br />
-          <span className="highlight">Badlo Apni Zindagi</span>
-        </h1>
-
-        <p className="hero__sub">
-          Sirf bolne se paayein sarkari yojanaon ki jankari,<br className="hero__br" />
-          mausam, mandi bhav aur fasal salah — {userLang} mein.
-        </p>
-
-        <div className="hero__mic-wrap">
-          <div className="hero__mic-ring hero__mic-ring--3" />
-          <div className="hero__mic-ring hero__mic-ring--2" />
-          <div className="hero__mic-ring hero__mic-ring--1" />
-          <button
-            className={`hero__mic-btn${isRecording ? ' hero__mic-btn--active' : ''}`}
-            onClick={handleMicClick}
-            disabled={isBusy}
-            aria-label="Mic"
-          >
-            {isBusy
-              ? <Loader size={34} className="spin" />
-              : isRecording
-                ? <MicOff size={34} />
-                : <Mic size={34} />}
-          </button>
-        </div>
-
-        <p className="hero__mic-hint">{HINTS[status]}</p>
-
-        {transcript && <p className="hero__transcript">🗣 {transcript}</p>}
-        {reply      && <p className="hero__reply">🤖 {reply}</p>}
-        {error      && <p className="hero__error">⚠️ {error}</p>}
-
-        <div className="hero__cta-row">
-          <a href="#features"    className="btn-primary">Explore Features</a>
-          <a href="#how-it-works" className="btn-outline">How It Works</a>
-        </div>
-
-        <div className="hero__stats">
-          {[
-            { num: '11',   label: 'Indian Languages' },
-            { num: '5+',   label: 'AI Tools' },
-            { num: '600M', label: 'Potential Users' },
-            { num: '100%', label: 'Voice Driven' },
-          ].map(s => (
-            <div key={s.label} className="hero__stat">
-              <span className="hero__stat-num">{s.num}</span>
-              <span className="hero__stat-label">{s.label}</span>
+          
+          {user && (
+            <div className="hero__user-pills">
+              <div className="user-pill glass-panel">
+                <User size={14} /> <span>{user.name}</span>
+              </div>
+              <div className="user-pill glass-panel">
+                <MapPin size={14} /> <span>{user.city || 'Kheti'}</span>
+              </div>
             </div>
-          ))}
+          )}
+        </div>
+
+        <div className="hero__content">
+          <h1 className="hero__title">
+            Bolo, Samjho,<br />
+            <span className="highlight">Badlo Apni Zindagi</span>
+          </h1>
+          
+          <p className="hero__sub">
+            Namaste <span className="highlight">{user?.name || 'Kisaan'}</span> ji! Main aapki help ke liye taiyaar hoon. 
+            Mausam, Mandi rates aur latest kheti samachar ke liye mic dabaiye.
+          </p>
+        </div>
+
+        <div className="hero__assistant glass-panel animate-reveal" style={{ animationDelay: '0.2s' }}>
+          <div className="assistant__chat-area">
+            {transcript && (
+              <div className="chat-bubble user-bubble animate-reveal">
+                <div className="bubble-label">Aapne Bola</div>
+                <p>{transcript}</p>
+              </div>
+            )}
+            
+            {reply && (
+              <div className="chat-bubble ai-bubble animate-reveal">
+                <div className="bubble-label">KisaanVaani AI</div>
+                <p>{reply}</p>
+              </div>
+            )}
+
+            {!transcript && !reply && !error && (
+              <div className="chat-placeholder">
+                <div className="pulse-circle">
+                  <Mic size={40} className="highlight" />
+                </div>
+                <p className="mic-status">{HINTS[status]}</p>
+              </div>
+            )}
+
+            {error && <div className="chat-error animate-reveal">⚠️ {error}</div>}
+          </div>
+
+          <div className="assistant__controls">
+            <div className="mic-container">
+              <button
+                className={`mic-trigger ${isRecording ? 'active' : ''}`}
+                onClick={handleMicClick}
+                disabled={isBusy}
+              >
+                {isBusy ? <Loader size={48} className="spin" /> : 
+                 isRecording ? <MicOff size={48} /> : <Mic size={48} />}
+              </button>
+              <div className="mic-status">{isRecording ? 'Listening...' : 'Tap to Speak'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="hero__footer animate-reveal" style={{ animationDelay: '0.4s' }}>
+          <div className="stat-group">
+            <span className="stat-val">22</span>
+            <span className="stat-lbl">Languages</span>
+          </div>
+          <div className="stat-sep" />
+          <div className="stat-group">
+            <span className="stat-val">LIVE</span>
+            <span className="stat-lbl">Mandi Rates</span>
+          </div>
+          <div className="stat-sep" />
+          <div className="stat-group">
+            <span className="stat-val">AI</span>
+            <span className="stat-lbl">News Crawl</span>
+          </div>
         </div>
       </div>
-
-      <a href="#about" className="hero__scroll" aria-label="Scroll down">
-        <ArrowDown size={17} />
-      </a>
     </section>
   )
 }

@@ -23,7 +23,7 @@
   display: grid;
   place-items: center;
   width: 32px; height: 32px;
-  background: var(--green-primary);
+  background: var(--primary);
   color: #000;
   border-radius: 8px;
 }
@@ -45,8 +45,8 @@
   transition: var(--transition);
 }
 .footer__social-link:hover {
-  border-color: var(--green-primary);
-  color: var(--green-primary);
+  border-color: var(--primary);
+  color: var(--primary);
   transform: translateY(-3px);
 }
 
@@ -64,7 +64,7 @@
   color: var(--text-muted);
   transition: var(--transition);
 }
-.footer__links a:hover { color: var(--green-primary); padding-left: 4px; }
+.footer__links a:hover { color: var(--primary); padding-left: 4px; }
 
 .footer__bottom {
   display: flex;
