@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: kisaanvaani-backend
-    env: docker
-    rootDir: backend
-    envVars:
-      - key: APP_ENV
-        value: production
