@@ -102,7 +102,7 @@ export default function AuthScreen() {
         <div className="glass-panel auth-card">
           {step === STEP.PHONE && (
             <form onSubmit={handleSendOTP} className="auth-form animate-reveal">
-              <h2>Welcome to <span className="highlight">KisaanVaani</span></h2>
+              <h2>Kisan Bhai,<br /><span className="highlight">Welcome!</span></h2>
               <p className="auth-subtitle">Apna mobile number daalen shuru karne ke liye</p>
               
               <div className="input-field">
@@ -122,7 +122,7 @@ export default function AuthScreen() {
               <button className="btn-premium w-full" disabled={loading || phone.length < 10}>
                 {loading ? <Loader size={20} className="spin" /> : <>Bhejo OTP <span className="arrow">→</span></>}
               </button>
-              <p className="demo-hint">✨ Demo OTP: 123456</p>
+              <div className="demo-hint">✨ Demo OTP: 123456</div>
             </form>
           )}
 

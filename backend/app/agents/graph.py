@@ -48,39 +48,74 @@ async def _call_groq(messages: list, max_tokens: int = 512) -> str:
 
 
 
-def _system_prompt(state: AgentState) -> str:
+def _system_prompt(state: AgentState) -> AgentState:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
     return (
-        f"Aap KisaanVaani AI hain — Indian farmers ke liye ek mahan agricultural expert aur helpful assistant. "
-        f"Aapka kaam kisanon ko sahi, vistrit (detailed) aur professional salah dena hai. "
+        f"Aap KisaanVaani AI hain — Indian farmers ke liye ek mahan agricultural expert. "
+        f"Aapka kaam kisanon ko sahi aur professional salah dena hai. "
         f"Hamesha {lang_name} mein jawab dein. "
-        f"Aap abhi {state['farmer_name']} ji se baat kar rahe hain jo {state['city']}, {state['district']}, {state['state_name']} se hain. "
-        f"Apne har jawab ki shuruat samman ke saath karein (e.g. 'Namaste {state['farmer_name']} ji, {state['district']} ke kisanon ke liye ek zaroori jankari...'). "
-        "Aapki salah hamesha expert-grade honi chahiye. Sirf upari jankari na dein, balki kisan ko support karne ke liye 'kyun' aur 'kaise' bhi samjhayein. "
-        "Sarkari yojanaon (PM Kisan, MSP, PMFBY) ke baare mein hamesha vishwasniya (reliable) aur latest jankari dein. "
-        "Farmer ko lage ki koi bada expert unse baat kar raha hai jo unki mitti aur ilake ko samajhta hai."
+        f"Aap abhi {state['farmer_name']} ji se baat kar rahe hain jo {state['district']}, {state['state_name']} se hain. "
+        f"Apne har jawab ki shuruat samman ke saath karein. "
+        "IMPORTANT: Aapka jawab bhot chhota aur impactful hona chahiye (MAX 2-3 SENTENCES) taaki voice assistant usey aasani se bol sake. "
+        "Faltu ki lambi baatein na karein, sirf kaam ki baat aur ek expert tip dein. "
+        "Farmer ko lage ki koi bada expert unse baat kar raha hai jo unki mitti ko samajhta hai."
     )
 
 
-def intent_router(state: AgentState) -> AgentState:
+async def intent_router(state: AgentState) -> AgentState:
     msg = state["messages"][-1]["content"].lower()
-    if any(w in msg for w in ["mausam", "baarish", "temperature", "rain", "weather", "barsat"]):
-        intent = "weather"
-    elif any(w in msg for w in ["bhav", "mandi", "rate", "keemat", "price", "daam"]):
-        intent = "mandi"
-    elif any(w in msg for w in ["fasal", "crop", "ugao", "kheti", "kya lagao"]):
-        intent = "crop_advice"
-    elif any(w in msg for w in ["new", "latest", "news", "update", "samachar", "khabar", "taza"]):
-        intent = "news"
-    elif any(w in msg for w in ["eligible", "patrata", "apply", "registration"]):
-        intent = "eligibility"
-    else:
+    
+    # 1. Primary Keyword match (Very fast)
+    keywords = {
+        "weather": ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature"],
+        "mandi": ["bhav", "mandi", "rate", "keemat", "price", "daam"],
+        "crop_advice": ["fasal", "crop", "ugao", "kheti", "kya lagao"],
+        "news": ["new", "latest", "news", "update", "samachar", "khabar", "taza"],
+        "eligibility": ["eligible", "patrata", "apply", "registration"]
+    }
+    
+    for intent, words in keywords.items():
+        if any(w in msg for w in words):
+            return {**state, "intent": intent}
+            
+    # 2. LLM Fallback (Smart)
+    intent_prompt = (
+        "Classify user intent into: weather, mandi, news, crop_advice, eligibility, or scheme. "
+        "Return ONLY the word of the intent.\n\n"
+        f"Message: {msg}"
+    )
+    try:
+        raw_intent = await _call_groq([{"role": "system", "content": intent_prompt}], max_tokens=10)
+        intent = raw_intent.strip().lower()
+    except Exception:
         intent = "scheme"
+        
     return {**state, "intent": intent}
 
 
 async def weather_node(state: AgentState) -> AgentState:
-    result = await get_weather(state["district"], state["state_name"])
+    msg = state["messages"][-1]["content"]
+    
+    # Extract district if mentioned
+    extraction_prompt = (
+        "Extract the 'district' and 'state' if mentioned in this query. "
+        "Return ONLY JSON: {\"district\": \"...\", \"state\": \"...\"}\n\n"
+        f"Query: {msg}"
+    )
+    
+    district = state["district"]
+    state_name = state["state_name"]
+    
+    try:
+        raw = await _call_groq([{"role": "system", "content": extraction_prompt}], max_tokens=50)
+        import json
+        params = json.loads(raw)
+        if params.get("district"): district = params["district"]
+        if params.get("state"): state_name = params["state"]
+    except Exception:
+        pass
+
+    result = await get_weather(district, state_name)
     return {**state, "tool_result": result}
 
 
@@ -125,8 +160,8 @@ async def news_node(state: AgentState) -> AgentState:
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
             "Aapne internet se yeh taaza news scrape ki hai. "
-            "Is news ko kisan ke sawal ke hisaab se summarize karein aur unhe expert advice ke saath batayein. "
-            "Jawab bhot supportive aur accurate hona chahiye."
+            "Is news ko kisan ke sawal ke hisaab se summarize karein. "
+            "IMPORTANT: Jawab sirf 2-3 sentences mein hona chahiye. Sirf mahatvapoorn baat batayein."
         )},
         {"role": "user", "content": f"Scraped News Content: {raw_content}\n\nFarmer Question: {state['messages'][-1]['content']}"},
     ]
@@ -138,10 +173,8 @@ async def llm_node(state: AgentState) -> AgentState:
     messages = [
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
-            "Abhi farmer ek general sawal pooch raha hai ya kisi yojana (scheme) ke baare mein jankari chahta hai. "
-            "Aapka jawab bhot accurate aur support se bhara hona chahiye. "
-            "Agar yojana hai, to patrata (eligibility) aur apply karne ka tarika bhi bataiye. "
-            "Apna best expert response dein jo farmer ki madad kare."
+            "Abhi farmer ek general sawal pooch raha hai. "
+            "IMPORTANT: Jawab bhot chhota aur impactful hona chahiye (MAX 2 sentences)."
         )},
         {"role": "user",   "content": state["messages"][-1]["content"]},
     ]

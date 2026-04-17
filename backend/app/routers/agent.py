@@ -35,7 +35,7 @@ async def chat(req: ChatRequest):
         "messages":     [{"role": "user", "content": agent_message}],
         "farmer_id":    req.farmer_id,
         "farmer_name":  name,
-        "language":     "en-IN", # Force Agent to English
+        "language":     language, # Tell the agent the ACTUAL target language
         "city":         city,
         "district":     district,
         "state_name":   state_name,

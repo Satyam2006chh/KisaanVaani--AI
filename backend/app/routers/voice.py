@@ -79,7 +79,6 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
         print("WARNING: Using mock Sarvam STT response because SARVAM_API_KEY is not configured.")
         return {"transcript": "[MOCK TRANSCRIPT] Aap kaise hain?", "language": language}
 
-
     audio_bytes = await audio.read()
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Empty audio file")
@@ -87,17 +86,15 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
     fname = audio.filename or "audio.webm"
     ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else "webm"
     
-    # Direct passthrough for WAV files to avoid FFmpeg
-    if ext == "wav":
-        wav = audio_bytes
-        logger.info("WAV passthrough enabled (FFmpeg skipped)")
-    else:
-        wav = _to_wav(audio_bytes, ext)
+    # Universal Conversion using FFmpeg (Handles OGG/WebM/MP3 to WAV)
+    # This is the ONLY way to guarantee compatibility across WhatsApp/Mobile
+    wav = _to_wav(audio_bytes, ext)
+    
     if not wav or len(wav) < 1000:
-        logger.warning("Converted audio is too small or empty")
+        logger.warning("Audio processing failed or is too small")
         return {"transcript": "", "language": language, "error": "Silent audio"}
 
-    logger.info(f"Transcribe: original={len(audio_bytes)}B wav={len(wav)}B lang={language}")
+    logger.info(f"Transcribe: original={len(audio_bytes)}B processed_wav={len(wav)}B lang={language}")
 
     async with httpx.AsyncClient(timeout=60) as client:
         try:
