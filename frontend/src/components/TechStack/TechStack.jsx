@@ -4,15 +4,11 @@ const stack = [
   { name: 'React',        role: 'Frontend UI',         color: '#61dafb', icon: '⚛️' },
   { name: 'FastAPI',      role: 'Backend Server',       color: '#009688', icon: '⚡' },
   { name: 'LangGraph',    role: 'AI Agent Orchestration',color: '#ff6b35',icon: '🧠' },
-  { name: 'LangChain',    role: 'LLM Pipeline',         color: '#1c7ed6', icon: '🔗' },
   { name: 'Groq AI',      role: 'LLM (Ultra Fast)',      color: '#f76707', icon: '🚀' },
   { name: 'Sarvam AI',    role: 'Hindi Voice STT + TTS', color: '#22c55e', icon: '🎙️' },
-  { name: 'Firecrawl',    role: 'Govt Site Scraping',   color: '#e03131', icon: '🕷️' },
-  { name: 'FAISS',        role: 'Vector Database',       color: '#9775fa', icon: '🔍' },
-  { name: 'MongoDB',      role: 'Chat History DB',       color: '#2ecc71', icon: '🗄️' },
-  { name: 'Sentence BERT',role: 'Multilingual Embeddings',color:'#f59e0b',icon: '📐' },
-  { name: 'OpenWeatherMap',role:'Weather API',           color: '#74c0fc', icon: '🌦️' },
-  { name: 'data.gov.in',  role: 'Mandi Price API',       color: '#ff922b', icon: '📊' },
+  { name: 'Supabase',     role: 'PostgreSQL Database',   color: '#3ecf8e', icon: '�' },
+  { name: 'Open-Meteo',   role: 'Weather API (Free)',    color: '#74c0fc', icon: '🌦️' },
+  { name: 'PyJWT',        role: 'Secure Auth Tokens',    color: '#f59e0b', icon: '�' },
 ]
 
 export default function TechStack() {
