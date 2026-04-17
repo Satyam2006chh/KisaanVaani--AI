@@ -1,256 +1,168 @@
 # 🌾 KisaanVaani AI — Voice-First AI Assistant for Indian Farmers
 
----
+![System Flow](docs/assets/system_flow.png)
 
-## 📌 What is KisaanVaani?
-
-KisaanVaani is a **voice-first AI assistant built specifically for Indian farmers**. Most farmers in rural India are not comfortable typing — they speak. KisaanVaani lets farmers **speak in their regional language** (Hindi, Punjabi, Bengali, Tamil, Telugu, and more) and get instant, accurate answers about:
-
-- 🌦️ **Live weather** for their district
-- 💰 **Mandi prices & MSP** (Minimum Support Price) for their crops
-- 🌱 **Crop advice** based on their location and season
-- 📋 **Government schemes** like PM Kisan, PMFBY, Kisan Credit Card, and more
-- ✅ **Eligibility checks** for various agricultural schemes
-
-The farmer speaks → the AI understands → the AI responds back in voice, in their own language. No typing. No English. No complexity.
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![React](https://img.shields.io/badge/React-19-cyan.svg)](https://react.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green.svg)](https://fastapi.tiangolo.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-## 🔄 How Does It Work — Full Flow
+## 📌 Project Vision
+KisaanVaani is a **premium, voice-first AI ecosystem** designed to bridge the digital gap for Indian farmers. By enabling natural language interaction in 12+ regional languages, we empower farmers to access world-class agricultural expertise without ever needing to type.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        FARMER (Browser)                             │
-│                                                                     │
-│  1. Opens KisaanVaani web app                                       │
-│  2. Logs in via Phone OTP                                           │
-│  3. Presses mic button → speaks in Hindi/regional language          │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ Audio (WebM/WAV)
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    BACKEND — FastAPI                                 │
-│                                                                     │
-│  POST /api/voice/transcribe                                         │
-│  └─► Sarvam AI STT (saarika:v2.5)                                  │
-│       Converts speech → text in farmer's language                   │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ Transcribed Text
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    LANGGRAPH AGENT                                   │
-│                                                                     │
-│  POST /api/agent/chat                                               │
-│                                                                     │
-│  Step 1: intent_router                                              │
-│  └─► Classifies query into one of 5 intents:                       │
-│       • weather      → "mausam", "baarish", "rain"                 │
-│       • mandi        → "bhav", "mandi", "price", "daam"            │
-│       • crop_advice  → "fasal", "kheti", "ugao"                    │
-│       • eligibility  → "eligible", "patrata", "apply"              │
-│       • scheme       → everything else (default)                   │
-│                                                                     │
-│  Step 2: Route to correct node                                      │
-│  ├─► weather_node    → Open-Meteo API (free, no key needed)        │
-│  ├─► mandi_node      → Hardcoded Govt MSP 2024-25 data             │
-│  ├─► crop_advice_node→ Groq LLM (Llama 3.3 70B)                   │
-│  └─► llm_node        → Groq LLM (Llama 3.3 70B) for schemes/general│
-│                                                                     │
-│  Step 3: format_answer → Final response text                        │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ Response Text
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    VOICE RESPONSE                                    │
-│                                                                     │
-│  POST /api/voice/speak                                              │
-│  └─► Sarvam AI TTS (bulbul:v2)                                     │
-│       Converts text → speech in farmer's language                   │
-│       Returns WAV audio stream                                      │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ Audio plays in browser
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    DATA PERSISTENCE                                  │
-│                                                                     │
-│  MongoDB Atlas                                                      │
-│  ├─► users collection    → farmer profile, language, district       │
-│  └─► messages collection → full chat history per session            │
-└─────────────────────────────────────────────────────────────────────┘
-```
+## 🚀 Key Features
+- 🎙️ **Multi-Lingual Voice First**: Speak in Hindi, Punjabi, Tamil, etc., and get voice responses back.
+- 💰 **Live Mandi Rates**: Real-time prices from **Data.gov.in** across any district in India.
+- 🌦️ **Agricultural Weather**: Hyper-local weather forecasting tuned for farming decisions.
+- 📰 **Live News Scraper**: Real-time agricultural updates and policy changes via **Firecrawl**.
+- 👨‍🔬 **Expert Senior Scientist Persona**: AI responses are driven by a "Senior Agricultural Scientist" persona, providing deep "why" and "how" advice.
+- 📋 **Scheme Advisory**: Detailed eligibility and application guidance for PM-Kisan, PMFBY, and more.
 
-### Auth Flow
-```
-Farmer enters phone number
-        │
-        ▼
-POST /api/auth/otp/send  →  OTP generated (123456 in dev)
-        │
-        ▼
-POST /api/auth/otp/verify  →  JWT token returned (30 days)
-        │
-        ▼
-All subsequent requests use Bearer token in Authorization header
+---
+
+## 🔄 System Architecture & Flow
+
+```mermaid
+graph TD
+    %% Styling
+    classDef frontend fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef backend fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef ai fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef external fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
+
+    subgraph Farmer_Side [Frontend - React UI]
+        direction TB
+        A["🎤 Farmer Speaks (Hindi/Regional)"]
+        B["🔊 Farmer Listens (Voice Output)"]
+    end
+    class Farmer_Side frontend;
+
+    subgraph API_Gateway [FastAPI Backend]
+        C["🎙️ Sarvam AI STT"]
+        D["🧠 LangGraph Intelligence"]
+        E["🗣️ Sarvam AI TTS"]
+    end
+    class API_Gateway backend;
+
+    subgraph Intelligence_Layer [Agentic AI Nodes]
+        F["📍 Intent & Location Router"]
+        G["🌦️ Weather Node"]
+        H["💹 Mandi Node"]
+        I["📰 News Scraper"]
+        J["👨‍🔬 Expert Advisory"]
+    end
+    class Intelligence_Layer ai;
+
+    subgraph External_Data [API Ecosystem]
+        K["☁️ OpenWeather"]
+        L["🏛️ Data.gov.in"]
+        M["🕷️ Firecrawl (PIB India)"]
+        N["🚀 Groq (Llama 3.3 70B)"]
+    end
+    class External_Data external;
+
+    %% Connections
+    A -->|MediaRecorder| C
+    C -->|Text Transcript| F
+    F --> G & H & I & J
+    
+    G --> K
+    H --> L
+    I --> M
+    
+    K & L & M & J --> N
+    N -->|Expert Response| E
+    E -->|Audio Stream| B
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack & Integration
 
-### Backend
-| Technology | Purpose |
-|---|---|
-| **FastAPI** | REST API framework |
-| **LangGraph** | Agentic AI workflow (intent routing + tool calling) |
-| **Groq API** (Llama 3.3 70B) | LLM for scheme info, crop advice, eligibility |
-| **Sarvam AI STT** (saarika:v2.5) | Speech-to-Text in 10+ Indian languages |
-| **Sarvam AI TTS** (bulbul:v2) | Text-to-Speech in 10+ Indian languages |
-| **Open-Meteo API** | Free real-time weather by district |
-| **MongoDB Atlas** (Motor) | Async database for users & chat history |
-| **PyJWT** | JWT-based authentication |
-| **httpx** | Async HTTP client for external APIs |
-| **Python 3.11+** | Runtime |
-
-### Frontend
-| Technology | Purpose |
-|---|---|
-| **React 19** | UI framework |
-| **Vite** | Build tool |
-| **React Router v7** | Client-side routing |
-| **Axios** | HTTP requests to backend |
-| **Lucide React** | Icons |
-| **Web Audio API** | Browser mic recording (MediaRecorder) |
-
-### Infrastructure & APIs
+### ⚙️ The Brain (AI & Logic)
 | Service | Purpose |
 |---|---|
-| **MongoDB Atlas** | Cloud database |
-| **Groq Cloud** | Fast LLM inference |
-| **Sarvam AI** | Indian language STT + TTS |
-| **Open-Meteo** | Free weather API (no key needed) |
+| **LangGraph** | Multi-node agentic workflow and state management. |
+| **Groq (Llama 3.3 70B)** | High-speed LLM inference for expert agricultural reasoning. |
+| **Sarvam AI** | Industry-leading STT (Saarika) and TTS (Bulbul) for Indian languages. |
+| **Firecrawl API** | Advanced web scraping for latest govt schemes and press releases. |
+
+### 🌐 The Core (Backend & Frontend)
+| Tech | Role |
+|---|---|
+| **FastAPI** | High-performance asynchronous API layer. |
+| **React 19** | Modern, responsive UI with real-time audio visualization. |
+| **MongoDB Atlas** | Secure storage for farmer profiles and multi-session chat history. |
+| **Open-Meteo** | Real-time geospatial weather data processing. |
 
 ---
 
-## 📡 API Endpoints
-
-### 🔐 Auth — `/api/auth`
-
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/auth/otp/send` | Send OTP to farmer's phone number | ❌ |
-| `POST` | `/api/auth/otp/verify` | Verify OTP, returns JWT token + user profile | ❌ |
-| `GET` | `/api/auth/me` | Get current logged-in farmer's profile | ✅ Bearer |
-| `POST` | `/api/auth/refresh` | Refresh JWT token | ✅ Bearer |
-
-**OTP Send body:**
-```json
-{ "phone": "9876543210" }
-```
-
-**OTP Verify body:**
-```json
-{
-  "phone": "9876543210",
-  "otp": "123456",
-  "name": "Ramesh Kumar",
-  "language": "hi-IN",
-  "district": "Ludhiana",
-  "state": "Punjab"
-}
+## 📂 Project Structure
+```text
+KisaanVaani-AI/
+├── 📁 Manual Testers/       # Tools for verifying API connectivity & logic
+│   ├── debug_mandi.py       # Raw Data.gov.in API debugger
+│   └── test_tools_logic.py  # Full intent-routing verification script
+├── 📁 backend/              # FastAPI Server
+│   ├── 📁 app/
+│   │   ├── 📁 agents/       # LangGraph nodes & Tool logic
+│   │   ├── 📁 routers/      # Voice, Auth, and Agent endpoints
+│   │   └── config.py        # Pydantic Settings & Env management
+├── 📁 frontend/             # React Application
+│   └── 📁 src/
+│       ├── 📁 components/   # UI Modules (Hero, Auth, Chat)
+│       └── api.js           # Central API client
+└── .env                     # Global Environment configuration
 ```
 
 ---
 
-### 🎙️ Voice — `/api/voice`
+## 🚀 Getting Started
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/voice/transcribe` | Upload audio file → get text transcript (Sarvam STT) | ❌ |
-| `POST` | `/api/voice/speak` | Send text → get WAV audio back (Sarvam TTS) | ❌ |
-| `GET` | `/api/voice/config-check` | Check if all API keys are configured | ❌ |
-
-**Transcribe** — multipart form:
-```
-audio: <audio file (WebM/WAV)>
-language: hi-IN
-```
-
-**Speak body:**
-```json
-{ "text": "Aaj gehun ka bhav 2275 rupaye per quintal hai.", "language": "hi-IN" }
-```
-
-Supported language codes: `hi-IN`, `pa-IN`, `bn-IN`, `ta-IN`, `te-IN`, `kn-IN`, `ml-IN`, `mr-IN`, `gu-IN`, `od-IN`, `en-IN`
-
----
-
-### 🤖 Agent — `/api/agent`
-
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/agent/chat` | Main AI chat — processes farmer query through LangGraph | ❌ |
-
-**Chat body:**
-```json
-{
-  "farmer_id": "9876543210",
-  "session_id": "session_abc123",
-  "message": "Aaj gehun ka mandi bhav kya hai?",
-  "language": "hi-IN"
-}
-```
-
-**Response:**
-```json
-{
-  "response": "Ludhiana mein Gehun ke bhav: Sarkari MSP (2024-25): Rs 2275 per quintal...",
-  "session_id": "session_abc123",
-  "tool_used": "mandi"
-}
-```
-
-`tool_used` values: `weather` | `mandi` | `crop_advice` | `eligibility` | `scheme`
-
----
-
-### 📜 History — `/api/history`
-
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `GET` | `/api/history/{farmer_id}` | Get last 50 messages for a farmer | ❌ |
-| `GET` | `/api/history/{farmer_id}/session/{session_id}` | Get all messages for a specific session | ❌ |
-| `DELETE` | `/api/history/{farmer_id}` | Clear all chat history for a farmer | ❌ |
-
----
-
-## 🚀 Running Locally
-
-### Backend
+### 1. Backend Setup
 ```bash
 cd backend
+python -m venv venv
+source venv/bin/activate  # Or venv\Scripts\activate on Windows
 pip install -r requirements.txt
-cp .env.example .env   # fill in your API keys
-uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend
+### 2. Environment Variables
+Create a `.env` file in the `backend` folder:
+```env
+# AI & Tools
+GROQ_API_KEY=gsk_...
+SARVAM_API_KEY=sk_...
+FIRECRAWL_API_KEY=fc-...
+DATAGOV_API_KEY=your_key_from_data_gov_in
+
+# Database & Auth
+MONGODB_URI=your_mongodb_uri
+SECRET_KEY=kisaanvaani_secret_key
+```
+
+### 3. Run the System
+**Backend:**
+`uvicorn app.main:app --reload`
+
+**Frontend:**
+`npm run dev`
+
+---
+
+## 👨‍💻 Manual Testing
+To verify the system's intelligence without using the voice interface, we provide specialized tools in the `Manual Testers` folder:
 ```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Environment Variables (`.env`)
-```
-GROQ_API_KEY=your_groq_api_key
-SARVAM_API_KEY=your_sarvam_api_key
-MONGODB_URI=your_mongodb_atlas_uri
-SECRET_KEY=your_jwt_secret
-APP_ENV=development
+# To test the full AI logic (Weather, Mandi, News, Expert Advice)
+python "./Manual Testers/test_tools_logic.py"
 ```
 
 ---
 
 ## 🌍 Supported Languages
+**Hindi • Punjabi • Bengali • Tamil • Telugu • Kannada • Malayalam • Marathi • Gujarati • Odia • English (Indian)**
 
-Hindi • Punjabi • Bengali • Tamil • Telugu • Kannada • Malayalam • Marathi • Gujarati • Odia • English (Indian)
+---
+Developed with ❤️ for Indian Farmers.
