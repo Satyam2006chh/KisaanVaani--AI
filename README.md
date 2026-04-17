@@ -1,6 +1,6 @@
 # 🌾 KisaanVaani AI — Voice-First AI Assistant for Indian Farmers
 
-![System Flow](docs/assets/system_flow.png)
+![Feature Overview](docs/assets/features_premium.png)
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![React](https://img.shields.io/badge/React-19-cyan.svg)](https://react.dev/)
@@ -23,6 +23,8 @@ KisaanVaani is a **premium, voice-first AI ecosystem** designed to bridge the di
 ---
 
 ## 🔄 System Architecture & Flow
+
+![System Flow](docs/assets/system_flow_premium.png)
 
 ```mermaid
 graph TD
