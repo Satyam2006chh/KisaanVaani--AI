@@ -1,5 +1,4 @@
-[build]
-  command = "npm run build --prefix frontend"
+  command = "npm install --prefix frontend && npm run build --prefix frontend"
   publish = "frontend/dist"
 
 # Proxy API requests to Render backend (Solves CORS and 404s permanently)
