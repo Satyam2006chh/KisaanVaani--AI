@@ -39,13 +39,15 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }, [])
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+
   const sendOTP = async (phone) => {
-    const { data } = await axios.post('/api/auth/otp/send', { phone })
+    const { data } = await axios.post(`${API_BASE_URL}/api/auth/otp/send`, { phone })
     return data
   }
 
   const verifyOTP = async (phone, otp, name, language, district, state, city) => {
-    const { data } = await axios.post('/api/auth/otp/verify', {
+    const { data } = await axios.post(`${API_BASE_URL}/api/auth/otp/verify`, {
       phone, otp, name, language, district, state, city,
     })
     localStorage.setItem('token', data.access_token)
