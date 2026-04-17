@@ -51,12 +51,14 @@ async def _call_groq(messages: list, max_tokens: int = 512) -> str:
 def _system_prompt(state: AgentState) -> str:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
     return (
-        f"Aap KisaanVaani AI hain — Indian farmers ke liye ek helpful AI assistant. "
-        f"Hamesha {lang_name} mein jawab dein. Simple aur friendly language use karein. "
-        f"Aap abhi {state['farmer_name']} se baat kar rahe hain jo {state['city']}, {state['district']}, {state['state_name']} se hain. "
-        f"Unka naam lekar unka swagat karein (e.g. 'Namaste {state['farmer_name']} ji'). "
-        f"Sarkari yojanaon (PM Kisan, PMFBY, MSP) ke baare mein accurate jankari dein. "
-        f"Jawab 3-4 sentences mein dein."
+        f"Aap KisaanVaani AI hain — Indian farmers ke liye ek mahan agricultural expert aur helpful assistant. "
+        f"Aapka kaam kisanon ko sahi, vistrit (detailed) aur professional salah dena hai. "
+        f"Hamesha {lang_name} mein jawab dein. "
+        f"Aap abhi {state['farmer_name']} ji se baat kar rahe hain jo {state['city']}, {state['district']}, {state['state_name']} se hain. "
+        f"Apne har jawab ki shuruat samman ke saath karein (e.g. 'Namaste {state['farmer_name']} ji, {state['district']} ke kisanon ke liye ek zaroori jankari...'). "
+        "Aapki salah hamesha expert-grade honi chahiye. Sirf upari jankari na dein, balki kisan ko support karne ke liye 'kyun' aur 'kaise' bhi samjhayein. "
+        "Sarkari yojanaon (PM Kisan, MSP, PMFBY) ke baare mein hamesha vishwasniya (reliable) aur latest jankari dein. "
+        "Farmer ko lage ki koi bada expert unse baat kar raha hai jo unki mitti aur ilake ko samajhta hai."
     )
 
 
@@ -83,23 +85,64 @@ async def weather_node(state: AgentState) -> AgentState:
 
 
 async def mandi_node(state: AgentState) -> AgentState:
-    msg = state["messages"][-1]["content"].lower()
-    crops = ["gehun", "wheat", "dhan", "rice", "sarson", "mustard",
-             "makka", "maize", "bajra", "jowar", "cotton", "kapas",
-             "chana", "gram", "moong", "urad", "masoor", "ganna"]
-    crop = next((c for c in crops if c in msg), "wheat")
-    result = await get_mandi_price(crop, state["district"], state["state_name"])
+    msg = state["messages"][-1]["content"]
+    
+    # 1. Use LLM to extract crop and district from natural language
+    extraction_prompt = (
+        "Aap ek data extraction expert hain. Is message se 'crop' aur 'district' extract karein. "
+        "Agar district nahi bataya gaya hai to use empty rakhein. "
+        "Fasal (crop) ka naam hamesha English mein dein (e.g. Wheat, Mustard). "
+        "Sirf JSON format mein jawab dein: {\"crop\": \"...\", \"district\": \"...\"}\n\n"
+        f"Message: {msg}"
+    )
+    
+    try:
+        raw_json = await _call_groq([{"role": "system", "content": extraction_prompt}], max_tokens=100)
+        import json
+        params = json.loads(raw_json)
+        crop = params.get("crop", "wheat")
+        target_district = params.get("district")
+    except Exception:
+        # Fallback to simple extraction if LLM fails
+        crops = ["gehun", "wheat", "dhan", "rice", "sarson", "mustard", "makka", "maize"]
+        crop = next((c for c in crops if c in msg.lower()), "wheat")
+        target_district = None
+
+    # Use specified district or fall back to farmer's registered district
+    district = target_district if target_district else state["district"]
+    state_name = state["state_name"] # We could also extract state but district is usually enough for Mandi
+    
+    result = await get_mandi_price(crop, district, state_name)
     return {**state, "tool_result": result}
 
 
 async def news_node(state: AgentState) -> AgentState:
-    result = await scrape_agricultural_news(state["messages"][-1]["content"])
-    return {**state, "tool_result": result}
+    # 1. Scrape raw content via Firecrawl
+    raw_content = await scrape_agricultural_news(state["messages"][-1]["content"])
+    
+    # 2. Pass raw content to AI for professional summarization
+    messages = [
+        {"role": "system", "content": (
+            f"{_system_prompt(state)}\n\n"
+            "Aapne internet se yeh taaza news scrape ki hai. "
+            "Is news ko kisan ke sawal ke hisaab se summarize karein aur unhe expert advice ke saath batayein. "
+            "Jawab bhot supportive aur accurate hona chahiye."
+        )},
+        {"role": "user", "content": f"Scraped News Content: {raw_content}\n\nFarmer Question: {state['messages'][-1]['content']}"},
+    ]
+    formatted_result = await _call_groq(messages)
+    return {**state, "tool_result": formatted_result}
 
 
 async def llm_node(state: AgentState) -> AgentState:
     messages = [
-        {"role": "system", "content": _system_prompt(state)},
+        {"role": "system", "content": (
+            f"{_system_prompt(state)}\n\n"
+            "Abhi farmer ek general sawal pooch raha hai ya kisi yojana (scheme) ke baare mein jankari chahta hai. "
+            "Aapka jawab bhot accurate aur support se bhara hona chahiye. "
+            "Agar yojana hai, to patrata (eligibility) aur apply karne ka tarika bhi bataiye. "
+            "Apna best expert response dein jo farmer ki madad kare."
+        )},
         {"role": "user",   "content": state["messages"][-1]["content"]},
     ]
     result = await _call_groq(messages)
@@ -110,9 +153,10 @@ async def crop_advice_node(state: AgentState) -> AgentState:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
     messages = [
         {"role": "system", "content": (
-            f"Aap ek experienced agriculture expert hain. Hamesha {lang_name} mein jawab dein. "
-            f"Farmer {state['farmer_name']} {state['city']}, {state['state_name']} mein rehta hai. "
-            f"Season aur mitti ke hisaab se best fasal ki salah dein. Jawab 3-4 sentences mein."
+            f"{_system_prompt(state)}\n\n"
+            f"Aap ek varishta (senior) agriculture scientist hain. Farmer {state['farmer_name']} ko unke khet ke liye "
+            f"sabse behtareen fasal ki salah dein. Unko batayein ki is season mein mitti aur mausam ke hisaab se "
+            "kaunsi fasal unhe sabse zyada munafa (profit) degi aur kyun. Fasal ki dekhbhal ke 1-2 expert tips bhi dein."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]

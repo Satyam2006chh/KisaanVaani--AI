@@ -100,7 +100,11 @@ async def get_mandi_price(crop: str, district: str, state: str) -> str:
                     info = v
                     break
         if not info:
-            return f"{crop} ka bhav abhi uplabdh nahi hai. Agmarknet check karein."
+            return (
+                f"Kshama karein, {crop} ka bhav abhi mere paas nahi mil pa raha hai. "
+                "Par fikar na karein! Aap mujhse kisi aur fasal ke baare mein pooch sakte hain "
+                "ya thodi der baad phir se koshish kar sakte hain. Main aapki madad hamesha karunga!"
+            )
         
         name, msp_price = info
         market_low = int(msp_price * 1.02)
@@ -113,7 +117,8 @@ async def get_mandi_price(crop: str, district: str, state: str) -> str:
         )
 
     try:
-        url = "https://api.data.gov.in/resource/9ef2731d-98d9-458b-bc1d-ad031317b11d"
+        # Correct Resource ID for Mandi Prices
+        url = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"
         params = {
             "api-key": settings.datagov_api_key,
             "format": "json",
@@ -129,7 +134,11 @@ async def get_mandi_price(crop: str, district: str, state: str) -> str:
         
         data = r.json().get("records", [])
         if not data:
-            return f"{district}, {state} ki mandi mein abhi {crop} ka naya rate nahi mila."
+            return (
+                f"Namaste! {district} ki mandi mein abhi {crop} ka naya rate update nahi hua hai. "
+                "Aksar bazaar band hone pe ya seasonal badlav ki wajah se aisa hota hai. "
+                "Aap mujhse kisi aur mandi ya fasal ke baare mein pooch sakte hain, main turant check karunga!"
+            )
         
         # Filter for the specific crop
         crop_data = [d for d in data if crop.lower() in d.get("commodity", "").lower()]

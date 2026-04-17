@@ -36,6 +36,7 @@ class ChatRequest(BaseModel):
     farmer_id: str
     session_id: str
     message: str
+    english_message: Optional[str] = None
     language: str = "hi-IN"
 
 

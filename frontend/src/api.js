@@ -17,15 +17,16 @@ const api = () => axios.create({
 })
 
 
-export async function chatWithAgent(message) {
+export async function chatWithAgent(message, englishMessage = null) {
   const user = getUser()
   const { data } = await api().post('/api/agent/chat', {
     farmer_id:  user?.farmer_id || 'guest',
     session_id: getSessionId(),
     message,
+    english_message: englishMessage,
     language:   user?.language || 'hi-IN',
   })
-  return data.response
+  return data // Return full data object
 }
 
 
@@ -48,5 +49,5 @@ export async function transcribeAudio(blob) {
   form.append('audio', blob, `audio.${ext}`)
   form.append('language', user?.language || 'hi-IN')
   const { data } = await api().post('/api/voice/transcribe', form)
-  return data.transcript
+  return data // Return full object {transcript, english_transcript, status...}
 }

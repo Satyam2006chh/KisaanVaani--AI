@@ -7,7 +7,6 @@ import HowItWorks from './components/HowItWorks/HowItWorks'
 import Features from './components/Features/Features'
 import Languages from './components/Languages/Languages'
 import Quotes from './components/Quotes/Quotes'
-import TechStack from './components/TechStack/TechStack'
 import Footer from './components/Footer/Footer'
 import AuthScreen from './components/Auth/AuthScreen'
 
@@ -42,7 +41,6 @@ function AppContent() {
         <Features />
         <Languages />
         <Quotes />
-        <TechStack />
       </main>
       <Footer />
     </div>

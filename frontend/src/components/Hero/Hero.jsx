@@ -18,89 +18,161 @@ export default function Hero() {
   const [status,     setStatus]     = useState(S.IDLE)
   const [transcript, setTranscript] = useState('')
   const [reply,      setReply]      = useState('')
-  const [error,      setError]      = useState('')
-  
-  const recognitionRef = useRef(null)
-  const audioRef = useRef(null)
+  const [error, setError] = useState('')
+  const [lastBlob,   setLastBlob]   = useState(null)
+  const [micLevel,   setMicLevel]   = useState(0)
 
-  const userLang = languages.find(l => l.code === user?.language)?.name || 'Hindi'
+  const recognitionRef = useRef(null)
+  const audioContextRef = useRef(null)
+  const analyzerRef = useRef(null)
+  const animationFrameRef = useRef(null)
+  const audioRef = useRef(null)
+  const fallbackTranscriptRef = useRef('')
+
   const langCode = user?.language || 'hi-IN'
 
   useEffect(() => () => {
-    // cleanup: stop MediaRecorder stream or SpeechRecognition
-    try { recognitionRef.current?.stream?.getTracks?.().forEach(t => t.stop()) } catch {}
-    try { recognitionRef.current?.abort?.() } catch {}
-    audioRef.current?.pause()
+    stopAll()
   }, [])
 
-  async function startRecording() {
+  function stopAll() {
+    try { recognitionRef.current?.stream?.getTracks?.().forEach(t => t.stop()) } catch {}
+    try { recognitionRef.current?.recorder?.stop?.() } catch {}
+    try { recognitionRef.current?.recognition?.stop?.() } catch {}
+    try { audioContextRef.current?.close() } catch {}
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
     audioRef.current?.pause()
-    audioRef.current = null
-    setError(''); setTranscript(''); setReply('')
+  }
 
-    // Prefer MediaRecorder + backend STT. Fallback to Web SpeechRecognition.
-    if (navigator.mediaDevices && window.MediaRecorder) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
-        const recorder = new MediaRecorder(stream, { mimeType: mime })
-        const chunks = []
-
-        recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data) }
-        recorder.onstart = () => { setStatus(S.RECORDING) }
-        recorder.onerror = (e) => {
-          setError('Recording error: ' + (e?.error?.name || e?.error || 'unknown'))
-          setStatus(S.IDLE)
-        }
-        recorder.onstop = async () => {
-          setStatus(S.PROCESSING)
-          const blob = new Blob(chunks, { type: mime })
-          try {
-            const text = await transcribeAudio(blob)
-            setTranscript(text)
-            if (text && text.trim()) {
-              await handleChat(text)
-            } else {
-              setError('Koi awaaz nahi aayi. Mic ke paas bolein.')
-              setStatus(S.IDLE)
-            }
-          } catch (err) {
-            setError('Transcription failed. ' + (err?.response?.data?.detail || err.message))
-            setStatus(S.IDLE)
-          } finally {
-            // stop tracks
-            try { stream.getTracks().forEach(t => t.stop()) } catch {}
-          }
-        }
-
-        recognitionRef.current = { recorder, stream }
-        recorder.start()
-      } catch (err) {
-        setError('Mic access error. Browser permissions likely denied.')
-        setStatus(S.IDLE)
-      }
-      return
+  function encodeWAV(samples) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2)
+    const view = new DataView(buffer)
+    const writeString = (off, s) => { for(let i=0; i<s.length; i++) view.setUint8(off+i, s.charCodeAt(i)) }
+    
+    writeString(0, 'RIFF')
+    view.setUint32(4, 32 + samples.length * 2, true)
+    writeString(8, 'WAVE')
+    writeString(12, 'fmt ')
+    view.setUint32(16, 16, true)
+    view.setUint16(20, 1, true)
+    view.setUint16(22, 1, true)
+    view.setUint32(24, 16000, true)
+    view.setUint32(28, 32000, true)
+    view.setUint16(32, 2, true)
+    view.setUint16(34, 16, true)
+    writeString(36, 'data')
+    view.setUint32(40, samples.length * 2, true)
+    
+    let offset = 44
+    for (let i=0; i<samples.length; i++) {
+      let s = Math.max(-1, Math.min(1, samples[i]))
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true)
+      offset += 2
     }
+    return new Blob([view], { type: 'audio/wav' })
+  }
 
-    // Fallback: Web Speech API (client-side STT)
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) {
-      setError('Aapka browser voice input support nahi karta. Chrome use karein.')
-      return
+  async function startRecording() {
+    stopAll()
+    setError(''); setTranscript(''); setReply(''); setLastBlob(null); setMicLevel(0)
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      
+      // Visualization logic
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+      const source = audioCtx.createMediaStreamSource(stream)
+      const analyzer = audioCtx.createAnalyser()
+      analyzer.fftSize = 512
+      source.connect(analyzer)
+      audioContextRef.current = audioCtx
+      analyzerRef.current = analyzer
+
+      // Use standard MediaRecorder
+      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 
+                   MediaRecorder.isTypeSupported('audio/ogg') ? 'audio/ogg' : 'audio/mp4'
+      const recorder = new MediaRecorder(stream, { mimeType: mime })
+      const chunks = []
+      
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data) }
+      recorder.onstart = () => { setStatus(S.RECORDING) }
+      
+      recorder.onstop = async () => {
+        setStatus(S.PROCESSING)
+        const audioBlob = new Blob(chunks, { type: mime })
+        setLastBlob(audioBlob)
+
+        try {
+          const res = await transcribeAudio(audioBlob) 
+          
+          if (res.status === 'SILENCE_DETECTED') {
+            const silenceMsg = res.silence_reply || 'Maaf kijiye, mujhe kuch sunai nahi diya.'
+            // Don't setReply here so it stays hidden in UI as requested
+            const audioUrl = await speakText(silenceMsg)
+            playAudio(audioUrl)
+            return
+          }
+
+          if (res.status === 'SUCCESS' && res.transcript) {
+            setTranscript(res.transcript)
+            await handleChat(res.transcript, res.english_transcript)
+          } else {
+            setError(res.error || 'Kuch sunai nahi diya. Dobara mic dabakar bole kaber.')
+            setStatus(S.IDLE)
+          }
+        } catch (err) {
+          setError('Voice error. Internet ya mic setting check karein.')
+          setStatus(S.IDLE)
+        } finally {
+          stream.getTracks().forEach(t => t.stop())
+        }
+      }
+
+      recognitionRef.current = { recorder, stream }
+      recorder.start()
+      drawWave()
+    } catch (err) {
+      setError('Mic blocked! Lock icon par click karke mic allow karein.')
+      setStatus(S.IDLE)
     }
   }
 
-  async function handleChat(text) {
+  async function playAudio(url) {
+    const audio = new Audio(url)
+    audioRef.current = audio
+    setStatus(S.SPEAKING)
+    audio.onended = audio.onerror = () => { setStatus(S.IDLE); audioRef.current = null }
+    await audio.play()
+  }
+
+  function playBack() {
+    if (!lastBlob) return
+    const url = URL.createObjectURL(lastBlob)
+    const audio = new Audio(url)
+    audio.play()
+  }
+
+  function drawWave() {
+    if (analyzerRef.current) {
+        const d = new Uint8Array(analyzerRef.current.frequencyBinCount)
+        analyzerRef.current.getByteFrequencyData(d)
+        const v = d.reduce((a, b) => a + b) / d.length
+        const s = 1 + (v / 60)
+        const btn = document.querySelector('.mic-trigger')
+        if (btn) btn.style.transform = `scale(${s})`
+        animationFrameRef.current = requestAnimationFrame(drawWave)
+    }
+  }
+
+  async function handleChat(text, englishText = null) {
     try {
-      const response = await chatWithAgent(text)
-      setReply(response)
+      const response = await chatWithAgent(text, englishText)
+      const aiReply = response.response
+      setReply(aiReply)
+      
       try {
-        const url   = await speakText(response)
-        const audio = new Audio(url)
-        audioRef.current = audio
-        setStatus(S.SPEAKING)
-        audio.onended = audio.onerror = () => { setStatus(S.IDLE); audioRef.current = null }
-        await audio.play()
+        const url = await speakText(aiReply)
+        await playAudio(url)
       } catch {
         setStatus(S.IDLE)
       }
@@ -114,20 +186,13 @@ export default function Hero() {
     if (status === S.IDLE) {
       startRecording()
     } else if (status === S.RECORDING) {
-      // stop MediaRecorder or SpeechRecognition
+      const btn = document.querySelector('.mic-trigger'); if (btn) btn.style.transform = 'scale(1)'
       const cur = recognitionRef.current
-      if (cur?.recorder) {
-        try { cur.recorder.stop() } catch {}
-      } else {
-        try { cur?.stop?.() || cur?.abort?.() } catch {}
-      }
+      if (cur?.recorder) try { cur.recorder.stop() } catch {}
+      if (cur?.recognition) try { cur.recognition.stop() } catch {}
     } else if (status === S.SPEAKING) {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
-      }
-      setStatus(S.IDLE)
-      startRecording()
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+      setStatus(S.IDLE); startRecording()
     }
   }
 
@@ -172,21 +237,23 @@ export default function Hero() {
 
         <div className="hero__assistant glass-panel animate-reveal" style={{ animationDelay: '0.2s' }}>
           <div className="assistant__chat-area">
-            {transcript && (
-              <div className="chat-bubble user-bubble animate-reveal">
-                <div className="bubble-label">Aapne Bola</div>
-                <p>{transcript}</p>
+            {(transcript || reply) ? (
+              <div className="chat-history">
+                {transcript && (
+                  <div className="chat-bubble user-bubble animate-reveal">
+                    <div className="bubble-label">Aapne Bola</div>
+                    <p>{transcript}</p>
+                  </div>
+                )}
+                
+                {reply && (
+                  <div className="chat-bubble ai-bubble animate-reveal">
+                    <div className="bubble-label">KisaanVaani AI</div>
+                    <p>{reply}</p>
+                  </div>
+                )}
               </div>
-            )}
-            
-            {reply && (
-              <div className="chat-bubble ai-bubble animate-reveal">
-                <div className="bubble-label">KisaanVaani AI</div>
-                <p>{reply}</p>
-              </div>
-            )}
-
-            {!transcript && !reply && !error && (
+            ) : (
               <div className="chat-placeholder">
                 <div className="pulse-circle">
                   <Mic size={40} className="highlight" />

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     datagov_api_key: str = ""
 
     class Config:
-        env_file = ".env"
+        env_file = [".env", "backend/.env"]
         env_file_encoding = "utf-8"
         extra = "ignore"  # Allow extra fields in .env without erroring
 

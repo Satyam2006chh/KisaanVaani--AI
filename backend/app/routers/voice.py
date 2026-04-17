@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 
 from app.config import settings
 from app.models.schemas import TTSRequest
+from app.lib.translation import translate_text
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/voice", tags=["Voice"])
@@ -23,6 +24,21 @@ SPEAKERS = {
     "ta-IN": "anushka", "te-IN": "anushka", "kn-IN": "anushka",
     "ml-IN": "anushka", "mr-IN": "manisha", "gu-IN": "manisha",
     "od-IN": "abhilash", "en-IN": "anushka",
+}
+
+# Default message if nothing is heard
+SILENCE_REPLY = {
+    "hi-IN": "Maaf kijiye, mujhe aapki awaaz sunai nahi di. Kya aap phir se bol sakte hain?",
+    "en-IN": "I'm sorry, I couldn't hear you. Could you please say that again?",
+    "ta-IN": "மன்னிக்கவும், உங்கள் குரல் கேட்கவில்லை. தயவுசெய்து மீண்டும் சொல்ல முடியுமா?",
+    "te-IN": "క్షమించండి, మీ వాయిస్ వినిపించలేదు. దయచేసి మళ్ళీ చెప్పగలరా?",
+    "kn-IN": "ಕ್ಷಮಿಸಿ, ನಿಮ್ಮ ಧ್ವನಿ ಕೇಳಿಸಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಹೇಳಬಹುದೇ?",
+    "ml-IN": "ക്ഷമിക്കണം, നിങ്ങളുടെ ശബ്ദം കേൾക്കാനായില്ല. ദയവായി വീണ്ടും പറയാമോ?",
+    "mr-IN": "क्षमस्व, मला तुमचा आवाज ऐकू आला नाही. कृपया पुन्हा सांगू शकाल का?",
+    "gu-IN": "ક્ષમા કરશો, મને તમારો અવાજ સંભળાયો નથી. શું તમે ફરીથી કહી શકશો?",
+    "pa-IN": "ਮੁਆਫ ਕਰਨਾ, ਮੈਨੂੰ ਤੁਹਾਡੀ ਆਵਾਜ਼ ਸੁਣਾਈ ਨਹੀਂ ਦਿੱਤੀ। ਕੀ ਤੁਸੀਂ ਦੁਬਾਰਾ ਬੋਲ ਸਕਦੇ ਹੋ?",
+    "bn-IN": "দুঃখিত, আমি আপনার কথা শুনতে পাইনি। আপনি কি আবার বলতে পারেন?",
+    "od-IN": "କ୍ଷମା କରିବେ, ମୋତେ ଆପଣଙ୍କ ସ୍ୱର ଶୁଭିଲା ନାହିଁ । ଦୟାକରି ପୁଣିଥରେ କହିବେ କି?",
 }
 
 
@@ -70,23 +86,52 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
 
     fname = audio.filename or "audio.webm"
     ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else "webm"
-    wav = _to_wav(audio_bytes, ext)
-    logger.info(f"Transcribe: original={len(audio_bytes)}B  wav={len(wav)}B  lang={language}")
+    
+    # Direct passthrough for WAV files to avoid FFmpeg
+    if ext == "wav":
+        wav = audio_bytes
+        logger.info("WAV passthrough enabled (FFmpeg skipped)")
+    else:
+        wav = _to_wav(audio_bytes, ext)
+    if not wav or len(wav) < 1000:
+        logger.warning("Converted audio is too small or empty")
+        return {"transcript": "", "language": language, "error": "Silent audio"}
+
+    logger.info(f"Transcribe: original={len(audio_bytes)}B wav={len(wav)}B lang={language}")
 
     async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(
-            SARVAM_STT,
-            headers={"api-subscription-key": settings.sarvam_api_key},
-            files={"file": ("audio.wav", wav, "audio/wav")},
-            data={"language_code": language, "model": "saarika:v2.5"},
-        )
+        try:
+            r = await client.post(
+                SARVAM_STT,
+                headers={"api-subscription-key": settings.sarvam_api_key},
+                files={"file": ("audio.wav", wav, "audio/wav")},
+                data={"language_code": language, "model": "saarika:v2.5"},
+            )
+            r.raise_for_status()
+            transcript = r.json().get("transcript", "").strip()
+            logger.info(f"Sarvam Answer: '{transcript}'")
+            
+            if not transcript:
+                return {
+                    "transcript": "", 
+                    "english_transcript": "", 
+                    "language": language, 
+                    "status": "SILENCE_DETECTED",
+                    "silence_reply": SILENCE_REPLY.get(language, SILENCE_REPLY["en-IN"])
+                }
 
-    if r.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Sarvam STT error: {r.text}")
-
-    transcript = r.json().get("transcript", "").strip()
-    logger.info(f"Transcript: '{transcript}'")
-    return {"transcript": transcript, "language": language}
+            # Translate to English for Agent consumption
+            english_transcript = await translate_text(transcript, language, "en-IN")
+            
+            return {
+                "transcript": transcript, 
+                "english_transcript": english_transcript, 
+                "language": language,
+                "status": "SUCCESS"
+            }
+        except Exception as e:
+            logger.error(f"Sarvam STT Failed: {e}")
+            return {"transcript": "", "language": language, "error": str(e), "status": "ERROR"}
 
 
 @router.post("/speak")
