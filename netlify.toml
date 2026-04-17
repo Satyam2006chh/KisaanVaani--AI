@@ -2,6 +2,14 @@
   command = "npm run build --prefix frontend"
   publish = "frontend/dist"
 
+# Proxy API requests to Render backend (Solves CORS and 404s permanently)
+[[redirects]]
+  from = "/api/*"
+  to = "https://kisaanvaani-ai-1.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+# Handle React Router for the frontend
 [[redirects]]
   from = "/*"
   to = "/index.html"
