@@ -110,7 +110,7 @@ export default function Hero() {
       // Start TTS immediately after receiving text
       setStatus(S.PROCESSING) // Keep processing state while audio loads
       try {
-        const audioUrl = await speakText(res.response)
+        const audioUrl = await speakText(res.response, selectedLang)
         await playAudio(audioUrl)
       } catch (audioErr) {
         console.error('TTS Failed:', audioErr)

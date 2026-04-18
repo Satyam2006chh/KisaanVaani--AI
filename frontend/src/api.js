@@ -33,11 +33,11 @@ export async function chatWithAgent(message, englishMessage = null, language = n
 }
 
 
-export async function speakText(text) {
+export async function speakText(text, language = null) {
   const user = getUser()
   const response = await api().post(
     '/api/voice/speak',
-    { text, language: user?.language || 'hi-IN' },
+    { text, language: language || user?.language || 'hi-IN' },
     { responseType: 'blob' },
   )
   return URL.createObjectURL(response.data)
