@@ -169,7 +169,7 @@ export default function Hero() {
         <div className="hero-header animate-reveal">
           <div className="badge">🌾 Bharat Ka AI Agricultural Expert</div>
           <h1>Namaste <span className="highlight">{user?.name || 'Kisaan'}</span> ji</h1>
-          <p className="hero-subtitle">Mausam, Mandi ya Kheti ki koi bhi jankari ke liye mic dabaiye.</p>
+          <p className="hero-subtitle">Mausam, Mandi ya Kheti ki har "Tagdi" jankari ab aapki apni bhasha mein.</p>
         </div>
 
         {/* Central Engine */}

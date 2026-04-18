@@ -1,32 +1,32 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Color Palette - Premium Harvest (Agricultural Excellence) */
-  --primary: hsl(160, 84%, 39%);       /* Emerald Grove */
-  --primary-glow: hsla(160, 84%, 39%, 0.3);
+  /* Color Palette - Golden Harvest (Premium Agriculture) */
+  --primary: hsl(142, 72%, 29%);       /* Forest Emerald */
+  --primary-glow: hsla(142, 72%, 29%, 0.4);
   --accent: hsl(38, 92%, 50%);         /* Harvest Gold */
-  --accent-glow: hsla(38, 92%, 50%, 0.2);
+  --accent-glow: hsla(38, 92%, 50%, 0.25);
   
-  --bg-deep: hsl(222, 47%, 2%);        /* Deep Midnight */
-  --bg-card: hsla(222, 47%, 4%, 0.85); /* Slate Glass */
+  --bg-deep: hsl(142, 40%, 4%);        /* Deep Moss Dark */
+  --bg-card: hsla(142, 40%, 6%, 0.88); /* Green Graphite Glass */
   
   --text-main: hsl(210, 20%, 98%);
-  --text-dim: hsl(215, 15%, 70%);
+  --text-dim: hsl(142, 10%, 75%);
   
-  --glass: blur(24px) saturate(180%);
-  --border-glass: 1px solid rgba(255, 255, 255, 0.08);
-  --border-accent: 1px solid hsla(160, 84%, 39%, 0.15);
+  --glass: blur(30px) saturate(160%);
+  --border-glass: 0.5px solid rgba(255, 255, 255, 0.08); /* Thinner for premium feel */
+  --border-accent: 1px solid hsla(38, 92%, 50%, 0.2);
   
-  --radius-xl: 48px;
-  --radius-lg: 32px;
-  --radius-md: 20px;
+  --radius-xl: 40px;
+  --radius-lg: 24px;
+  --radius-md: 16px;
   
   --spacing-section: 120px;
-  --spacing-gap: 48px;
+  --spacing-gap: 40px;
   
   --font-heading: 'Outfit', sans-serif;
   --font-main: 'Inter', sans-serif;
-  --transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
