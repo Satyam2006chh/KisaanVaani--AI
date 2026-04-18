@@ -8,12 +8,12 @@ from langgraph.graph import END, StateGraph
 from app.agents.tools import get_mandi_price, get_weather, scrape_agricultural_news
 from app.config import settings
 
-# Unified Premium Speaker for Bulbul v1
+# Unified Premium Speaker for Bulbul v2
 SPEAKERS = {
-    "hi-IN": "ritu", "pa-IN": "ritu", "bn-IN": "ritu",
-    "ta-IN": "ritu", "te-IN": "ritu", "kn-IN": "ritu",
-    "ml-IN": "ritu", "mr-IN": "ritu", "gu-IN": "ritu",
-    "od-IN": "ritu", "as-IN": "ritu", "en-IN": "ritu",
+    "hi-IN": "manisha", "pa-IN": "manisha", "bn-IN": "manisha",
+    "ta-IN": "manisha", "te-IN": "manisha", "kn-IN": "manisha",
+    "ml-IN": "manisha", "mr-IN": "manisha", "gu-IN": "manisha",
+    "od-IN": "manisha", "as-IN": "manisha", "en-IN": "manisha",
 }
 
 LANG_MAP = {

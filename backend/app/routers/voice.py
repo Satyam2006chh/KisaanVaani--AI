@@ -19,12 +19,12 @@ router = APIRouter(prefix="/api/voice", tags=["Voice"])
 SARVAM_STT = "https://api.sarvam.ai/speech-to-text"
 SARVAM_TTS = "https://api.sarvam.ai/text-to-speech"
 
-# Unified Speakers for Bulbul v1 (Handles all languages naturally)
+# Unified Speakers for Bulbul v2 (Manisha is high-quality multi-lingual)
 SPEAKERS = {
-    "hi-IN": "ritu", "pa-IN": "ritu", "bn-IN": "ritu",
-    "ta-IN": "ritu", "te-IN": "ritu", "kn-IN": "ritu",
-    "ml-IN": "ritu", "mr-IN": "ritu", "gu-IN": "ritu",
-    "od-IN": "ritu", "as-IN": "ritu", "en-IN": "ritu", # 'ritu' or 'priya' are excellent multi-lingual
+    "hi-IN": "manisha", "pa-IN": "manisha", "bn-IN": "manisha",
+    "ta-IN": "manisha", "te-IN": "manisha", "kn-IN": "manisha",
+    "ml-IN": "manisha", "mr-IN": "manisha", "gu-IN": "manisha",
+    "od-IN": "manisha", "as-IN": "manisha", "en-IN": "manisha",
 }
 
 # Default message if nothing is heard
@@ -156,7 +156,7 @@ async def speak(req: TTSRequest):
                 "target_language_code": req.language,
                 "speaker": req.speaker or SPEAKERS.get(req.language, "anushka"),
                 "enable_preprocessing": True,
-                "model": "bulbul:v1",
+                "model": "bulbul:v2",
             },
         )
 
