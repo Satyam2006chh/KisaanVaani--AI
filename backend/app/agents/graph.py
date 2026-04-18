@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import List, TypedDict
 
@@ -7,7 +8,13 @@ from langgraph.graph import END, StateGraph
 from app.agents.tools import get_mandi_price, get_weather, scrape_agricultural_news
 from app.config import settings
 
-logger = logging.getLogger(__name__)
+# Unified Premium Speaker for Bulbul v1
+SPEAKERS = {
+    "hi-IN": "ritu", "pa-IN": "ritu", "bn-IN": "ritu",
+    "ta-IN": "ritu", "te-IN": "ritu", "kn-IN": "ritu",
+    "ml-IN": "ritu", "mr-IN": "ritu", "gu-IN": "ritu",
+    "od-IN": "ritu", "as-IN": "ritu", "en-IN": "ritu",
+}
 
 LANG_MAP = {
     "hi-IN": "Hindi",  "pa-IN": "Punjabi", "bn-IN": "Bengali",
@@ -58,7 +65,7 @@ async def _call_gemini_vision(prompt: str, image_base64: str) -> str:
 
     try:
         genai.configure(api_key=settings.gemini_api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-flash-latest')
         
         # Strip potential data:image/png;base64, prefix
         if "," in image_base64:
@@ -67,8 +74,7 @@ async def _call_gemini_vision(prompt: str, image_base64: str) -> str:
         img_data = base64.b64decode(image_base64)
         
         # Using the standard SDK pattern for vision
-        response = await asyncio.to_thread(
-            model.generate_content,
+        response = model.generate_content(
             [prompt, {"mime_type": "image/jpeg", "data": img_data}]
         )
         return response.text
@@ -243,11 +249,16 @@ async def llm_node(state: AgentState) -> AgentState:
         # Vision Path
         prompt = (
             f"{_system_prompt(state)}\n\n"
-            f"Aap ek Agri-Scientist aur Plant Pathologist hain. Farmer ne ek tasveer bheji hai aur poochha hai: '{user_msg}'. "
-            "Tasveer ko dhyan se dekhein aur bimari/kide (pest) ko pehchanein. "
-            "Technical details dein (Disease name, symptoms, and exact pesticide or organic remedy). "
-            "Confidence level bhi mention karein (e.g., '90% sambhavna hai ki...')."
-            "Jawab bahut supportive aur scientific hona chahiye."
+            f"Aap ek World-Class Senior Agri-Scientist aur Expert Plant Pathologist hain. Farmer ne ek tasveer bheji hai aur poochha hai: '{user_msg}'. "
+            "IMPORTANT: Aapka jawab bahut DETAILED aur PROFESSIONAL hona chahiye. "
+            "Answer must follow this structure:\n"
+            "1. Bimari ki Pehchan (Scientific Name included).\n"
+            "2. Lakshan (Symptoms).\n"
+            "3. Confidence Level (%).\n"
+            "4. Rasayanik IIaj (Chemical treatment with exact names).\n"
+            "5. Jaivik/Organic IIaj (Organic remedies).\n"
+            "6. Krishi Prabandhan (Management tips to prevent future outbreaks).\n"
+            "Maintain an expert yet caring tone."
         )
         result = await _call_gemini_vision(prompt, state["image_data"])
     else:

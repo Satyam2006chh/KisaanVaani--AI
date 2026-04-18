@@ -137,11 +137,9 @@ export default function Hero() {
       setReply(res.response)
       
       // Start TTS immediately after receiving text
-      setStatus(S.PROCESSING) // Keep processing state while audio loads
+      setStatus(S.PROCESSING)
       try {
-        // Use 'shubh' for vision-based expert advice, otherwise default
-        const speaker = (image || res.tool_used === 'vision') ? 'shubh' : null
-        const audioUrl = await speakText(res.response, selectedLang, speaker)
+        const audioUrl = await speakText(res.response, selectedLang)
         await playAudio(audioUrl)
       } catch (audioErr) {
         console.error('TTS Failed:', audioErr)

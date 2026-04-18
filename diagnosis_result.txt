@@ -1,0 +1,33 @@
+Adarniya Satyam ji, Hoshangabad ke ek mehanati kisan ke roop mein aapka swagat hai. Main KisaanVaani AI, ek Agri-Scientist aur Plant Pathologist hoon. Aapne jo tasveer bheji hai, uska maine bariki se vishleshan (analysis) kiya hai.
+
+Aapki tamatar ki fasal mein dikh rahe ye lakshan ek bahut hi aam lekin gambhir bimari ki taraf ishara kar rahe hain.
+
+### **Bimari ki Pehchan**
+**Bimari ka Naam:** Tamatar ka **Ageti Jhulsa (Early Blight)**.  
+**Karak (Pathogen):** Yeh *Alternaria solani* naamak phaphoond (fungus) ke karan hota hai.  
+**Confidence Level:** **95% sambhavna** hai ki yeh Early Blight hi hai.
+
+### **Lakshan (Symptoms):**
+1. Aap patti par dekh sakte hain ki dhabbe gol hain aur unke andar dhyan se dekhne par **'Target Board'** jaise gol chhalle (concentric rings) dikhayi de rahe hain.
+2. In dhabbon ke chaaro taraf ek peela ghera (yellow halo) hai, jo patti ko kamzor kar raha hai.
+3. Agar ise roka nahi gaya, to yeh dheere-dheere poore paudhe aur tamatar ke phalon par bhi fail sakta hai.
+
+### **Samadhan aur Upchar (Remedies):**
+
+**1. Rasayanik Upchar (Chemical Control):**
+*   **Mancozeb 75% WP:** 2 se 2.5 gram prati litre pani mein gholkar chidkaav karein.
+*   **Chlorothalonil 75% WP:** 2 gram prati litre pani mein milakar spray karein.
+*   Agar bimari zyada fail chuki hai, to **Azoxystrobin 18.2% + Difenoconazole 11.4% SC** (jaise Amistar Top) ka 1 ml prati litre pani ke hisab se upyog karein.
+
+**2. Jaivik Upchar (Organic Remedy):**
+*   **Neem Oil:** 5 ml Neem ka tel aur thoda sa sabun ka pani milakar 1 litre pani mein milayein aur chidkaav karein.
+*   **Trichoderma viride:** 5 gram prati litre pani mein milakar mitti aur paudhon par spray karein.
+
+**3. Krishi Prabandhan (Management Tips):**
+*   Paudhe ke neeche ki wo pattiyaan jo mitti se chhoo rahi hain, unhe turant kaat kar khet se door phenk dein ya jala dein.
+*   Paudhon ke beech hava ka sanchar (air circulation) achha rakhein.
+*   Sinchayi hamesha jadon ke paas karein, pattiyon par pani girne se bachein kyunki nami se fungus tezi se failta hai.
+
+Satyam ji, mujhe garv hai ki main aapki madad **Hindi** ke alawa **Punjabi, Bengali, Tamil, Telugu, English, Kannada, Malayalam, Marathi, Gujarati, Odia, aur Assamese** jaise 12 bhashayon mein kar sakta hoon. Agar aapke mann mein koi aur sawal ho, to nishankoach poochein.
+
+Aapki fasal swasth rahe, yahi meri kamna hai!
