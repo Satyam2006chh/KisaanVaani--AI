@@ -13,7 +13,7 @@ LANG_MAP = {
     "hi-IN": "Hindi",  "pa-IN": "Punjabi", "bn-IN": "Bengali",
     "ta-IN": "Tamil",  "te-IN": "Telugu",  "en-IN": "English",
     "kn-IN": "Kannada","ml-IN": "Malayalam","mr-IN": "Marathi",
-    "gu-IN": "Gujarati","od-IN": "Odia",
+    "gu-IN": "Gujarati","od-IN": "Odia", "as-IN": "Assamese",
 }
 
 
@@ -48,17 +48,26 @@ async def _call_groq(messages: list, max_tokens: int = 512) -> str:
 
 
 
-def _system_prompt(state: AgentState) -> AgentState:
+def _system_prompt(state: AgentState) -> str:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
+    supported_langs = ", ".join(LANG_MAP.values())
+    
     return (
-        f"Aap KisaanVaani AI hain — Indian farmers ke liye ek mahan agricultural expert. "
-        f"Aapka kaam kisanon ko sahi aur professional salah dena hai. "
-        f"Hamesha {lang_name} mein jawab dein. "
+        f"Aap KisaanVaani AI hain — Indian farmers ke liye ek mahan aur adarniya agricultural expert. "
+        f"Aapka kaam kisanon ko sahi, professional aur sammanjanak salah dena hai. "
         f"Aap abhi {state['farmer_name']} ji se baat kar rahe hain jo {state['district']}, {state['state_name']} se hain. "
-        f"Apne har jawab ki shuruat samman ke saath karein. "
-        "IMPORTANT: Aapka jawab bhot chhota aur impactful hona chahiye (MAX 2-3 SENTENCES) taaki voice assistant usey aasani se bol sake. "
-        "Faltu ki lambi baatein na karein, sirf kaam ki baat aur ek expert tip dein. "
-        "Farmer ko lage ki koi bada expert unse baat kar raha hai jo unki mitti ko samajhta hai."
+        f"Hamesha {lang_name} mein jawab dein. "
+        f"IMPORTANT: Aap ek multilingual AI hain jo in bhashayon ko samajhta aur bol sakta hai: {supported_langs}. "
+        "Agar user aapki capabilities ke bare mein pooche, to garv se batayein ki aap in sabhi bhashayon mein madad kar sakte hain. "
+        "\n\nGUIDELINES:\n"
+        "1. Samman: Apne har jawab ki shuruat 'Adarniya' ya 'Ji' jaise sammanjanak shabdon se karein.\n"
+        "2. Scope: Agar user koi aisa sawal pooche jo kheti ya project se related nahi hai, "
+        "to pehle pyaar se bole ki 'Adarniya {state['farmer_name']} ji, ye sawal hamare kheti prashikshan se thoda alag hai, "
+        "par aapki jankari ke liye...' aur phir agar aapko jawab pata ho to chhota sa jawab de dein taaki user khush rahe.\n"
+        "3. Impact: Aapka jawab chhota aur impactful hona chahiye (MAX 2-3 SENTENCES). "
+        "Faltu ki lambi baatein na karein, sirf kaam ki baat aur ek expert tip dein.\n"
+        "4. Location Identity: Agar user kisi specific jagah ka naam le (e.g. 'Mumbai ka mausam'), "
+        "to us jagah ka data dein. Agar koi jagah mention na ho, tabhi unke registered district ({state['district']}) ka data dein."
     )
 
 
@@ -98,7 +107,9 @@ async def weather_node(state: AgentState) -> AgentState:
     
     # Extract district if mentioned
     extraction_prompt = (
-        "Extract the 'district' and 'state' if mentioned in this query. "
+        "Aap ek smart data extraction expert hain. Is query se 'district' aur 'state' extract karein. "
+        "IMPORTANT: Agar user ne kisi specific shehar ya zila ka naam liya hai (e.g. 'Mumbai', 'Pune', 'New York'), "
+        "to use hi 'district' mein rakhein. Agar query mein koi jagah nahi hai, to return empty values. "
         "Return ONLY JSON: {\"district\": \"...\", \"state\": \"...\"}\n\n"
         f"Query: {msg}"
     )

@@ -87,8 +87,16 @@ export default function Hero() {
     try {
       const res = await chatWithAgent(text)
       setReply(res.response)
-      const audioUrl = await speakText(res.response)
-      await playAudio(audioUrl)
+      
+      // Start TTS immediately after receiving text
+      setStatus(S.PROCESSING) // Keep processing state while audio loads
+      try {
+        const audioUrl = await speakText(res.response)
+        await playAudio(audioUrl)
+      } catch (audioErr) {
+        console.error('TTS Failed:', audioErr)
+        setStatus(S.IDLE)
+      }
     } catch (err) {
       setError('System busy. Phir se try karein.')
       setStatus(S.IDLE)
@@ -129,7 +137,7 @@ export default function Hero() {
              status === S.PROCESSING ? <Loader size={36} className="spin" /> : <Mic size={36} />}
             <div className="mic-status-v2">
               {status === S.RECORDING ? 'Suno rha hoon...' : 
-               status === S.PROCESSING ? 'Samajh rha hoon...' : 
+               status === S.PROCESSING ? (reply ? 'Awaaz taiyar ho rahi hai...' : 'Samajh rha hoon...') : 
                status === S.SPEAKING ? 'Bol rha hoon...' : 'Touch to Speak'}
             </div>
           </button>

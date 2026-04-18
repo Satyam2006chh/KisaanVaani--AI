@@ -14,6 +14,7 @@ const LANGUAGES = [
   { name: 'Marathi',   native: 'मराठी',     flag: '🟨', code: 'mr-IN' },
   { name: 'Gujarati',  native: 'ગુજરાતી',    flag: '🟪', code: 'gu-IN' },
   { name: 'Odia',      native: 'ଓଡ଼ିଆ',     flag: '🟫', code: 'od-IN' },
+  { name: 'Assamese',  native: 'অসমীয়া',    flag: '🐘', code: 'as-IN' },
   { name: 'English',   native: 'English',    flag: '📖',  code: 'en-IN' },
 ]
 

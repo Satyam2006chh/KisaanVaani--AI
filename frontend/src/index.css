@@ -62,6 +62,7 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
+  width: 100%;
 }
 
 /* Glassmorphism V2 */
@@ -299,6 +300,38 @@ p {
 ::selection {
   background: hsla(160, 84%, 39%, 0.3);
   color: #fff;
+}
+
+/* Mobile Responsiveness Improvements */
+@media (max-width: 1000px) {
+  .feature-grid { grid-template-columns: 1fr; gap: 20px; }
+  .steps-row { display: none; }
+  .hero-header h1 { font-size: clamp(2.5rem, 10vw, 4rem); }
+}
+
+@media (max-width: 600px) {
+  .hero-section { padding: 100px 0 60px; }
+  .hero-header { margin-bottom: 40px; }
+  .hero-header h1 { font-size: 2.8rem; }
+  
+  .mic-aura { width: 220px; height: 220px; }
+  .mic-trigger-v2 { width: 130px; height: 130px; }
+  .mic-trigger-v2 svg { width: 28px; height: 28px; }
+  
+  .transcript-bubble { 
+    margin: 20px 10px; 
+    padding: 15px 25px; 
+    font-size: 1rem; 
+    width: 90%; 
+  }
+  
+  .feature-card { padding: 24px; }
+  .feature-card h3 { font-size: 1.3rem; }
+}
+
+@media (max-width: 400px) {
+  .hero-header h1 { font-size: 2.2rem; }
+  .badge { font-size: 0.7rem; padding: 10px 20px; }
 }
 
 /* Mobile Adjustments */

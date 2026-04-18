@@ -23,7 +23,7 @@ SPEAKERS = {
     "hi-IN": "anushka", "pa-IN": "manisha", "bn-IN": "manisha",
     "ta-IN": "anushka", "te-IN": "anushka", "kn-IN": "anushka",
     "ml-IN": "anushka", "mr-IN": "manisha", "gu-IN": "manisha",
-    "od-IN": "abhilash", "en-IN": "anushka",
+    "od-IN": "abhilash", "as-IN": "manisha", "en-IN": "anushka",
 }
 
 # Default message if nothing is heard
@@ -39,6 +39,7 @@ SILENCE_REPLY = {
     "pa-IN": "ਮੁਆਫ ਕਰਨਾ, ਮੈਨੂੰ ਤੁਹਾਡੀ ਆਵਾਜ਼ ਸੁਣਾਈ ਨਹੀਂ ਦਿੱਤੀ। ਕੀ ਤੁਸੀਂ ਦੁਬਾਰਾ ਬੋਲ ਸਕਦੇ ਹੋ?",
     "bn-IN": "দুঃখিত, আমি আপনার কথা শুনতে পাইনি। আপনি কি আবার বলতে পারেন?",
     "od-IN": "କ୍ଷମା କରିବେ, ମୋତେ ଆପଣଙ୍କ ସ୍ୱର ଶୁଭିଲା ନାହିଁ । ଦୟାକରି ପୁଣିଥରେ କହିବେ କି?",
+    "as-IN": "দুঃখিত, মই আপোনাৰ মাত শুনিবলৈ নাপালোঁ। আপুনি আকৌ ক’ব পাৰিবনে?",
 }
 
 
