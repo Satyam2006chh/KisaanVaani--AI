@@ -13,15 +13,15 @@ export default function Hero() {
   const [reply, setReply] = useState('')
   const [error, setError] = useState('')
   
-  const recognitionRef = useRef(null)
-  const audioRef = useRef(null)
+  const mediaRecorderRef = useRef(null)
+  const chunksRef = useRef([])
 
   // Language based on user profile
   const langCode = user?.language || 'hi-IN'
 
   function stopAll() {
-    if (recognitionRef.current?.recognition) {
-      try { recognitionRef.current.recognition.stop() } catch {}
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
     }
     if (audioRef.current) {
       audioRef.current.pause()
@@ -32,60 +32,59 @@ export default function Hero() {
   async function startRecording() {
     stopAll()
     setError(''); setTranscript(''); setReply(''); 
+    chunksRef.current = []
 
     try {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-      if (!SpeechRecognition) {
-        throw new Error('Aapka browser voice support nahi karta. Please Chrome use karein.')
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
       }
 
-      const recognition = new SpeechRecognition()
-      recognition.lang = langCode
-      recognition.interimResults = true
-      recognition.continuous = false 
-
-      recognition.onstart = () => setStatus(S.RECORDING)
-
-      recognition.onresult = (e) => {
-        const text = Array.from(e.results).map(r => r[0].transcript).join('')
-        const statusEl = document.querySelector('.mic-status-v2')
-        if (statusEl) statusEl.innerText = text
-        if (e.results[0].isFinal) setTranscript(text)
-      }
-
-      recognition.onend = async () => {
-        // Triggered only if record logic was active
-        const finalQuery = document.querySelector('.mic-status-v2')?.innerText
-        if (finalQuery && finalQuery.trim().length > 5 && finalQuery !== 'Listening...') {
-          setStatus(S.PROCESSING)
-          await handleChat(finalQuery.trim())
-        } else {
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        setStatus(S.PROCESSING)
+        
+        try {
+          // Use 'unknown' to trigger Sarvam Auto-detection
+          const res = await transcribeAudio(blob, 'unknown')
+          if (res.status === 'SUCCESS') {
+             setTranscript(res.transcript)
+             await handleChat(res.transcript, res.detected_language)
+          } else if (res.status === 'SILENCE_DETECTED') {
+             setReply(res.silence_reply)
+             setStatus(S.SPEAKING)
+          } else {
+             throw new Error(res.error || 'Transcription failed')
+          }
+        } catch (err) {
+          setError('Maaf kijiye, main sun nahi paaya. Dubara koshish karein.')
           setStatus(S.IDLE)
         }
+        
+        // Stop all tracks to release mic
+        stream.getTracks().forEach(t => t.stop())
       }
 
-      recognition.onerror = (e) => {
-        setError(e.error === 'not-allowed' ? 'Mic blocked!' : 'Kuch sunai nahi diya.')
-        setStatus(S.IDLE)
-      }
-
-      recognitionRef.current = { recognition }
-      recognition.start()
+      mediaRecorderRef.current = recorder
+      recorder.start()
+      setStatus(S.RECORDING)
     } catch (err) {
-      setError(err.message)
+      setError('Mic access denied! Please check browser permissions.')
       setStatus(S.IDLE)
     }
   }
 
   function stopRecording() {
-    if (recognitionRef.current?.recognition) {
-        recognitionRef.current.recognition.stop()
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
     }
   }
 
-  async function handleChat(text) {
+  async function handleChat(text, detectedLang = null) {
     try {
-      const res = await chatWithAgent(text)
+      const res = await chatWithAgent(text, null, detectedLang || langCode)
       setReply(res.response)
       
       // Start TTS immediately after receiving text

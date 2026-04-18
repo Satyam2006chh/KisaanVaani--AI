@@ -24,7 +24,8 @@ async def chat(req: ChatRequest):
     state_name = user.get("state", "Delhi")    if user else "Delhi"
     city       = user.get("city", district)    if user else district
     name       = user.get("name", "Kisaan")    if user else "Kisaan"
-    language   = user.get("language", req.language) if user else req.language
+    # Prioritize requested/detected language for dynamic response, fallback to profile
+    language = req.language if req.language else (user.get("language", "hi-IN") if user else "hi-IN")
 
     # Multilingual Flow: AI works in English
     agent_message = req.english_message

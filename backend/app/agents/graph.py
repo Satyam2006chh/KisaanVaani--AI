@@ -80,7 +80,8 @@ async def intent_router(state: AgentState) -> AgentState:
         "mandi": ["bhav", "mandi", "rate", "keemat", "price", "daam"],
         "crop_advice": ["fasal", "crop", "ugao", "kheti", "kya lagao"],
         "news": ["new", "latest", "news", "update", "samachar", "khabar", "taza"],
-        "eligibility": ["eligible", "patrata", "apply", "registration"]
+        "eligibility": ["eligible", "patrata", "apply", "registration"],
+        "lang_switch": ["punjabi", "hindi", "english", "tamil", "gujarati", "bengali", "marathi", "odiya", "kannada", "malayalam", "telugu", "assamese", "bhasha", "language", "mein bolo", "mein jawab do"]
     }
     
     for intent, words in keywords.items():
@@ -89,7 +90,7 @@ async def intent_router(state: AgentState) -> AgentState:
             
     # 2. LLM Fallback (Smart)
     intent_prompt = (
-        "Classify user intent into: weather, mandi, news, crop_advice, eligibility, or scheme. "
+        "Classify user intent into: weather, mandi, news, crop_advice, eligibility, scheme, or lang_switch (if user wants to change response language). "
         "Return ONLY the word of the intent.\n\n"
         f"Message: {msg}"
     )
@@ -193,6 +194,40 @@ async def llm_node(state: AgentState) -> AgentState:
     return {**state, "tool_result": result}
 
 
+async def lang_switch_node(state: AgentState) -> AgentState:
+    msg = state["messages"][-1]["content"].lower()
+    
+    # 1. Quick find
+    new_lang = state["language"]
+    for code, name in LANG_MAP.items():
+        if name.lower() in msg:
+            new_lang = code
+            break
+            
+    # 2. LLM validation if needed
+    if new_lang == state["language"]:
+        prompt = (
+            "User wants to change response language. Identify the target language code from this list: "
+            f"{list(LANG_MAP.keys())}. If mentioned language is Punjabi, use 'pa-IN'. "
+            "Return ONLY the code. If not clear, return current: " + state["language"] + "\n\n"
+            "Query: " + msg
+        )
+        try:
+            detected = await _call_groq([{"role": "system", "content": prompt}], max_tokens=10)
+            detected = detected.strip()
+            if detected in LANG_MAP:
+                new_lang = detected
+        except Exception:
+            pass
+
+    lang_name = LANG_MAP.get(new_lang, "Hindi")
+    return {
+        **state, 
+        "language": new_lang, 
+        "tool_result": f"Theek hai, ab se main aapko {lang_name} mein jawab doonga. Main aapki kaise madad kar sakta hoon?"
+    }
+
+
 async def crop_advice_node(state: AgentState) -> AgentState:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
     messages = [
@@ -218,6 +253,7 @@ def _route(state: AgentState) -> str:
         "mandi":      "mandi_node",
         "news":       "news_node",
         "crop_advice":"crop_advice_node",
+        "lang_switch":"lang_switch_node",
     }.get(state["intent"], "llm_node")
 
 
@@ -229,6 +265,7 @@ def _build_agent():
     g.add_node("news_node",        news_node)
     g.add_node("llm_node",         llm_node)
     g.add_node("crop_advice_node", crop_advice_node)
+    g.add_node("lang_switch_node", lang_switch_node)
     g.add_node("format_answer",    format_answer)
     g.set_entry_point("intent_router")
     g.add_conditional_edges("intent_router", _route, {
@@ -237,8 +274,9 @@ def _build_agent():
         "news_node":        "news_node",
         "llm_node":         "llm_node",
         "crop_advice_node": "crop_advice_node",
+        "lang_switch_node": "lang_switch_node",
     })
-    for node in ["weather_node", "mandi_node", "news_node", "llm_node", "crop_advice_node"]:
+    for node in ["weather_node", "mandi_node", "news_node", "llm_node", "crop_advice_node", "lang_switch_node"]:
         g.add_edge(node, "format_answer")
     g.add_edge("format_answer", END)
     return g.compile()

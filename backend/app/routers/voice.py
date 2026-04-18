@@ -106,25 +106,30 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
                 data={"language_code": language, "model": "saarika:v2.5"},
             )
             r.raise_for_status()
-            transcript = r.json().get("transcript", "").strip()
-            logger.info(f"Sarvam Answer: '{transcript}'")
+            res_json = r.json()
+            transcript = res_json.get("transcript", "").strip()
+            detected_lang = res_json.get("language_code", language)
+            
+            logger.info(f"Sarvam Answer: '{transcript}' [Detected: {detected_lang}]")
             
             if not transcript:
                 return {
                     "transcript": "", 
                     "english_transcript": "", 
                     "language": language, 
+                    "detected_language": detected_lang,
                     "status": "SILENCE_DETECTED",
-                    "silence_reply": SILENCE_REPLY.get(language, SILENCE_REPLY["en-IN"])
+                    "silence_reply": SILENCE_REPLY.get(detected_lang, SILENCE_REPLY["en-IN"])
                 }
 
-            # Translate to English for Agent consumption
-            english_transcript = await translate_text(transcript, language, "en-IN")
+            # Translate to English for Agent consumption using DETECTED language
+            english_transcript = await translate_text(transcript, detected_lang, "en-IN")
             
             return {
                 "transcript": transcript, 
                 "english_transcript": english_transcript, 
                 "language": language,
+                "detected_language": detected_lang,
                 "status": "SUCCESS"
             }
         except Exception as e:

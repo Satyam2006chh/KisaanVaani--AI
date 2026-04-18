@@ -20,14 +20,14 @@ const api = () => axios.create({
 })
 
 
-export async function chatWithAgent(message, englishMessage = null) {
+export async function chatWithAgent(message, englishMessage = null, language = null) {
   const user = getUser()
   const { data } = await api().post('/api/agent/chat', {
     farmer_id:  user?.farmer_id || 'guest',
     session_id: getSessionId(),
     message,
     english_message: englishMessage,
-    language:   user?.language || 'hi-IN',
+    language:   language || user?.language || 'hi-IN',
   })
   return data // Return full data object
 }
@@ -44,13 +44,13 @@ export async function speakText(text) {
 }
 
 
-export async function transcribeAudio(blob) {
+export async function transcribeAudio(blob, language = null) {
   const user = getUser()
   const mime = blob.type || 'audio/webm'
   const ext  = mime.includes('mp4') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm'
   const form = new FormData()
   form.append('audio', blob, `audio.${ext}`)
-  form.append('language', user?.language || 'hi-IN')
+  form.append('language', language || user?.language || 'hi-IN')
   const { data } = await api().post('/api/voice/transcribe', form)
   return data // Return full object {transcript, english_transcript, status...}
 }
