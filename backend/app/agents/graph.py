@@ -64,8 +64,9 @@ def _system_prompt(state: AgentState) -> str:
         "2. Scope: Agar user koi aisa sawal pooche jo kheti ya project se related nahi hai, "
         "to pehle pyaar se bole ki 'Adarniya {state['farmer_name']} ji, ye sawal hamare kheti prashikshan se thoda alag hai, "
         "par aapki jankari ke liye...' aur phir agar aapko jawab pata ho to chhota sa jawab de dein taaki user khush rahe.\n"
-        "3. Impact: Aapka jawab chhota aur impactful hona chahiye (MAX 2-3 SENTENCES). "
-        "Faltu ki lambi baatein na karein, sirf kaam ki baat aur ek expert tip dein.\n"
+        "3. Impact: Aapka jawab impactful aur informative hona chahiye. "
+        "Koshish karein ki user ko poori jaankari mile, lekin baatein faltu na hon. "
+        "Ek expert scientist ki tarah jawab dein.\n"
         "4. Location Identity: Agar user kisi specific jagah ka naam le (e.g. 'Mumbai ka mausam'), "
         "to us jagah ka data dein. Agar koi jagah mention na ho, tabhi unke registered district ({state['district']}) ka data dein."
     )
@@ -79,7 +80,7 @@ async def intent_router(state: AgentState) -> AgentState:
         "weather": ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature"],
         "mandi": ["bhav", "mandi", "rate", "keemat", "price", "daam"],
         "crop_advice": ["fasal", "crop", "ugao", "kheti", "kya lagao"],
-        "news": ["new", "latest", "news", "update", "samachar", "khabar", "taza"],
+        "news": ["new", "latest", "news", "update", "samachar", "khabar", "taza", "yojana", "scheme", "labh", "benefit", "subsidy"],
         "eligibility": ["eligible", "patrata", "apply", "registration"],
         "lang_switch": ["punjabi", "hindi", "english", "tamil", "gujarati", "bengali", "marathi", "odiya", "kannada", "malayalam", "telugu", "assamese", "bhasha", "language", "mein bolo", "mein jawab do"]
     }
@@ -122,8 +123,9 @@ async def weather_node(state: AgentState) -> AgentState:
         import json
         params = json.loads(raw.strip())
         location = params.get("location", state["city"])
+        loc_state = params.get("state", state["state_name"])
         
-        weather_data = await get_weather(location)
+        weather_data = await get_weather(location, loc_state)
         if "error" in weather_data:
             result = f"Maaf kijiye, mujhe {location} ka mausam data nahi mil pa raha hai."
         else:
@@ -165,8 +167,9 @@ async def mandi_node(state: AgentState) -> AgentState:
         params = json.loads(raw.strip())
         crop = params.get("commodity", "")
         dist = params.get("district", state["district"])
+        st = params.get("state", state["state_name"])
         
-        mandi_data = await get_mandi_prices(dist, crop)
+        mandi_data = await get_mandi_price(crop, dist, st)
         
         advice_msg = [
             {"role": "system", "content": (
@@ -206,8 +209,9 @@ async def llm_node(state: AgentState) -> AgentState:
     messages = [
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
-            "Abhi farmer ek general sawal pooch raha hai. "
-            "IMPORTANT: Jawab bhot chhota aur impactful hona chahiye (MAX 2 sentences)."
+            "Abhi farmer ek general sawal pooch raha hai jo shayad kheti se alag ho sakta hai. "
+            "IMPORTANT: Jawab detailed aur tagda (robust) hona chahiye taaki user ko lage ki aapko sab pata hai. "
+            "Provide a complete and satisfying answer while maintaining the polite disclaimer."
         )},
         {"role": "user",   "content": state["messages"][-1]["content"]},
     ]
@@ -274,6 +278,7 @@ def _route(state: AgentState) -> str:
         "weather":    "weather_node",
         "mandi":      "mandi_node",
         "news":       "news_node",
+        "scheme":     "news_node",
         "crop_advice":"crop_advice_node",
         "lang_switch":"lang_switch_node",
     }.get(state["intent"], "llm_node")
