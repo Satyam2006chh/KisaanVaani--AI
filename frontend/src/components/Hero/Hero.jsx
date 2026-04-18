@@ -15,6 +15,7 @@ export default function Hero() {
   
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
+  const audioRef = useRef(null)
 
   // Language based on user profile
   const langCode = user?.language || 'hi-IN'
