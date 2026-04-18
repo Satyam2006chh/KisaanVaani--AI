@@ -104,62 +104,83 @@ async def intent_router(state: AgentState) -> AgentState:
 
 
 async def weather_node(state: AgentState) -> AgentState:
-    msg = state["messages"][-1]["content"]
-    
-    # Extract district if mentioned
-    extraction_prompt = (
-        "Aap ek smart data extraction expert hain. Is query se 'district' aur 'state' extract karein. "
-        "IMPORTANT: Agar user ne kisi specific shehar ya zila ka naam liya hai (e.g. 'Mumbai', 'Pune', 'New York'), "
-        "to use hi 'district' mein rakhein. Agar query mein koi jagah nahi hai, to return empty values. "
-        "Return ONLY JSON: {\"district\": \"...\", \"state\": \"...\"}\n\n"
-        f"Query: {msg}"
-    )
-    
-    district = state["district"]
-    state_name = state["state_name"]
+    lang_name = LANG_MAP.get(state["language"], "Hindi")
+    messages = [
+        {"role": "system", "content": (
+            f"Aap ek Senior Agriculture Meteorologist (Mousam Aur Krishi Vigyanik) hain. "
+            f"User ka message: {state['messages'][-1]['content']}. "
+            f"Agar user ne specific location nahi di hai, toh '{state['city']}' use karein. "
+            "IMPORTANT: Aapko exact city extraction karni hai. "
+            "Return ONLY a JSON with: {'location': 'City Name', 'units': 'metric'}. "
+            "Bina kisi extra text ke."
+        )},
+        {"role": "user", "content": state["messages"][-1]["content"]},
+    ]
     
     try:
-        raw = await _call_groq([{"role": "system", "content": extraction_prompt}], max_tokens=50)
+        raw = await _call_groq(messages, max_tokens=50)
         import json
-        params = json.loads(raw)
-        if params.get("district"): district = params["district"]
-        if params.get("state"): state_name = params["state"]
-    except Exception:
-        pass
-
-    result = await get_weather(district, state_name)
+        params = json.loads(raw.strip())
+        location = params.get("location", state["city"])
+        
+        weather_data = await get_weather(location)
+        if "error" in weather_data:
+            result = f"Maaf kijiye, mujhe {location} ka mausam data nahi mil pa raha hai."
+        else:
+            # Data integration into an Expert Advice response
+            messages = [
+                {"role": "system", "content": (
+                    f"{_system_prompt(state)}\n\n"
+                    f"Aap ek Senior Scientist hain. Weather data for {location}: {weather_data}. "
+                    "Incorporate technical details like Humidity, Wind Speed, and Temperature. "
+                    "Provide specific agricultural advice: E.g., if rain is predicted, advise against irrigation or fertilizer application. "
+                    "Jawab {lang_name} mein dein. "
+                    "Tone: Professional, Scientific, yet Caring."
+                )},
+                {"role": "user", "content": state["messages"][-1]["content"]},
+            ]
+            result = await _call_groq(messages)
+    except Exception as e:
+        logger.error(f"Weather node failed: {e}")
+        result = "Mausam ki jankari nikalne mein thodi dikkat ho rahi hai. Kripya dushri baar poochien."
+        
     return {**state, "tool_result": result}
 
 
 async def mandi_node(state: AgentState) -> AgentState:
-    msg = state["messages"][-1]["content"]
-    
-    # 1. Use LLM to extract crop and district from natural language
-    extraction_prompt = (
-        "Aap ek data extraction expert hain. Is message se 'crop' aur 'district' extract karein. "
-        "Agar district nahi bataya gaya hai to use empty rakhein. "
-        "Fasal (crop) ka naam hamesha English mein dein (e.g. Wheat, Mustard). "
-        "Sirf JSON format mein jawab dein: {\"crop\": \"...\", \"district\": \"...\"}\n\n"
-        f"Message: {msg}"
-    )
+    lang_name = LANG_MAP.get(state["language"], "Hindi")
+    messages = [
+        {"role": "system", "content": (
+            f"Aap ek Mandi Market Analyst hain. User message: {state['messages'][-1]['content']}. "
+            f"Extract the crop/commodity. If no district mentioned, assume '{state['district']}'. "
+            "Return ONLY a JSON: {'commodity': 'wheat/rice/soybean etc', 'district': 'name'}. "
+            "Use only English for JSON keys and values."
+        )},
+        {"role": "user", "content": state["messages"][-1]["content"]},
+    ]
     
     try:
-        raw_json = await _call_groq([{"role": "system", "content": extraction_prompt}], max_tokens=100)
+        raw = await _call_groq(messages, max_tokens=50)
         import json
-        params = json.loads(raw_json)
-        crop = params.get("crop", "wheat")
-        target_district = params.get("district")
+        params = json.loads(raw.strip())
+        crop = params.get("commodity", "")
+        dist = params.get("district", state["district"])
+        
+        mandi_data = await get_mandi_prices(dist, crop)
+        
+        advice_msg = [
+            {"role": "system", "content": (
+                f"{_system_prompt(state)}\n\n"
+                f"Mandi Data for {crop} in {dist}: {mandi_data}. "
+                "Evaluate the prices. Is it a good time to sell? Mention the trends. "
+                f"Explain thoroughly in {lang_name}. Make it feel like an expert market analysis."
+            )},
+            {"role": "user", "content": state["messages"][-1]["content"]},
+        ]
+        result = await _call_groq(advice_msg)
     except Exception:
-        # Fallback to simple extraction if LLM fails
-        crops = ["gehun", "wheat", "dhan", "rice", "sarson", "mustard", "makka", "maize"]
-        crop = next((c for c in crops if c in msg.lower()), "wheat")
-        target_district = None
+        result = f"Maaf kijiye, {dist} ki mandi mein filhaal data mil nahi raha hai."
 
-    # Use specified district or fall back to farmer's registered district
-    district = target_district if target_district else state["district"]
-    state_name = state["state_name"] # We could also extract state but district is usually enough for Mandi
-    
-    result = await get_mandi_price(crop, district, state_name)
     return {**state, "tool_result": result}
 
 
@@ -233,9 +254,10 @@ async def crop_advice_node(state: AgentState) -> AgentState:
     messages = [
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
-            f"Aap ek varishta (senior) agriculture scientist hain. Farmer {state['farmer_name']} ko unke khet ke liye "
-            f"sabse behtareen fasal ki salah dein. Unko batayein ki is season mein mitti aur mausam ke hisaab se "
-            "kaunsi fasal unhe sabse zyada munafa (profit) degi aur kyun. Fasal ki dekhbhal ke 1-2 expert tips bhi dein."
+            "Aap ek Agri-Scientist hain. Farmer ko fasal, mitti, keet-nashak (pesticide), ya khad ka expert advice chahiye. "
+            "Provide deep technical yet easy to understand tips. Mention specific fertilizer names like Urea, DAP, NPK if relevant. "
+            f"Respond in {lang_name} professionally. "
+            "Jawab itna bada nahi hona chahiye ki user bor ho jaye (MAX 4 sentences)."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]

@@ -16,9 +16,11 @@ export default function Hero() {
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
   const audioRef = useRef(null)
+  const recognitionRef = useRef(null)
 
-  // Language based on user profile
-  const langCode = user?.language || 'hi-IN'
+  // Language management
+  const [selectedLang, setSelectedLang] = useState(user?.language || 'hi-IN')
+  const { languages } = useAuth()
 
   function stopAll() {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -36,6 +38,22 @@ export default function Hero() {
     chunksRef.current = []
 
     try {
+      // 1. Start Browser Recognition for LIVE feedback (Visual only)
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition()
+        recognition.lang = selectedLang
+        recognition.interimResults = true
+        recognition.continuous = true
+        recognition.onresult = (e) => {
+          const text = Array.from(e.results).map(r => r[0].transcript).join('')
+          setTranscript(text) // Live UI update
+        }
+        recognitionRef.current = recognition
+        recognition.start()
+      }
+
+      // 2. Start MediaRecorder for BACKEND accuracy
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const recorder = new MediaRecorder(stream)
       
@@ -48,7 +66,6 @@ export default function Hero() {
         setStatus(S.PROCESSING)
         
         try {
-          // Use 'unknown' to trigger Sarvam Auto-detection
           const res = await transcribeAudio(blob, 'unknown')
           if (res.status === 'SUCCESS') {
              setTranscript(res.transcript)
@@ -63,8 +80,6 @@ export default function Hero() {
           setError('Maaf kijiye, main sun nahi paaya. Dubara koshish karein.')
           setStatus(S.IDLE)
         }
-        
-        // Stop all tracks to release mic
         stream.getTracks().forEach(t => t.stop())
       }
 
@@ -78,6 +93,9 @@ export default function Hero() {
   }
 
   function stopRecording() {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop()
     }
@@ -85,7 +103,8 @@ export default function Hero() {
 
   async function handleChat(text, detectedLang = null) {
     try {
-      const res = await chatWithAgent(text, null, detectedLang || langCode)
+      // Prioritize explicit dropdown selection for response
+      const res = await chatWithAgent(text, null, selectedLang)
       setReply(res.response)
       
       // Start TTS immediately after receiving text
@@ -141,6 +160,20 @@ export default function Hero() {
                status === S.SPEAKING ? 'Bol rha hoon...' : 'Touch to Speak'}
             </div>
           </button>
+
+          {/* Language Selector Dropdown */}
+          <div className="lang-selector-container animate-reveal" style={{ animationDelay: '0.3s' }}>
+            <span className="lang-label">Response Language:</span>
+            <select 
+              value={selectedLang} 
+              onChange={(e) => setSelectedLang(e.target.value)}
+              className="premium-lang-select"
+            >
+              {languages.map(l => (
+                <option key={l.code} value={l.code}>{l.flag} {l.name}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Transcript/Reply Bubble */}
           <div className={`transcript-bubble ${ (transcript || reply) ? 'visible' : ''}`}>
