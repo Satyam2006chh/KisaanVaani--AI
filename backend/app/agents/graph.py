@@ -28,6 +28,7 @@ class AgentState(TypedDict):
     intent:       str
     tool_result:  str
     final_answer: str
+    image_data:   str # Base64
 
 
 async def _call_groq(messages: list, max_tokens: int = 512) -> str:
@@ -45,6 +46,35 @@ async def _call_groq(messages: list, max_tokens: int = 512) -> str:
         logger.error(f"Groq error {r.status_code}: {r.text[:200]}")
         return "Maaf kijiye, jawab dene mein samasya ho gayi. Dobara koshish karein."
     return r.json()["choices"][0]["message"]["content"]
+
+
+async def _call_gemini_vision(prompt: str, image_base64: str) -> str:
+    """Specialized call for Multimodal vision using Gemini 1.5 Flash"""
+    import google.generativeai as genai
+    import base64
+
+    if not settings.gemini_api_key or "your_" in settings.gemini_api_key:
+        return "[VISION MOCK] Adarniya Satyam ji, maine aapki fasal ki tasveer ko scan kar liya hai. Yeh 'Leaf Rust' jaisa lag raha hai. Kripya Neem oil ka chhidkaav karein."
+
+    try:
+        genai.configure(api_key=settings.gemini_api_key)
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        
+        # Strip potential data:image/png;base64, prefix
+        if "," in image_base64:
+            image_base64 = image_base64.split(",")[1]
+            
+        img_data = base64.b64decode(image_base64)
+        
+        # Using the standard SDK pattern for vision
+        response = await asyncio.to_thread(
+            model.generate_content,
+            [prompt, {"mime_type": "image/jpeg", "data": img_data}]
+        )
+        return response.text
+    except Exception as e:
+        logger.error(f"Gemini Vision failed: {e}")
+        return "Tasveer analyze karne mein samasya ho rahi hai. Kripya dubara koshish karein."
 
 
 
@@ -79,6 +109,7 @@ async def intent_router(state: AgentState) -> AgentState:
     keywords = {
         "weather": ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature"],
         "mandi": ["bhav", "mandi", "rate", "keemat", "price", "daam"],
+        "vision": ["kya hai", "bimari", "check", "doctor", "pesticide", "bimari kya hai", "photo", "image"],
         "crop_advice": ["fasal", "crop", "ugao", "kheti", "kya lagao"],
         "news": ["new", "latest", "news", "update", "samachar", "khabar", "taza", "yojana", "scheme", "labh", "benefit", "subsidy"],
         "eligibility": ["eligible", "patrata", "apply", "registration"],
@@ -206,16 +237,32 @@ async def news_node(state: AgentState) -> AgentState:
 
 
 async def llm_node(state: AgentState) -> AgentState:
-    messages = [
-        {"role": "system", "content": (
+    user_msg = state["messages"][-1]["content"]
+    
+    if state["image_data"]:
+        # Vision Path
+        prompt = (
             f"{_system_prompt(state)}\n\n"
-            "Abhi farmer ek general sawal pooch raha hai jo shayad kheti se alag ho sakta hai. "
-            "IMPORTANT: Jawab detailed aur tagda (robust) hona chahiye taaki user ko lage ki aapko sab pata hai. "
-            "Provide a complete and satisfying answer while maintaining the polite disclaimer."
-        )},
-        {"role": "user",   "content": state["messages"][-1]["content"]},
-    ]
-    result = await _call_groq(messages)
+            f"Aap ek Agri-Scientist aur Plant Pathologist hain. Farmer ne ek tasveer bheji hai aur poochha hai: '{user_msg}'. "
+            "Tasveer ko dhyan se dekhein aur bimari/kide (pest) ko pehchanein. "
+            "Technical details dein (Disease name, symptoms, and exact pesticide or organic remedy). "
+            "Confidence level bhi mention karein (e.g., '90% sambhavna hai ki...')."
+            "Jawab bahut supportive aur scientific hona chahiye."
+        )
+        result = await _call_gemini_vision(prompt, state["image_data"])
+    else:
+        # Standard Path
+        messages = [
+            {"role": "system", "content": (
+                f"{_system_prompt(state)}\n\n"
+                "Abhi farmer ek general sawal pooch raha hai jo shayad kheti se alag ho sakta hai. "
+                "IMPORTANT: Jawab detailed aur tagda (robust) hona chahiye taaki user ko lage ki aapko sab pata hai. "
+                "Provide a complete and satisfying answer while maintaining the polite disclaimer."
+            )},
+            {"role": "user",   "content": user_msg},
+        ]
+        result = await _call_groq(messages)
+        
     return {**state, "tool_result": result}
 
 
@@ -279,6 +326,7 @@ def _route(state: AgentState) -> str:
         "mandi":      "mandi_node",
         "news":       "news_node",
         "scheme":     "news_node",
+        "vision":     "llm_node",
         "crop_advice":"crop_advice_node",
         "lang_switch":"lang_switch_node",
     }.get(state["intent"], "llm_node")

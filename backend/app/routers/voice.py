@@ -154,7 +154,7 @@ async def speak(req: TTSRequest):
             json={
                 "inputs": [req.text],
                 "target_language_code": req.language,
-                "speaker": SPEAKERS.get(req.language, "anushka"),
+                "speaker": req.speaker or SPEAKERS.get(req.language, "anushka"),
                 "enable_preprocessing": True,
                 "model": "bulbul:v1",
             },

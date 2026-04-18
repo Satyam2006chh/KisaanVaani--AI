@@ -38,6 +38,7 @@ class ChatRequest(BaseModel):
     message: str
     english_message: Optional[str] = None
     language: str = "hi-IN"
+    image: Optional[str] = None  # Base64 string
 
 
 class ChatResponse(BaseModel):
@@ -49,3 +50,4 @@ class ChatResponse(BaseModel):
 class TTSRequest(BaseModel):
     text: str
     language: str = "hi-IN"
+    speaker: Optional[str] = None

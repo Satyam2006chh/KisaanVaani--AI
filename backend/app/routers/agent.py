@@ -43,6 +43,7 @@ async def chat(req: ChatRequest):
         "intent":       "",
         "tool_result":  "",
         "final_answer": "",
+        "image_data":   req.image,
     }
 
     try:

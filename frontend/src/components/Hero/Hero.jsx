@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Mic, Square, Loader, CloudRain, TrendingUp, Sprout, Volume2 } from 'lucide-react'
+import { Mic, Square, Loader, CloudRain, TrendingUp, Sprout, Camera, Image, X, MoreVertical } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { chatWithAgent, transcribeAudio, speakText } from '../../api'
 import './Hero.css'
@@ -12,6 +12,9 @@ export default function Hero() {
   const [transcript, setTranscript] = useState('')
   const [reply, setReply] = useState('')
   const [error, setError] = useState('')
+  const [image, setImage] = useState(null) // Base64
+  const [showVisionMenu, setShowVisionMenu] = useState(false)
+  const fileInputRef = useRef(null)
   
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
@@ -29,6 +32,32 @@ export default function Hero() {
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current = null
+    }
+  }
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImage(reader.result)
+        setShowVisionMenu(false)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const triggerCamera = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.setAttribute('capture', 'environment')
+      fileInputRef.current.click()
+    }
+  }
+
+  const triggerGallery = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.removeAttribute('capture')
+      fileInputRef.current.click()
     }
   }
 
@@ -104,13 +133,15 @@ export default function Hero() {
   async function handleChat(text, detectedLang = null) {
     try {
       // Prioritize explicit dropdown selection for response
-      const res = await chatWithAgent(text, null, selectedLang)
+      const res = await chatWithAgent(text, null, selectedLang, image)
       setReply(res.response)
       
       // Start TTS immediately after receiving text
       setStatus(S.PROCESSING) // Keep processing state while audio loads
       try {
-        const audioUrl = await speakText(res.response, selectedLang)
+        // Use 'shubh' for vision-based expert advice, otherwise default
+        const speaker = (image || res.tool_used === 'vision') ? 'shubh' : null
+        const audioUrl = await speakText(res.response, selectedLang, speaker)
         await playAudio(audioUrl)
       } catch (audioErr) {
         console.error('TTS Failed:', audioErr)
@@ -147,19 +178,62 @@ export default function Hero() {
         <div className="voice-engine-container animate-reveal" style={{ animationDelay: '0.2s' }}>
           <div className={`mic-aura ${status === S.RECORDING ? 'pulsing' : ''}`} />
           
-          <button 
-            className={`mic-trigger-v2 ${status === S.RECORDING ? 'active' : ''} ${status === S.PROCESSING ? 'loading' : ''}`}
-            onClick={status === S.RECORDING ? stopRecording : startRecording}
-            disabled={status === S.PROCESSING}
-          >
-            {status === S.RECORDING ? <Square size={32} fill="white" /> : 
-             status === S.PROCESSING ? <Loader size={36} className="spin" /> : <Mic size={36} />}
-            <div className="mic-status-v2">
-              {status === S.RECORDING ? 'Suno rha hoon...' : 
-               status === S.PROCESSING ? (reply ? 'Awaaz taiyar ho rahi hai...' : 'Samajh rha hoon...') : 
-               status === S.SPEAKING ? 'Bol rha hoon...' : 'Touch to Speak'}
+          {/* Image Preview */}
+          {image && (
+            <div className="vision-preview">
+              <img src={image} alt="Crop Preview" />
+              <button className="remove-photo" onClick={() => setImage(null)}><X size={14} /></button>
+              {status === S.PROCESSING && !reply && <div className="analyzing-indicator">Analyzing...</div>}
             </div>
-          </button>
+          )}
+
+          <div className="controls-v2">
+            {/* Vision Trigger */}
+            <div className="secondary-trigger-wrapper">
+              <button 
+                className={`secondary-trigger ${image ? 'active' : ''}`}
+                onClick={() => setShowVisionMenu(!showVisionMenu)}
+                disabled={status === S.RECORDING}
+              >
+                <Camera size={24} />
+              </button>
+
+              {showVisionMenu && (
+                <div className="vision-menu">
+                  <div className="vision-option" onClick={triggerCamera}>
+                    <Camera size={18} /> Take Photo
+                  </div>
+                  <div className="vision-option" onClick={triggerGallery}>
+                    <Image size={18} /> From Gallery
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Main Mic Trigger */}
+            <button 
+              className={`mic-trigger-v2 ${status === S.RECORDING ? 'active' : ''} ${status === S.PROCESSING ? 'loading' : ''}`}
+              onClick={status === S.RECORDING ? stopRecording : startRecording}
+              disabled={status === S.PROCESSING}
+            >
+              {status === S.RECORDING ? <Square size={32} fill="white" /> : 
+               status === S.PROCESSING ? <Loader size={36} className="spin" /> : <Mic size={36} />}
+              <div className="mic-status-v2">
+                {status === S.RECORDING ? 'Suno rha hoon...' : 
+                 status === S.PROCESSING ? (reply ? 'Awaaz taiyar...' : 'Samajh rha hoon...') : 
+                 status === S.SPEAKING ? 'Bol rha hoon...' : 'Touch to Speak'}
+              </div>
+            </button>
+
+            {/* Hidden File Input */}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{ display: 'none' }} 
+              accept="image/*" 
+              onChange={handleImageSelect} 
+            />
+          </div>
 
           {/* Language Selector Dropdown */}
           <div className="lang-selector-container animate-reveal" style={{ animationDelay: '0.3s' }}>

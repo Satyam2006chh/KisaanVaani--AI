@@ -20,7 +20,7 @@ const api = () => axios.create({
 })
 
 
-export async function chatWithAgent(message, englishMessage = null, language = null) {
+export async function chatWithAgent(message, englishMessage = null, language = null, image = null) {
   const user = getUser()
   const { data } = await api().post('/api/agent/chat', {
     farmer_id:  user?.farmer_id || 'guest',
@@ -28,16 +28,17 @@ export async function chatWithAgent(message, englishMessage = null, language = n
     message,
     english_message: englishMessage,
     language:   language || user?.language || 'hi-IN',
+    image:      image
   })
   return data // Return full data object
 }
 
 
-export async function speakText(text, language = null) {
+export async function speakText(text, language = null, speaker = null) {
   const user = getUser()
   const response = await api().post(
     '/api/voice/speak',
-    { text, language: language || user?.language || 'hi-IN' },
+    { text, language: language || user?.language || 'hi-IN', speaker },
     { responseType: 'blob' },
   )
   return URL.createObjectURL(response.data)
