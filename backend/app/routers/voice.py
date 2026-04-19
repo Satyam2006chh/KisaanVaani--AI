@@ -147,12 +147,17 @@ async def speak(req: TTSRequest):
         return StreamingResponse(io.BytesIO(silent_wav), media_type="audio/wav")
 
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    # Chunk text to avoid Sarvam's length limits (~500 chars)
+    text = req.text
+    max_chunk = 500
+    chunks = [text[i:i+max_chunk] for i in range(0, len(text), max_chunk)]
+
+    async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
             SARVAM_TTS,
             headers={"api-subscription-key": settings.sarvam_api_key, "Content-Type": "application/json"},
             json={
-                "inputs": [req.text],
+                "inputs": chunks,
                 "target_language_code": req.language,
                 "speaker": req.speaker or SPEAKERS.get(req.language, "anushka"),
                 "enable_preprocessing": True,

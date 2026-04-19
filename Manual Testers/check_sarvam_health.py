@@ -15,7 +15,7 @@ async def check_sarvam():
     payload = {
         'inputs': ['Test'],
         'target_language_code': 'hi-IN',
-        'speaker': 'ritu',
+        'speaker': 'manisha',
         'model': 'bulbul:v2'
     }
     
