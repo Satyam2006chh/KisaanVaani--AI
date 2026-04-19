@@ -114,8 +114,9 @@ def _system_prompt(state: AgentState) -> str:
 async def intent_router(state: AgentState) -> AgentState:
     msg = state["messages"][-1]["content"].lower()
     
-    # 0. VISION PRIORITY: If image is present, force vision intent
-    if state.get("image_data"):
+    # 0. VISION PRIORITY: If ANY image data is present, force vision intent
+    img = state.get("image_data")
+    if img and len(str(img)) > 100: # Check it has content
         return {**state, "intent": "vision"}
 
     # 1. Primary Keyword match (Very fast)
@@ -255,20 +256,18 @@ async def llm_node(state: AgentState) -> AgentState:
     if state["image_data"]:
         # Vision Path
         prompt = (
-            f"{_system_prompt(state)}\n\n"
-            f"SYSTEM ROLE: Aap ek world-renowned Senior Agri-Scientist aur Expert Plant Pathologist hain. "
-            f"Farmer ne ek crop ki photo bheji hai aur poochha hai: '{user_msg}'.\n\n"
-            "TASK: Is image ko scan karein aur ek 'AGRI-SCIENTIST REPORT' taiyar karein. "
-            "IMPORTANT: Agar aap bimari ke bare mein 100% sure nahi hain, toh sabse sambhavit (most likely) bimari batayein. "
-            "Jawab mein generic baatein mat karein. Bilkul EXACT aur TECHNICAL jaankari dein.\n\n"
-            "REPORT STRUCTURE (Strictly follow this):\n"
-            "1. BIMARI KI PEHCHAN: Bimari ka sahi Hindi naam aur uske saath uska SCIENTIFIC NAME (Italic mein) batayein.\n"
-            "2. LAKSHAN (Symptoms): Photo mein dikh rahe 3 bade nishaan/symptoms ko detail mein samjhayein.\n"
-            "3. CONFIDENCE LEVEL: Aap kitne % sure hain identifies bimari par.\n"
-            "4. TURANT ILAJ (Chemical): 2 sabse tagdi dawaiyon ke naam (e.g. Hexaconazole, Mancozeb) aur unki sahi Matra (dose) batayein.\n"
-            "5. JAIVIK ILAJ (Organic): Neem oil ya Trichoderma jaise organic tareeke batayein.\n"
-            "6. SAVDHANI (Prevention): Fasal ko aage kaise bachayein.\n\n"
-            "Tone: Senior Scientist, Adarniya, aur Authority wala."
+            f"SYSTEM ROLE: You are a world-renowned Senior Agri-Scientist and Expert Plant Pathologist. "
+            f"The farmer has sent a photo of their crop and asked: '{user_msg}'.\n\n"
+            "TASK: Analyze this image and generate a professional 'AGRI-SCIENTIST REPORT'. "
+            "IMPORTANT: Identification must be exact. Do not be generic. Include scientific names.\n\n"
+            "REPORT STRUCTURE (Strictly follow this in ENGLISH):\n"
+            "1. DISEASE IDENTIFICATION: Provide the common name and the SCIENTIFIC NAME (in Italics).\n"
+            "2. SYMPTOMS: Describe 3 distinct visible symptoms in the photo in detail.\n"
+            "3. CONFIDENCE LEVEL: State your % confidence in this identification.\n"
+            "4. IMMEDIATE TREATMENT (Chemical): Recommend 2 strong fungicides/pesticides with exact dosages.\n"
+            "5. ORGANIC TREATMENT: Recommend organic methods like Neem Oil or Trichoderma.\n"
+            "6. PREVENTION: How to prevent this outbreak in the future.\n\n"
+            "Final Answer must be in English. It will be translated for the farmer later."
         )
         # Call vision with specific prompt
         result = await _call_gemini_vision(prompt, state["image_data"])

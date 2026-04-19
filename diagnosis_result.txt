@@ -1,42 +1,29 @@
-Adarniya Satyam Ji, Narmadapuram (Hoshangabad) ki is upjau bhoomi se aapka swagat hai. Main KisaanVaani AI hoon, ek varishth krishi vaigyanik aur paudha rog visheshagya (Senior Agri-Scientist & Plant Pathologist).
+**AGRI-SCIENTIST REPORT**
 
-Aapki tamatar ki fasal ki sthiti ko dekhkar main aapki madad ke liye taiyar hoon. Sabse pehle, mujhe garv hai ki main aapki sahayata **Hindi, Punjabi, Bengali, Tamil, Telugu, English, Kannada, Malayalam, Marathi, Gujarati, Odia, aur Assamese** jaisi 12 bhashayon mein kar sakta hoon.
+**1. DISEASE IDENTIFICATION**
+*   **Common Name:** Early Blight
+*   **Scientific Name:** *Alternaria solani*
 
-Aapke dwara bheji gayi photo ka gehan vishleshan karne ke baad, meri **AGRI-SCIENTIST REPORT** neeche di gayi hai:
+**2. SYMPTOMS**
+*   **Target-like Concentric Rings:** The most distinct feature visible in the photo is the large, dark brown necrotic lesion showing characteristic "bull’s eye" concentric rings. This is a classic diagnostic sign of *Alternaria* infection.
+*   **Chlorotic Halo:** Each dark brown spot is surrounded by a prominent yellow (chlorotic) halo, indicating that the fungus is releasing toxins that destroy the chlorophyll in the surrounding healthy tissue.
+*   **Irregular Necrotic Spots:** Besides the primary large lesion, smaller, irregular brown spots are beginning to develop across the leaflet, which will eventually merge and cause the entire leaf to wither and drop (defoliation).
 
----
+**3. CONFIDENCE LEVEL**
+*   **98% Confidence:** The symptoms are textbook examples of Early Blight in Solanaceous crops.
 
-### **AGRI-SCIENTIST REPORT: TAMATAR FASAL VISHLESHAN**
+**4. IMMEDIATE TREATMENT (Chemical)**
+To stop the spread of spores, immediate application of a contact or systemic fungicide is required:
+*   **Mancozeb (e.g., Indofil M-45):** Mix 2.5 grams per 1 liter of water and spray thoroughly on both sides of the leaves.
+*   **Chlorothalonil (e.g., Kavach):** Mix 2 grams per 1 liter of water. This acts as a protective barrier against further fungal penetration.
+*   *Note: Repeat the spray every 10–14 days if the weather remains humid.*
 
-#### **1. BIMARI KI PEHCHAN:**
-Is bimari ka naam **'Agheti Jhulsa' (Early Blight)** hai. Iska vaigyanik naam ***Alternaria solani*** hai. Ye ek phafund (fungus) janit rog hai jo tamatar ki fasal ko bhari nuksan pahunchata hai.
+**5. ORGANIC TREATMENT**
+*   **Neem Oil:** Use a high-quality Neem oil (1500 ppm or higher). Mix 5ml of Neem oil and 1ml of liquid soap in 1 liter of water. Spray every 7 days.
+*   **Trichoderma viride:** Apply *Trichoderma viride* formulation (10g per liter) as a foliar spray and also enrich the soil around the base to suppress soil-borne fungal inoculum.
 
-#### **2. LAKSHAN (Symptoms):**
-Photo mein dikh rahe teen pramukh lakshan ye hain:
-*   **Target Spots (Bull’s Eye):** Patti ke beech mein bhoore rang ka dhabba hai jisme gol-gol challe (concentric rings) saaf dikhayi de rahe hain. Ye is bimari ki sabse badi pehchan hai.
-*   **Chlorotic Halo:** Bhoore dhabbe ke charon taraf ek peele rang ka ghera (yellow halo) ban gaya hai, jo darshata hai ki bimari tezi se patti ke swasth hisse ko maar rahi hai.
-*   **Tissue Necrosis:** Dhabbe ka kendriya hissa sookh kar kaala/bhoora ho gaya hai, jisse patti ki prakash sanshleshan (photosynthesis) karne ki kshamata khatam ho rahi hai.
-
-#### **3. CONFIDENCE LEVEL:**
-Main is pehchan par **98% sure** hoon.
-
-#### **4. TURANT ILAJ (Chemical):**
-Fasal ko bachane ke liye aap inme se kisi ek ka chhidkaw turant karein:
-*   **Mancozeb 75% WP:** 2.5 gram dawa ko 1 liter paani mein milakar chhidkaw karein.
-*   **Azoxystrobin 18.2% + Difenoconazole 11.4% SC:** 1 ml dawa ko 1 liter paani mein milakar spray karein (Ye bahut prabhavshali hai).
-
-#### **5. JAIVIK ILAJ (Organic):**
-Agar aap jaivik kheti kar rahe hain:
-*   **Neem Oil:** 3000 PPM wala neem tel 5 ml prati liter paani mein milakar spray karein.
-*   **Trichoderma viride:** 5 gram prati liter paani mein milakar pattiyon par chhidkaw karein aur jadon ke paas bhi dein.
-
-#### **6. SAVDHANI (Prevention):**
-*   **Neeche ki pattiyan hatayein:** Paudhe ke nichle hisse ki jo pattiyan zameen ko chhu rahi hain, unhe turant kaat kar khet se door phenk dein ya jala dein.
-*   **Sinchai ka dhyan:** Paani hamesha jadon mein dein, pattiyon par paani girne se phafund tezi se phailti hai.
-*   **Fasal Chakra:** Agli baar tamatar wale khet mein baigan ya aloo na lagayein.
-
----
-
-Adarniya Satyam Ji, Hoshangabad ke mausam mein nami badhne se ye rog tezi se phail sakta hai, isliye deri na karein. Agar aapko koi aur jankari chahiye ho, to nishchint hokar poochein.
-
-Aapka din shubh ho aur kheti samriddh ho!
+**6. PREVENTION**
+*   **Crop Rotation:** Do not plant tomatoes, potatoes, or peppers in the same patch of land for at least 3 years, as the fungus survives in the soil.
+*   **Pruning:** Remove the lower leaves (bottom 12 inches) of the plant to prevent soil-borne spores from splashing onto the foliage during rain or irrigation.
+*   **Mulching:** Use plastic or straw mulch to create a barrier between the soil and the plant leaves.
+*   **Water Management:** Always water at the base of the plant (drip irrigation). Avoid overhead sprinklers that keep the foliage wet, as moisture is essential for spore germination.
