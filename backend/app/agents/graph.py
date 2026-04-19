@@ -5,8 +5,11 @@ from typing import List, TypedDict
 import httpx
 from langgraph.graph import END, StateGraph
 
+import google.generativeai as genai
 from app.agents.tools import get_mandi_price, get_weather, scrape_agricultural_news
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Unified Premium Speaker for Bulbul v2
 SPEAKERS = {
@@ -111,6 +114,10 @@ def _system_prompt(state: AgentState) -> str:
 async def intent_router(state: AgentState) -> AgentState:
     msg = state["messages"][-1]["content"].lower()
     
+    # 0. VISION PRIORITY: If image is present, force vision intent
+    if state.get("image_data"):
+        return {**state, "intent": "vision"}
+
     # 1. Primary Keyword match (Very fast)
     keywords = {
         "weather": ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature"],
@@ -249,17 +256,21 @@ async def llm_node(state: AgentState) -> AgentState:
         # Vision Path
         prompt = (
             f"{_system_prompt(state)}\n\n"
-            f"Aap ek World-Class Senior Agri-Scientist aur Expert Plant Pathologist hain. Farmer ne ek tasveer bheji hai aur poochha hai: '{user_msg}'. "
-            "IMPORTANT: Aapka jawab bahut DETAILED aur PROFESSIONAL hona chahiye. "
-            "Answer must follow this structure:\n"
-            "1. Bimari ki Pehchan (Scientific Name included).\n"
-            "2. Lakshan (Symptoms).\n"
-            "3. Confidence Level (%).\n"
-            "4. Rasayanik IIaj (Chemical treatment with exact names).\n"
-            "5. Jaivik/Organic IIaj (Organic remedies).\n"
-            "6. Krishi Prabandhan (Management tips to prevent future outbreaks).\n"
-            "Maintain an expert yet caring tone."
+            f"SYSTEM ROLE: Aap ek world-renowned Senior Agri-Scientist aur Expert Plant Pathologist hain. "
+            f"Farmer ne ek crop ki photo bheji hai aur poochha hai: '{user_msg}'.\n\n"
+            "TASK: Is image ko scan karein aur ek 'AGRI-SCIENTIST REPORT' taiyar karein. "
+            "IMPORTANT: Agar aap bimari ke bare mein 100% sure nahi hain, toh sabse sambhavit (most likely) bimari batayein. "
+            "Jawab mein generic baatein mat karein. Bilkul EXACT aur TECHNICAL jaankari dein.\n\n"
+            "REPORT STRUCTURE (Strictly follow this):\n"
+            "1. BIMARI KI PEHCHAN: Bimari ka sahi Hindi naam aur uske saath uska SCIENTIFIC NAME (Italic mein) batayein.\n"
+            "2. LAKSHAN (Symptoms): Photo mein dikh rahe 3 bade nishaan/symptoms ko detail mein samjhayein.\n"
+            "3. CONFIDENCE LEVEL: Aap kitne % sure hain identifies bimari par.\n"
+            "4. TURANT ILAJ (Chemical): 2 sabse tagdi dawaiyon ke naam (e.g. Hexaconazole, Mancozeb) aur unki sahi Matra (dose) batayein.\n"
+            "5. JAIVIK ILAJ (Organic): Neem oil ya Trichoderma jaise organic tareeke batayein.\n"
+            "6. SAVDHANI (Prevention): Fasal ko aage kaise bachayein.\n\n"
+            "Tone: Senior Scientist, Adarniya, aur Authority wala."
         )
+        # Call vision with specific prompt
         result = await _call_gemini_vision(prompt, state["image_data"])
     else:
         # Standard Path
