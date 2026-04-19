@@ -32,11 +32,26 @@ async def chat(req: ChatRequest):
     if not agent_message:
         agent_message = await translate_text(req.message, language, "en-IN")
 
+    # LOAD SESSION HISTORY (Memory)
+    history_msgs = []
+    try:
+        hist_res = sb.table("messages").select("role", "content")\
+            .eq("farmer_id", req.farmer_id)\
+            .eq("session_id", req.session_id)\
+            .order("timestamp", desc=True).limit(10).execute()
+        
+        # Reverse to get chronological order
+        for m in reversed(hist_res.data or []):
+            role = "user" if m["role"] == "user" else "assistant"
+            history_msgs.append({"role": role, "content": m["content"]})
+    except Exception as e:
+        logger.warning(f"Failed to load history context: {e}")
+
     initial_state = {
-        "messages":     [{"role": "user", "content": agent_message}],
+        "messages":     history_msgs + [{"role": "user", "content": agent_message}],
         "farmer_id":    req.farmer_id,
         "farmer_name":  name,
-        "language":     language, # Tell the agent the ACTUAL target language
+        "language":     language,
         "city":         city,
         "district":     district,
         "state_name":   state_name,

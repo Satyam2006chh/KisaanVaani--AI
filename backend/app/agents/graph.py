@@ -254,34 +254,44 @@ async def llm_node(state: AgentState) -> AgentState:
     user_msg = state["messages"][-1]["content"]
     
     if state["image_data"]:
-        # Vision Path
+        # Vision Path - ULTRA EXPERT SCIENTIST MODE
         prompt = (
             f"SYSTEM ROLE: You are a world-renowned Senior Agri-Scientist and Expert Plant Pathologist. "
-            f"The farmer has sent a photo of their crop and asked: '{user_msg}'.\n\n"
-            "TASK: Analyze this image and generate a professional 'AGRI-SCIENTIST REPORT'. "
-            "IMPORTANT: Identification must be exact. Do not be generic. Include scientific names.\n\n"
-            "REPORT STRUCTURE (Strictly follow this in ENGLISH):\n"
-            "1. DISEASE IDENTIFICATION: Provide the common name and the SCIENTIFIC NAME (in Italics).\n"
-            "2. SYMPTOMS: Describe 3 distinct visible symptoms in the photo in detail.\n"
-            "3. CONFIDENCE LEVEL: State your % confidence in this identification.\n"
-            "4. IMMEDIATE TREATMENT (Chemical): Recommend 2 strong fungicides/pesticides with exact dosages.\n"
-            "5. ORGANIC TREATMENT: Recommend organic methods like Neem Oil or Trichoderma.\n"
-            "6. PREVENTION: How to prevent this outbreak in the future.\n\n"
-            "Final Answer must be in English. It will be translated for the farmer later."
+            f"The farmer ({state['farmer_name']}) has sent a photo and asked: '{user_msg}'.\n\n"
+            "TASK: Analyze this image and generate a professional, high-precision 'SCIENTIFIC CROP HEALTH REPORT'.\n"
+            "IMPORTANT: Your identification must be 100% accurate. Do not be generic. Use scientific names.\n\n"
+            "REPORT CONTENT (Strictly follow this structure in English):\n"
+            "1. IDENTIFICATION: Common Name & *Scientific Name* (Italicized).\n"
+            "2. THE CAUSE (WHY IT HAPPENED): Explain the root cause. Did it come from soil? High humidity? Poor ventilation? Nutrient deficiency? Explain scientifically but clearly.\n"
+            "3. THE SPREAD (LIFECYCLE): How does this disease spread? (e.g., wind-borne spores, water-splash, or pests like Thrips/Aphids).\n"
+            "4. KEY SYMPTOMS: List 3 specific indicators visible in the photo that confirm your diagnosis.\n"
+            "5. TREATMENT (IMMEDIATE): Recommend 2 effective chemical treatments with exact dosages (e.g., grams per liter).\n"
+            "6. ORGANIC CURE: Provide 1-2 reliable organic or home-made solutions (e.g., Neem, Trichoderma).\n"
+            "7. LONG-TERM PREVENTION: 3 practical steps to ensure this never happens again (e.g., Crop rotation, Soil solarization).\n\n"
+            "Tone: Authoritative, Professional, and Caring."
         )
         # Call vision with specific prompt
         result = await _call_gemini_vision(prompt, state["image_data"])
     else:
-        # Standard Path
+        # Standard Path - CONTEXT AWARE MODE
+        # Check if history contains a previous diagnosis to maintain context
+        history_context = ""
+        if len(state["messages"]) > 1:
+            history_context = "\nCONTEXT: Use the previous conversation history to answer follow-up questions about crops or diseases mentioned earlier."
+
         messages = [
             {"role": "system", "content": (
                 f"{_system_prompt(state)}\n\n"
-                "Abhi farmer ek general sawal pooch raha hai jo shayad kheti se alag ho sakta hai. "
-                "IMPORTANT: Jawab detailed aur tagda (robust) hona chahiye taaki user ko lage ki aapko sab pata hai. "
-                "Provide a complete and satisfying answer while maintaining the polite disclaimer."
+                f"Aap ek expert scientist hain. {history_context}\n"
+                "Provide a detailed, robust, and professional answer. "
+                "If the user is asking about the diagnosis you just gave, explain further in detail. "
+                "Tone: Senior Scientist, Expert, and Encouraging."
             )},
-            {"role": "user",   "content": user_msg},
         ]
+        # Prepend history and current message
+        for m in state["messages"]:
+             messages.append({"role": m["role"], "content": m["content"]})
+             
         result = await _call_groq(messages)
         
     return {**state, "tool_result": result}

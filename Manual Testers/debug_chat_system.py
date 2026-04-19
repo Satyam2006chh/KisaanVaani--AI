@@ -12,12 +12,14 @@ from app.config import settings
 load_dotenv('backend/.env')
 
 async def debug_chat():
-    # Use the sample image we have
-    with open('diagnosis_result.txt', 'r') as f: # Just checking the text file exists
-        pass
+    # Use the user's mystery image
+    img_path = 'Manual Testers/test_image2.jpg'
     
-    # Minimal base64 for testing
-    sample_image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    # Read image and convert to base64
+    import base64
+    with open(img_path, 'rb') as f:
+        img_bytes = f.read()
+    img_b64 = f"data:image/jpeg;base64,{base64.b64encode(img_bytes).decode('utf-8')}"
 
     initial_state = {
         "messages":     [{"role": "user", "content": "Bimari batao?"}],
@@ -30,7 +32,7 @@ async def debug_chat():
         "intent":       "",
         "tool_result":  "",
         "final_answer": "",
-        "image_data":   sample_image,
+        "image_data":   img_b64,
     }
     
     print("\n--- DEBUGGING AGENT WITH IMAGE ---")
