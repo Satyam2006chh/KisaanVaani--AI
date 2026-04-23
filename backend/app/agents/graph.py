@@ -151,20 +151,22 @@ async def intent_router(state: AgentState) -> AgentState:
 
 
 async def weather_node(state: AgentState) -> AgentState:
-    lang_name = LANG_MAP.get(state["language"], "Hindi")
-    user_location = state.get("location")
-    
-    # 1. Coordinate check for God Level Accuracy
-    lat = user_location.get("lat") if user_location else None
-    lon = user_location.get("lon") if user_location else None
-    
-    # 2. Extract city if user asked for a DIFFERENT place
-    ext_city = state["district"]
+    user_location = state.get("location") or {}
+
+    # PRIMARY: Use live GPS coordinates if available (highest accuracy)
+    lat = user_location.get("lat")
+    lon = user_location.get("lon")
+    # Get the human-readable name of the live location for the AI response
+    live_city = user_location.get("city") or user_location.get("name") or state["district"]
+
+    # SECONDARY: Check if user asked about a DIFFERENT city (e.g. "Saharanpur ka mausam batao")
+    # If they did, use that city's geocoding instead of live GPS
     messages = [
         {"role": "system", "content": (
-            "Identify if the user is asking about weather for a specific city OTHER than their current farm. "
-            "Return JSON: {'city': 'detected city or null'}. "
-            "Return 'null' if they just said 'weather' or 'barsat'."
+            "Identify if the user is asking about weather for a SPECIFIC city different from their current location. "
+            "Return JSON: {\"city\": \"city name or null\"}. "
+            "IMPORTANT: Return null if they just asked for 'aaj ka mausam' or 'weather' without naming a city. "
+            "Only return a city name if they EXPLICITLY mentioned a different place."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
@@ -172,28 +174,34 @@ async def weather_node(state: AgentState) -> AgentState:
         raw = await _call_groq(messages, max_tokens=30)
         import json
         params = json.loads(raw.strip())
-        if params.get("city") and params.get("city") != "null":
-            ext_city = params["city"]
-            lat, lon = None, None # Reset coords to use city-based geocoding for the other place
-    except: pass
-    
-    # 3. Call tool with higher precision
-    weather_data = await get_weather(ext_city, state["state_name"], lat, lon)
-    
-    # 4. Generate Expert Response
+        asked_city = params.get("city")
+        if asked_city and asked_city not in ("null", "None", None, ""):
+            # User asked for a different city — use name-based geocoding, ignore live GPS
+            weather_data = await get_weather(asked_city, state["state_name"], None, None)
+            location_label = asked_city
+        else:
+            # Use live GPS coordinates for accurate on-farm weather
+            weather_data = await get_weather(live_city, state["state_name"], lat, lon)
+            location_label = live_city
+    except Exception:
+        weather_data = await get_weather(live_city, state["state_name"], lat, lon)
+        location_label = live_city
+
     messages = [
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
-            f"Weather Data: {weather_data}. "
-            "Explain in detail including Rain Probability (POP). "
-            "If Rain > 70%, warn them very strongly about covering crops. "
+            f"Live Location: {location_label}\n"
+            f"Weather Data: {weather_data}\n"
+            "Explain the weather in detail including Rain Probability (POP). "
+            f"IMPORTANT: Tell the farmer you are giving weather for '{location_label}' — their live GPS location. "
+            "If Rain > 70%, warn very strongly about covering crops. "
             "Jawab itna sateek dein ki lagae aap unke khet mein khade hokar dekh rahe hain."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
     result = await _call_groq(messages)
-        
     return {**state, "tool_result": result}
+
 
 
 async def mandi_node(state: AgentState) -> AgentState:
