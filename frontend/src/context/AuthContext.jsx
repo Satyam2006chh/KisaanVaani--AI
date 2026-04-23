@@ -23,7 +23,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session
+    // 1. WAKE UP CALL: Immediately ping backend to start the "wake up" process (for Render free tier)
+    console.log('[AuthContext] Pre-warming backend...')
+    axios.get('https://kisaanvaani-ai-1.onrender.com/').catch(() => {})
+
+    // 2. Check for existing session
     const token = localStorage.getItem('token')
     const saved = localStorage.getItem('user')
     console.log('[AuthContext] Initializing:', { hasToken: !!token, hasSavedUser: !!saved })
