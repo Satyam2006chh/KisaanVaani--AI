@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Mic, Square, Loader, MapPin, AlertCircle, TrendingUp, X } from 'lucide-react'
+import { Mic, Square, Loader, MapPin, AlertCircle, TrendingUp } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { chatWithAgent, transcribeAudio, speakText } from '../../api'
 
@@ -11,11 +11,8 @@ export default function Hero() {
   const [transcript, setTranscript] = useState('')
   const [reply, setReply] = useState('')
   const [error, setError] = useState('')
-  
-  // VERSION: 2.0.3 - GOD LEVEL (Live Tracker)
-  const V = "2.0.3 - Real-Time Tracker"
+  const V = "V2.0.4 - Royale Elite"
 
-  // SPATIAL STATES
   const [location, setLocation] = useState(null)
   const [weatherAlert, setWeatherAlert] = useState(null)
   const [mandiList, setMandiList] = useState([]) 
@@ -25,7 +22,7 @@ export default function Hero() {
   const chunksRef = useRef([])
   const [selectedLang, setSelectedLang] = useState(user?.language || 'hi-IN')
 
-  // EFFECT: CONTINUOUS LIVE TRACKING (watchPosition)
+  // EFFECT: LIVE MOVEMENT TRACKER
   useEffect(() => {
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
@@ -34,16 +31,15 @@ export default function Hero() {
           try {
             const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
             const geoData = await geoRes.json()
-            const readableAddress = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.suburb || 'Sateek Location'
+            const readableAddress = geoData.address.city || geoData.address.town || geoData.address.village || 'Sateek Location'
             const cityState = `${readableAddress}, ${geoData.address.state || ''}`
             
-            // IF MOVED, UPDATE EVERYTHING
             setLocation(prev => {
               if (prev?.lat === latitude && prev?.lon === longitude) return prev
               
               const apiUrl = import.meta.env.VITE_API_URL || ''
               
-              // Sync to DB
+              // Backend Update
               if (user?.farmer_id) {
                 fetch(`${apiUrl}/api/auth/profile/update`, {
                   method: 'POST',
@@ -52,34 +48,31 @@ export default function Hero() {
                 }).catch(e => {})
               }
 
-              // Refresh Weather
+              // Weather Refresh
               fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=precipitation_probability_max&timezone=Asia%2FKolkata&forecast_days=1`)
-                .then(r => r.json())
-                .then(w => {
+                .then(r => r.json()).then(w => {
                   const prob = w.daily.precipitation_probability_max[0] || 0
-                  setWeatherAlert(prob > 50 ? `🚨 REAL ALERT: Aaj baarish ki umeed ${prob}% hai.` : null)
+                  setWeatherAlert(prob > 50 ? `🚨 ALERT: Aaj baarish hone ke ${prob}% chances hain.` : null)
                 }).catch(e => {})
 
-              // Refresh Mandis
+              // Mandi Refresh
               fetch(`${apiUrl}/api/agent/mandis/nearby`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ lat: latitude, lon: longitude })
-              })
-                .then(r => r.json()).then(data => setMandiList(data)).catch(e => {})
+              }).then(r => r.json()).then(data => setMandiList(data)).catch(e => {})
 
               return { lat: latitude, lon: longitude, city: cityState }
             })
           } catch (err) {}
         },
-        () => setError('GPS Permission Denied. Live tracking off.'),
+        () => setError('GPS required for live data.'),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       )
       return () => navigator.geolocation.clearWatch(watchId)
     }
   }, [user])
 
-  // RECORDING LOGIC
   async function startRecording() {
     setError(''); setTranscript(''); setReply(''); chunksRef.current = []
     try {
@@ -98,12 +91,12 @@ export default function Hero() {
              const audioUrl = await speakText(chatRes.response, selectedLang)
              playAudio(audioUrl)
           }
-        } catch (err) { setStatus(S.IDLE); setError('Retrying...') }
+        } catch (err) { setStatus(S.IDLE); setError('Error processing voice.') }
       }
       mediaRecorderRef.current = recorder
       recorder.start()
       setStatus(S.RECORDING)
-    } catch (err) { setError('Mic issue!') }
+    } catch (err) { setError('Mic access blocked.') }
   }
 
   function stopRecording() { if (mediaRecorderRef.current) mediaRecorderRef.current.stop() }
@@ -117,18 +110,22 @@ export default function Hero() {
 
   return (
     <div className="hero-container">
-      <div style={{fontSize: '9px', color: 'var(--accent-cyan)', position: 'absolute', top: '5px', opacity: 0.6}}>{V}</div>
+      {/* Subtle Version Info */}
+      <div style={{fontSize: '8px', color: 'rgba(255,255,255,0.2)', position: 'absolute', top: '10px'}}>{V}</div>
 
+      {/* LOCATION */}
       <div className="location-status animate-reveal">
         <MapPin size={16} />
-        <span>{location ? location.city : 'Tracking Farm...'}</span>
+        <span>{location ? location.city : 'Detecting Farm...'}</span>
       </div>
 
+      {/* WELCOME */}
       <div className="welcome-msg animate-reveal">
         <h1>Namaste <span className="farmer-name">{user?.name || 'Kisaan'}</span> ji</h1>
-        <p className="hero-subtitle">Mausam aur Mandi ki sateek report — Jahan aap, wahan KisaanVaani.</p>
+        <p className="hero-subtitle">Mausam aur Mandi ki sateek report — Royale Edition.</p>
       </div>
 
+      {/* WEATHER ALERT */}
       {weatherAlert && (
         <div className="alert-card-premium animate-reveal">
           <AlertCircle size={20} />
@@ -136,45 +133,48 @@ export default function Hero() {
         </div>
       )}
 
-      <div className="mandi-section animate-reveal" style={{animationDelay: '0.2s'}}>
-         <span className="section-label">📍 Kareebi Mandiyan</span>
+      {/* MANDI CAROUSEL */}
+      <div className="mandi-section animate-reveal" style={{animationDelay: '0.1s'}}>
+         <span className="section-label">📍 Regional Mandi Hubs</span>
          <div className="mandi-carousel">
             {mandiList.length > 0 ? mandiList.map((m, idx) => (
               <div key={idx} className="mandi-card-premium">
-                 <TrendingUp size={22} style={{color: 'var(--accent-neon)', marginBottom: '8px'}} />
+                 <TrendingUp size={22} style={{color: 'var(--accent)', marginBottom: '8px'}} />
                  <h4>{m.name}</h4>
-                 <p className="mandi-dist">{m.distance} km door</p>
+                 <p className="mandi-dist">{m.distance} km away</p>
               </div>
-            )) : <p style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>{location ? 'Searching nearby mandis...' : 'Waiting for GPS...'}</p>}
+            )) : <p style={{fontSize: '0.75rem', color: 'var(--text-dim)'}}>Fetching nearby marketplaces...</p>}
          </div>
       </div>
 
+      {/* RESPONSE AREA */}
       {(transcript || reply) && (
-        <div className="glass-panel animate-reveal" style={{padding: '1.2rem', width: '100%', maxWidth: '360px', borderLeft: '4px solid var(--accent-neon)'}}>
-           <p style={{fontSize: '0.75rem', color: 'var(--accent-cyan)', marginBottom: '4px', fontWeight: '800'}}>{reply ? 'VIGYAANIK:' : 'AAPNA KAHA:'}</p>
-           <p style={{fontSize: '0.95rem', lineHeight: '1.4'}}>{reply || transcript}</p>
+        <div className="glass-panel animate-reveal" style={{padding: '1.2rem', width: '100%', borderLeft: '4px solid var(--accent)'}}>
+           <p style={{fontSize: '0.75rem', color: 'var(--accent-light)', marginBottom: '4px', fontWeight: '800'}}>{reply ? 'SCIENTIST:' : 'YOU:'}</p>
+           <p style={{fontSize: '0.95rem', lineHeight: '1.5'}}>{reply || transcript}</p>
         </div>
       )}
 
+      {/* MIC CONTROL */}
       <div className="interaction-zone animate-reveal">
         <button 
           className={`mic-button-premium ${status === S.RECORDING ? 'pulsing' : ''}`}
           onClick={status === S.RECORDING ? stopRecording : startRecording}
           disabled={status === S.PROCESSING}
         >
-          {status === S.RECORDING ? <Square size={32} /> : 
-           status === S.PROCESSING ? <Loader className="spin" size={32} /> : <Mic size={38} />}
+          {status === S.RECORDING ? <Square size={30} /> : 
+           status === S.PROCESSING ? <Loader className="spin" size={30} /> : <Mic size={34} />}
         </button>
-        <p style={{fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px'}}>
-          {status === S.RECORDING ? 'TRACKING VOICE...' : 
-           status === S.PROCESSING ? 'SATEEK ANALYSIS...' : 
-           status === S.SPEAKING ? 'PLAYING RESPONSE...' : 'TOUCH TO ACTIVATE'}
+        <p style={{fontSize: '0.8rem', color: 'var(--text-dim)', letterSpacing: '1px', fontWeight: '600'}}>
+          {status === S.RECORDING ? 'RECORDING LIVE...' : 
+           status === S.PROCESSING ? 'AI REASONING...' : 
+           status === S.SPEAKING ? 'PLAYING VOICE...' : 'TOUCH TO START'}
         </p>
 
         <select 
           value={selectedLang} 
           onChange={(e) => setSelectedLang(e.target.value)}
-          style={{background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--accent-neon)', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700'}}
+          style={{background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: '#fff', padding: '6px 12px', borderRadius: '10px', fontSize: '11px'}}
         >
           <option value="hi-IN">HINDI</option>
           <option value="pa-IN">PUNJABI</option>
@@ -182,7 +182,6 @@ export default function Hero() {
         </select>
       </div>
 
-      {error && <div style={{color: 'var(--danger-neon)', fontSize: '11px', fontWeight: '700'}}>! {error}</div>}
     </div>
   )
 }

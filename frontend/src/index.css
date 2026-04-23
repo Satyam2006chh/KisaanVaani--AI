@@ -1,191 +1,189 @@
 :root {
-  /* CYBER HARVEST 3.0 PALETTE */
-  --bg-cyber: #050505;
-  --panel-cyber: rgba(20, 20, 20, 0.85);
-  --accent-neon: #f59e0b;   /* Glowing Amber */
-  --accent-cyan: #06b6d4;   /* Tech Cyan */
-  --text-pure: #ffffff;
-  --text-muted: #a1a1aa;
-  --danger-neon: #f43f5e;
-  --glow-amber: 0 0 20px rgba(245, 158, 11, 0.3);
-  --border-glass: rgba(255, 255, 255, 0.08);
+  /* ROYALE MIDNIGHT PALETTE */
+  --bg: #000000;
+  --panel: rgba(15, 15, 20, 0.8);
+  --accent: #7c3aed;         /* Royal Purple */
+  --accent-light: #a78bfa;
+  --text: #ffffff;
+  --text-dim: #94a3b8;
+  --danger: #ef4444;
+  --border: rgba(255, 255, 255, 0.1);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 body {
-  background: var(--bg-cyber);
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(245, 158, 11, 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 40%);
-  color: var(--text-pure);
+  background: var(--bg);
+  background-image: radial-gradient(circle at top right, rgba(124, 58, 237, 0.15), transparent 60%);
+  color: var(--text);
   min-height: 100vh;
   overflow-x: hidden;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
-/* PREMIUM CONTAINERS */
+/* --- STRUCTURE --- */
 .hero-container {
-  padding: 3rem 1.2rem;
+  padding: 3.5rem 1.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+  max-width: 500px; /* Mobile focused */
+  margin: 0 auto;
   min-height: 100vh;
   gap: 2.5rem;
 }
 
 .glass-panel {
-  background: var(--panel-cyber);
+  background: var(--panel);
   backdrop-filter: blur(20px);
-  border: 1px solid var(--border-glass);
-  border-radius: 20px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border);
+  border-radius: 24px;
 }
 
-/* --- CYBER ELEMENTS --- */
+/* --- COMPONENTS --- */
 
 .location-status {
-  padding: 12px 24px;
-  background: rgba(245, 158, 11, 0.05);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  border-radius: 12px;
-  color: var(--accent-neon);
-  font-weight: 700;
-  font-size: 0.85rem;
+  padding: 10px 20px;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 100px;
+  color: var(--accent-light);
+  font-weight: 600;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
-  gap: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  gap: 8px;
 }
 
 .welcome-msg h1 {
-  font-size: 3.2rem;
+  font-size: 2.8rem;
   font-weight: 900;
-  line-height: 1;
   text-align: center;
-  text-transform: uppercase;
+  letter-spacing: -0.02em;
 }
 
 .welcome-msg .farmer-name {
-  color: var(--accent-neon);
-  text-shadow: var(--glow-amber);
+  color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #fff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero-subtitle {
-  color: var(--text-muted);
+  color: var(--text-dim);
   text-align: center;
-  max-width: 320px;
-  margin-top: 1rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  margin-top: 0.8rem;
 }
 
-/* ALERT PILL CYBER */
 .alert-card-premium {
   width: 100%;
-  max-width: 400px;
-  padding: 18px;
-  background: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.3);
-  border-left: 5px solid var(--danger-neon);
-  border-radius: 12px;
+  padding: 16px 20px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 16px;
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
 }
 
 .alert-card-premium p {
-  color: #fda4af;
+  font-size: 0.85rem;
   font-weight: 600;
-  font-size: 0.9rem;
+  color: #fecaca;
 }
 
-/* MANDI CAROUSEL CYBER */
+/* MANDI CAROUSEL */
 .mandi-section {
   width: 100%;
 }
 
 .section-label {
-  color: var(--accent-cyan);
-  font-weight: 800;
+  color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 2px;
-  font-size: 0.75rem;
-  margin-bottom: 1.5rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1rem;
+  margin-bottom: 1rem;
+  display: block;
 }
 
 .mandi-carousel {
   display: flex;
   overflow-x: auto;
-  gap: 20px;
-  padding-bottom: 20px;
+  gap: 12px;
+  padding-bottom: 10px;
   scrollbar-width: none;
 }
 
+.mandi-carousel::-webkit-scrollbar { display: none; }
+
 .mandi-card-premium {
-  min-width: 200px;
-  padding: 24px;
-  background: linear-gradient(145deg, #111, #080808);
-  border: 1px solid var(--border-glass);
-  border-radius: 16px;
+  min-width: 160px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
   transition: all 0.3s ease;
 }
 
-.mandi-card-premium:active {
-  border-color: var(--accent-neon);
-  transform: scale(0.96);
-}
-
 .mandi-card-premium h4 {
-  color: var(--text-pure);
-  font-size: 1.1rem;
-  margin-bottom: 4px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 2px;
 }
 
 .mandi-dist {
-  color: var(--accent-cyan);
+  color: var(--accent-light);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-/* --- THE BIG MIC BUTTON --- */
+/* INTERACTION */
 .interaction-zone {
   margin-top: auto;
-  padding-bottom: 3rem;
+  padding-bottom: 2rem;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 20px;
+  items-center: center;
+  gap: 15px;
 }
 
 .mic-button-premium {
-  width: 100px;
-  height: 100px;
-  background: #000;
-  border: 2px solid var(--accent-neon);
-  box-shadow: var(--glow-amber);
+  width: 85px;
+  height: 85px;
+  background: var(--accent);
+  border: none;
   border-radius: 50%;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-neon);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.4);
 }
 
 .mic-button-premium.pulsing {
-  background: var(--accent-neon);
-  color: #000;
-  box-shadow: 0 0 40px var(--accent-neon);
-  transform: scale(1.1);
+  animation: pulse-purple 2s infinite;
 }
 
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
+@keyframes pulse-purple {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.6); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(124, 58, 237, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
+}
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-.animate-reveal { animation: fadeIn 0.8s ease-out forwards; }
+.animate-reveal {
+  animation: reveal 0.8s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+}
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
