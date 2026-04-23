@@ -20,57 +20,97 @@ export default function Hero() {
   const audioRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
+  const lastPosRef = useRef(null) // Track last position to avoid redundant calls
   const [selectedLang, setSelectedLang] = useState(user?.language || 'hi-IN')
 
-  // EFFECT: LIVE MOVEMENT TRACKER
-  useEffect(() => {
-    if (navigator.geolocation) {
-      const watchId = navigator.geolocation.watchPosition(
-        async (pos) => {
-          const { latitude, longitude } = pos.coords
-          try {
-            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
-            const geoData = await geoRes.json()
-            const readableAddress = geoData.address.city || geoData.address.town || geoData.address.village || 'Sateek Location'
-            const cityState = `${readableAddress}, ${geoData.address.state || ''}`
-            
-            setLocation(prev => {
-              if (prev?.lat === latitude && prev?.lon === longitude) return prev
-              
-              const apiUrl = import.meta.env.VITE_API_URL || ''
-              
-              // Backend Update
-              if (user?.farmer_id) {
-                fetch(`${apiUrl}/api/auth/profile/update`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ phone: user.farmer_id, district: readableAddress, state: geoData.address.state, city: cityState, lat: latitude, lon: longitude })
-                }).catch(e => {})
-              }
-
-              // Weather Refresh
-              fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=precipitation_probability_max&timezone=Asia%2FKolkata&forecast_days=1`)
-                .then(r => r.json()).then(w => {
-                  const prob = w.daily.precipitation_probability_max[0] || 0
-                  setWeatherAlert(prob > 50 ? `🚨 ALERT: Aaj baarish hone ke ${prob}% chances hain.` : null)
-                }).catch(e => {})
-
-              // Mandi Refresh
-              fetch(`${apiUrl}/api/agent/mandis/nearby`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: latitude, lon: longitude })
-              }).then(r => r.json()).then(data => setMandiList(data)).catch(e => {})
-
-              return { lat: latitude, lon: longitude, city: cityState }
-            })
-          } catch (err) {}
-        },
-        () => setError('GPS required for live data.'),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  // CORE FUNCTION: Fetch all location-based data for given coordinates
+  async function fetchLocationData(latitude, longitude) {
+    const apiUrl = import.meta.env.VITE_API_URL || ''
+    try {
+      // 1. Reverse geocode with Nominatim
+      const geoRes = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=en`,
+        { headers: { 'User-Agent': 'KisaanVaani/1.0' } }
       )
-      return () => navigator.geolocation.clearWatch(watchId)
+      const geoData = await geoRes.json()
+      const addr = geoData.address || {}
+      const readableAddress = addr.city || addr.town || addr.village || addr.county || addr.suburb || 'Live Location'
+      const stateName = addr.state || ''
+      const cityState = stateName ? `${readableAddress}, ${stateName}` : readableAddress
+
+      setLocation({ lat: latitude, lon: longitude, city: cityState })
+
+      // 2. Sync to backend DB
+      if (user?.farmer_id) {
+        fetch(`${apiUrl}/api/auth/profile/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: user.farmer_id, district: readableAddress, state: stateName, city: cityState, lat: latitude, lon: longitude })
+        }).catch(() => {})
+      }
+
+      // 3. Real weather alert
+      try {
+        const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=precipitation_probability_max&timezone=Asia%2FKolkata&forecast_days=1`)
+        const wData = await wRes.json()
+        const prob = wData?.daily?.precipitation_probability_max?.[0] || 0
+        setWeatherAlert(prob > 50 ? `🚨 Aaj baarish ke ${prob}% chances hain. Fasal sambhal ke rakhein.` : null)
+      } catch (e) {}
+
+      // 4. Nearest mandis from backend (uses expanded all-India database)
+      try {
+        const mRes = await fetch(`${apiUrl}/api/agent/mandis/nearby`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: latitude, lon: longitude })
+        })
+        const mData = await mRes.json()
+        if (Array.isArray(mData)) setMandiList(mData)
+      } catch (e) {}
+
+    } catch (err) {
+      // Geocoding failed — still store coords
+      setLocation({ lat: latitude, lon: longitude, city: `${latitude.toFixed(3)}°N, ${longitude.toFixed(3)}°E` })
     }
+  }
+
+  // EFFECT: GET POSITION IMMEDIATELY + WATCH FOR MOVEMENT
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setError('GPS not supported on this device.')
+      return
+    }
+
+    const GEO_OPTS = { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+
+    // Step 1: Get current position immediately for fast first load
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        lastPosRef.current = { lat: latitude, lon: longitude }
+        fetchLocationData(latitude, longitude)
+      },
+      () => setError('GPS access denied. Please enable location.'),
+      GEO_OPTS
+    )
+
+    // Step 2: Keep watching for movement (e.g. user travels to another city)
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        const last = lastPosRef.current
+        // Only refresh if moved more than ~500 meters to avoid hammering APIs
+        const moved = !last || Math.abs(last.lat - latitude) > 0.005 || Math.abs(last.lon - longitude) > 0.005
+        if (moved) {
+          lastPosRef.current = { lat: latitude, lon: longitude }
+          fetchLocationData(latitude, longitude)
+        }
+      },
+      () => {}, // Silent fail for watch (already handled in getCurrentPosition)
+      GEO_OPTS
+    )
+
+    return () => navigator.geolocation.clearWatch(watchId)
   }, [user])
 
   async function startRecording() {

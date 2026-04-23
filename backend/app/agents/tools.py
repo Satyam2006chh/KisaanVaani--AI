@@ -176,40 +176,114 @@ async def get_mandi_price(crop: str, district: str, state: str) -> str:
 
 import math
 
-# REGIONAL MANDI DATABASE (Lat, Lon, Name)
-# This will be expanded/queried from Agmarknet, but for proximity matching:
+# ALL-INDIA MANDI HUB DATABASE
+# Covers all major agricultural markets across every state
 MANDI_HUBS = [
-    {"name": "Fatehgarh Sahib", "lat": 30.64, "lon": 76.39, "state": "Punjab"},
-    {"name": "Ambala City", "lat": 30.37, "lon": 76.77, "state": "Haryana"},
-    {"name": "Saharanpur", "lat": 29.96, "lon": 77.55, "state": "Uttar Pradesh"},
-    {"name": "Rajpura", "lat": 30.48, "lon": 76.59, "state": "Punjab"},
-    {"name": "Sirhind", "lat": 30.62, "lon": 76.40, "state": "Punjab"},
-    {"name": "Karnal", "lat": 29.68, "lon": 76.99, "state": "Haryana"},
-    {"name": "Rohtak", "lat": 28.89, "lon": 76.60, "state": "Haryana"},
-    {"name": "Batala", "lat": 31.81, "lon": 75.20, "state": "Punjab"},
+    # Punjab
+    {"name": "Rajpura Mandi", "lat": 30.48, "lon": 76.59, "state": "Punjab"},
+    {"name": "Patiala Mandi", "lat": 30.34, "lon": 76.39, "state": "Punjab"},
+    {"name": "Banur Mandi", "lat": 30.56, "lon": 76.68, "state": "Punjab"},
+    {"name": "Fatehgarh Sahib Mandi", "lat": 30.64, "lon": 76.39, "state": "Punjab"},
+    {"name": "Sirhind Mandi", "lat": 30.62, "lon": 76.40, "state": "Punjab"},
+    {"name": "Ludhiana Mandi", "lat": 30.90, "lon": 75.85, "state": "Punjab"},
+    {"name": "Amritsar Mandi", "lat": 31.63, "lon": 74.87, "state": "Punjab"},
+    {"name": "Jalandhar Mandi", "lat": 31.32, "lon": 75.57, "state": "Punjab"},
+    {"name": "Bathinda Mandi", "lat": 30.21, "lon": 74.94, "state": "Punjab"},
+    {"name": "Batala Mandi", "lat": 31.81, "lon": 75.20, "state": "Punjab"},
+    {"name": "Moga Mandi", "lat": 30.82, "lon": 75.17, "state": "Punjab"},
+    {"name": "Firozpur Mandi", "lat": 30.92, "lon": 74.61, "state": "Punjab"},
+    # Haryana
+    {"name": "Ambala Mandi", "lat": 30.37, "lon": 76.77, "state": "Haryana"},
+    {"name": "Karnal Mandi", "lat": 29.68, "lon": 76.99, "state": "Haryana"},
+    {"name": "Rohtak Mandi", "lat": 28.89, "lon": 76.60, "state": "Haryana"},
+    {"name": "Hisar Mandi", "lat": 29.15, "lon": 75.72, "state": "Haryana"},
+    {"name": "Sirsa Mandi", "lat": 29.53, "lon": 75.02, "state": "Haryana"},
+    {"name": "Panipat Mandi", "lat": 29.39, "lon": 76.97, "state": "Haryana"},
+    {"name": "Sonipat Mandi", "lat": 28.99, "lon": 77.01, "state": "Haryana"},
+    {"name": "Kurukshetra Mandi", "lat": 29.96, "lon": 76.82, "state": "Haryana"},
+    {"name": "Jhajjar Mandi", "lat": 28.61, "lon": 76.65, "state": "Haryana"},
+    {"name": "Rewari Mandi", "lat": 28.19, "lon": 76.62, "state": "Haryana"},
+    {"name": "Gurgaon Mandi", "lat": 28.46, "lon": 77.03, "state": "Haryana"},
+    {"name": "Faridabad Mandi", "lat": 28.41, "lon": 77.31, "state": "Haryana"},
+    # Uttar Pradesh
+    {"name": "Meerut Mandi", "lat": 28.98, "lon": 77.71, "state": "Uttar Pradesh"},
+    {"name": "Saharanpur Mandi", "lat": 29.96, "lon": 77.55, "state": "Uttar Pradesh"},
+    {"name": "Muzaffarnagar Mandi", "lat": 29.47, "lon": 77.70, "state": "Uttar Pradesh"},
+    {"name": "Hapur Mandi", "lat": 28.73, "lon": 77.78, "state": "Uttar Pradesh"},
+    {"name": "Agra Mandi", "lat": 27.18, "lon": 78.01, "state": "Uttar Pradesh"},
+    {"name": "Lucknow Mandi", "lat": 26.85, "lon": 80.95, "state": "Uttar Pradesh"},
+    {"name": "Kanpur Mandi", "lat": 26.46, "lon": 80.33, "state": "Uttar Pradesh"},
+    {"name": "Allahabad Mandi", "lat": 25.43, "lon": 81.84, "state": "Uttar Pradesh"},
+    {"name": "Bareilly Mandi", "lat": 28.36, "lon": 79.41, "state": "Uttar Pradesh"},
+    {"name": "Moradabad Mandi", "lat": 28.83, "lon": 78.77, "state": "Uttar Pradesh"},
+    {"name": "Ghaziabad Mandi", "lat": 28.66, "lon": 77.43, "state": "Uttar Pradesh"},
+    {"name": "Varanasi Mandi", "lat": 25.32, "lon": 82.97, "state": "Uttar Pradesh"},
+    # Rajasthan
+    {"name": "Jaipur Mandi", "lat": 26.91, "lon": 75.79, "state": "Rajasthan"},
+    {"name": "Jodhpur Mandi", "lat": 26.29, "lon": 73.01, "state": "Rajasthan"},
+    {"name": "Kota Mandi", "lat": 25.18, "lon": 75.83, "state": "Rajasthan"},
+    {"name": "Ajmer Mandi", "lat": 26.45, "lon": 74.64, "state": "Rajasthan"},
+    {"name": "Alwar Mandi", "lat": 27.56, "lon": 76.61, "state": "Rajasthan"},
+    {"name": "Bharatpur Mandi", "lat": 27.22, "lon": 77.49, "state": "Rajasthan"},
+    # Madhya Pradesh
+    {"name": "Bhopal Mandi", "lat": 23.26, "lon": 77.40, "state": "Madhya Pradesh"},
+    {"name": "Indore Mandi", "lat": 22.72, "lon": 75.86, "state": "Madhya Pradesh"},
+    {"name": "Gwalior Mandi", "lat": 26.22, "lon": 78.18, "state": "Madhya Pradesh"},
+    {"name": "Jabalpur Mandi", "lat": 23.17, "lon": 79.94, "state": "Madhya Pradesh"},
+    # Maharashtra
+    {"name": "Pune Mandi (APMC)", "lat": 18.52, "lon": 73.85, "state": "Maharashtra"},
+    {"name": "Nashik Mandi", "lat": 19.99, "lon": 73.79, "state": "Maharashtra"},
+    {"name": "Aurangabad Mandi", "lat": 19.88, "lon": 75.34, "state": "Maharashtra"},
+    {"name": "Nagpur Mandi", "lat": 21.15, "lon": 79.08, "state": "Maharashtra"},
+    # Gujarat
+    {"name": "Ahmedabad APMC", "lat": 23.03, "lon": 72.59, "state": "Gujarat"},
+    {"name": "Surat Mandi", "lat": 21.17, "lon": 72.83, "state": "Gujarat"},
+    {"name": "Rajkot Mandi", "lat": 22.30, "lon": 70.80, "state": "Gujarat"},
+    # Bihar
+    {"name": "Patna Mandi", "lat": 25.59, "lon": 85.14, "state": "Bihar"},
+    {"name": "Muzaffarpur Mandi", "lat": 26.12, "lon": 85.36, "state": "Bihar"},
+    # West Bengal
+    {"name": "Kolkata APMC", "lat": 22.57, "lon": 88.36, "state": "West Bengal"},
+    # Karnataka
+    {"name": "Bangalore APMC", "lat": 12.97, "lon": 77.59, "state": "Karnataka"},
+    {"name": "Hubli Mandi", "lat": 15.36, "lon": 75.12, "state": "Karnataka"},
+    # Andhra Pradesh
+    {"name": "Guntur Mandi", "lat": 16.30, "lon": 80.43, "state": "Andhra Pradesh"},
+    {"name": "Vijayawada Mandi", "lat": 16.51, "lon": 80.62, "state": "Andhra Pradesh"},
+    # Tamil Nadu
+    {"name": "Madurai Mandi", "lat": 9.93, "lon": 78.12, "state": "Tamil Nadu"},
+    # Uttarakhand
+    {"name": "Haridwar Mandi", "lat": 29.94, "lon": 78.16, "state": "Uttarakhand"},
+    {"name": "Dehradun Mandi", "lat": 30.32, "lon": 78.03, "state": "Uttarakhand"},
+    # Himachal Pradesh
+    {"name": "Shimla Mandi", "lat": 31.10, "lon": 77.17, "state": "Himachal Pradesh"},
+    # Delhi NCR
+    {"name": "Azadpur Mandi (Delhi)", "lat": 28.72, "lon": 77.18, "state": "Delhi"},
+    {"name": "Ghazipur Mandi (Delhi)", "lat": 28.63, "lon": 77.32, "state": "Delhi"},
 ]
 
 def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371 # Earth radius in km
+    """Haversine formula for accurate distance between two GPS coordinates."""
+    R = 6371  # Earth radius in km
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    a = (math.sin(dlat / 2) ** 2 +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
 async def get_nearest_mandis(lat: float, lon: float):
-    """Finds top 3 nearest mandis from the hub list and fetches rates if possible."""
+    """Finds top 5 nearest mandis using GPS coordinates. Radius: 150km."""
     nearby = []
     for m in MANDI_HUBS:
         dist = calculate_distance(lat, lon, m["lat"], m["lon"])
-        if dist < 100: # Within 100km
+        if dist < 150:  # Expanded to 150km for better coverage
             m_copy = m.copy()
             m_copy["distance"] = round(dist, 1)
             nearby.append(m_copy)
-    
-    # Sort by distance
+
     nearby.sort(key=lambda x: x["distance"])
-    return nearby[:3]
+    return nearby[:5]  # Return top 5 nearest
 
 async def scrape_agricultural_news(query: str) -> str:
     """Uses Firecrawl to get the latest agricultural news or scheme details."""
