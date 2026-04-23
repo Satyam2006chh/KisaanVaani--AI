@@ -109,6 +109,9 @@ async def nearby_mandis(req: dict):
         except:
             m["rate_info"] = None
 
-    await asyncio.gather(*[_fill_rate(m) for m in mandis])
+    try:
+        await asyncio.wait_for(asyncio.gather(*[_fill_rate(m) for m in mandis]), timeout=5.0)
+    except asyncio.TimeoutError:
+        logger.warning("Mandi price fetch timed out")
     
     return mandis

@@ -103,8 +103,9 @@ export default function Hero() {
       }).catch(() => {})
     }
 
-    // Parallel: weather + mandis
-    await Promise.all([fetchWeather(lat, lon), fetchMandis(lat, lon)])
+    // Parallel: weather + mandis (Don't await mandis to avoid blocking the UI)
+    fetchWeather(lat, lon);
+    fetchMandis(lat, lon);
     setLocLoading(false)
   }
 
