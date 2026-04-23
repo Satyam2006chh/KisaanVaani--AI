@@ -46,14 +46,13 @@ export default function Hero() {
             const geoData = await geoRes.json()
             const readableAddress = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.suburb || 'Sateek Location'
             
-            const addressStr = `${readableAddress}, ${geoData.address.state || ''}`
-            setLocation({ 
+          setLocation({ 
               lat: latitude, 
               lon: longitude, 
               city: addressStr
             })
 
-            // UPDATE DB: Sync live address with profile (Fixed Endpoint)
+            // 1. UPDATE DB: Sync live address
             if (user?.farmer_id) {
                const apiUrl = import.meta.env.VITE_API_URL || '';
                fetch(`${apiUrl}/api/auth/profile/update`, {
@@ -67,11 +66,24 @@ export default function Hero() {
                   })
                }).catch(e => console.log("DB Sync failed", e))
             }
-          
-          // Trigger a sample alert for demo (75% Rain Probability)
-          setTimeout(() => {
-            setWeatherAlert("🚨 ALERT: Agle 1 ghante mein baarish hone ki sambhavna hai (77%). Fasal dhak lein!")
-          }, 3000)
+
+            // 2. FETCH REAL WEATHER ALERT (No more fake data)
+            try {
+              const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=precipitation_probability_max&timezone=Asia%2FKolkata&forecast_days=1`)
+              const wData = await wRes.json()
+              const rainProb = wData.daily.precipitation_probability_max[0] || 0
+              
+              if (rainProb > 50) {
+                setWeatherAlert(`🚨 REAL ALERT: Aapke khet par baarish ki sambhavna ${rainProb}% hai. Fasal ka dhyan rakhein!`)
+              } else {
+                setWeatherAlert(null) // Hide if no real danger
+              }
+            } catch (err) {
+              console.log("Weather fetch failed", err)
+            }
+          } catch (err) {
+            setLocation({ lat: latitude, lon: longitude, city: user?.city || 'Sateek Location' })
+          }
         },
         () => setError('Location access denied. Please allow GPS for local updates.')
       )
