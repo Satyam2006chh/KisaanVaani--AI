@@ -39,7 +39,21 @@ export default function Hero() {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const { latitude, longitude } = pos.coords
-          setLocation({ lat: latitude, lon: longitude, city: user?.city || 'Detecting...' })
+          
+          // Reverse Geocoding to get City/Village Name
+          try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
+            const geoData = await geoRes.json()
+            const readableAddress = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.suburb || 'Sateek Location'
+            
+            setLocation({ 
+              lat: latitude, 
+              lon: longitude, 
+              city: `${readableAddress}, ${geoData.address.state || ''}` 
+            })
+          } catch (err) {
+            setLocation({ lat: latitude, lon: longitude, city: user?.city || 'Sateek Location' })
+          }
           
           // Trigger a sample alert for demo (75% Rain Probability)
           setTimeout(() => {
