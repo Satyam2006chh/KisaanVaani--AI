@@ -30,31 +30,39 @@ MSP = {
 }
 
 
-async def get_weather(district: str, state: str) -> str:
+async def get_weather(district: str, state: str, lat: float = None, lon: float = None) -> str:
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            geo = await client.get(
-                "https://geocoding-api.open-meteo.com/v1/search",
-                params={"name": district, "count": 1, "language": "en", "format": "json"}
-            )
-        if geo.status_code != 200 or not geo.json().get("results"):
-            return f"{district} ka mausam abhi uplabdh nahi hai."
+        # Check if coordinates are provided directly from user GPS
+        if lat is not None and lon is not None:
+            actual_lat, actual_lon = lat, lon
+            loc_label = f"Aapke khet (Lat: {lat}, Lon: {lon})"
+        else:
+            # Fallback to district geocoding
+            async with httpx.AsyncClient(timeout=10) as client:
+                geo = await client.get(
+                    "https://geocoding-api.open-meteo.com/v1/search",
+                    params={"name": district, "count": 1, "language": "en", "format": "json"}
+                )
+            if geo.status_code != 200 or not geo.json().get("results"):
+                return f"{district} ka mausam abhi uplabdh nahi hai."
 
-        loc = geo.json()["results"][0]
-        lat, lon = loc["latitude"], loc["longitude"]
+            loc = geo.json()["results"][0]
+            actual_lat, actual_lon = loc["latitude"], loc["longitude"]
+            loc_label = f"{district}, {state}"
 
+        # Fetch High-Precision Forecast
         async with httpx.AsyncClient(timeout=10) as client:
             w = await client.get(
                 "https://api.open-meteo.com/v1/forecast",
                 params={
-                    "latitude": lat, "longitude": lon,
+                    "latitude": actual_lat, "longitude": actual_lon,
                     "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation",
-                    "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
+                    "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max",
                     "timezone": "Asia/Kolkata", "forecast_days": 1,
                 }
             )
         if w.status_code != 200:
-            return f"{district} ka mausam abhi uplabdh nahi hai."
+            return f"{loc_label} ka mausam abhi uplabdh nahi hai."
 
         cur = w.json()["current"]
         daily = w.json().get("daily", {})
@@ -62,28 +70,36 @@ async def get_weather(district: str, state: str) -> str:
         humidity = cur["relative_humidity_2m"]
         wind = cur["wind_speed_10m"]
         rain = cur["precipitation"]
+        # PREDICTIVE RAIN PROBABILITY (POP)
+        rain_prob = daily.get("precipitation_probability_max", [0])[0]
+        
         desc = WMO_CODES.get(cur["weather_code"], "Mausam saaf hai")
         max_t = daily.get("temperature_2m_max", [temp])[0]
         min_t = daily.get("temperature_2m_min", [temp])[0]
 
         result = (
-            f"{district}, {state} mein abhi {temp}°C temperature hai (Max: {max_t}°C, Min: {min_t}°C). "
-            f"Mausam: {desc}. Namee: {humidity}%. Hawa: {wind} km/h. "
+            f"**Data for {loc_label}:**\n"
+            f"Abhi temperature {temp}°C hai (Dopahar ka max {max_t}°C, Raat ka min {min_t}°C).\n"
+            f"Sthiti: {desc}. Namee (Humidity): {humidity}%. Hawa ki gati: {wind} km/h.\n"
+            f"Baarish ki sambhavna (POP): {rain_prob}%.\n"
         )
-        if rain > 0:
-            result += f"Aaj {rain}mm baarish hui hai. "
-        if cur["weather_code"] in [61, 63, 65, 80, 81, 82]:
-            result += "Baarish ho rahi hai, khet mein kaam sambhal ke karein."
-        elif temp > 40:
-            result += "Bahut garmi hai, fasal ko zyada paani dein."
-        elif temp < 10:
-            result += "Thandi bahut hai, pala padne ka darr hai, fasal ko bachayein."
-        else:
-            result += "Mausam kheti ke liye theek hai."
+        
+        # EXPERT ADVICE BASED ON DATA
+        if rain_prob > 70:
+            result += "🚨 ALERT: Baarish ke 70% se zyada chances hain. Kripya dhaan ya mandi mein rakhi fasal ko turant dhak dein (Cover your crops)."
+        elif rain_prob > 30:
+            result += "Badal chhaye reh sakte hain, halki bauchhaar ki umeed hai."
+        
+        if temp > 42:
+            result += " 🔥 Bahut garam hawaayein chalne ka darr hai, fasal ki light sinchai (irrigation) dopahar se pehle zaroori hai."
+        elif temp < 8:
+            result += " ❄️ Thandi ka pekhop hai, pala (frost) padne ka darr hai. Dhuan karke ya halka pani dekar fasal bachayein."
+            
         return result
 
-    except Exception:
-        return f"{district} ka mausam abhi uplabdh nahi hai."
+    except Exception as e:
+        logger.error(f"Weather Tool Error: {e}")
+        return f"{district} ka mausam fetch karne mein samasya aa rahi hai."
 
 
 from app.config import settings

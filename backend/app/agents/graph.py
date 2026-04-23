@@ -39,6 +39,7 @@ class AgentState(TypedDict):
     tool_result:  str
     final_answer: str
     image_data:   str # Base64
+    location:     dict # {lat, lon, city}
 
 
 async def _call_groq(messages: list, max_tokens: int = 512) -> str:
@@ -151,45 +152,46 @@ async def intent_router(state: AgentState) -> AgentState:
 
 async def weather_node(state: AgentState) -> AgentState:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
+    user_location = state.get("location")
+    
+    # 1. Coordinate check for God Level Accuracy
+    lat = user_location.get("lat") if user_location else None
+    lon = user_location.get("lon") if user_location else None
+    
+    # 2. Extract city if user asked for a DIFFERENT place
+    ext_city = state["district"]
     messages = [
         {"role": "system", "content": (
-            f"Aap ek Senior Agriculture Meteorologist (Mousam Aur Krishi Vigyanik) hain. "
-            f"User ka message: {state['messages'][-1]['content']}. "
-            f"Agar user ne specific location nahi di hai, toh '{state['city']}' use karein. "
-            "IMPORTANT: Aapko exact city extraction karni hai. "
-            "Return ONLY a JSON with: {'location': 'City Name', 'units': 'metric'}. "
-            "Bina kisi extra text ke."
+            "Identify if the user is asking about weather for a specific city OTHER than their current farm. "
+            "Return JSON: {'city': 'detected city or null'}. "
+            "Return 'null' if they just said 'weather' or 'barsat'."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
-    
     try:
-        raw = await _call_groq(messages, max_tokens=50)
+        raw = await _call_groq(messages, max_tokens=30)
         import json
         params = json.loads(raw.strip())
-        location = params.get("location", state["city"])
-        loc_state = params.get("state", state["state_name"])
-        
-        weather_data = await get_weather(location, loc_state)
-        if "error" in weather_data:
-            result = f"Maaf kijiye, mujhe {location} ka mausam data nahi mil pa raha hai."
-        else:
-            # Data integration into an Expert Advice response
-            messages = [
-                {"role": "system", "content": (
-                    f"{_system_prompt(state)}\n\n"
-                    f"Aap ek Senior Scientist hain. Weather data for {location}: {weather_data}. "
-                    "Incorporate technical details like Humidity, Wind Speed, and Temperature. "
-                    "Provide specific agricultural advice: E.g., if rain is predicted, advise against irrigation or fertilizer application. "
-                    "Jawab {lang_name} mein dein. "
-                    "Tone: Professional, Scientific, yet Caring."
-                )},
-                {"role": "user", "content": state["messages"][-1]["content"]},
-            ]
-            result = await _call_groq(messages)
-    except Exception as e:
-        logger.error(f"Weather node failed: {e}")
-        result = "Mausam ki jankari nikalne mein thodi dikkat ho rahi hai. Kripya dushri baar poochien."
+        if params.get("city") and params.get("city") != "null":
+            ext_city = params["city"]
+            lat, lon = None, None # Reset coords to use city-based geocoding for the other place
+    except: pass
+    
+    # 3. Call tool with higher precision
+    weather_data = await get_weather(ext_city, state["state_name"], lat, lon)
+    
+    # 4. Generate Expert Response
+    messages = [
+        {"role": "system", "content": (
+            f"{_system_prompt(state)}\n\n"
+            f"Weather Data: {weather_data}. "
+            "Explain in detail including Rain Probability (POP). "
+            "If Rain > 70%, warn them very strongly about covering crops. "
+            "Jawab itna sateek dein ki lagae aap unke khet mein khade hokar dekh rahe hain."
+        )},
+        {"role": "user", "content": state["messages"][-1]["content"]},
+    ]
+    result = await _call_groq(messages)
         
     return {**state, "tool_result": result}
 
