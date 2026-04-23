@@ -43,18 +43,32 @@ export function AuthProvider({ children }) {
   const API_BASE_URL = ''
 
   const sendOTP = async (phone) => {
-    const { data } = await axios.post(`${API_BASE_URL}/api/auth/otp/send`, { phone })
-    return data
+    console.log('[AuthContext] Sending OTP to:', `${API_BASE_URL}/api/auth/otp/send`)
+    try {
+      const { data } = await axios.post(`${API_BASE_URL}/api/auth/otp/send`, { phone })
+      console.log('[AuthContext] OTP Response:', data)
+      return data
+    } catch (err) {
+      console.error('[AuthContext] OTP Error:', err.response?.data || err.message)
+      throw err
+    }
   }
 
   const verifyOTP = async (phone, otp, name, language, district, state, city) => {
-    const { data } = await axios.post(`${API_BASE_URL}/api/auth/otp/verify`, {
-      phone, otp, name, language, district, state, city,
-    })
-    localStorage.setItem('token', data.access_token)
-    localStorage.setItem('user',  JSON.stringify(data.user))
-    setUser(data.user)
-    return data.user
+    console.log('[AuthContext] Verifying OTP for:', phone)
+    try {
+      const { data } = await axios.post(`${API_BASE_URL}/api/auth/otp/verify`, {
+        phone, otp, name, language, district, state, city,
+      })
+      console.log('[AuthContext] Verify Response:', data)
+      localStorage.setItem('token', data.access_token)
+      localStorage.setItem('user',  JSON.stringify(data.user))
+      setUser(data.user)
+      return data.user
+    } catch (err) {
+      console.error('[AuthContext] Verify Error:', err.response?.data || err.message)
+      throw err
+    }
   }
 
   const logout = () => {

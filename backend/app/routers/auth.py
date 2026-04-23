@@ -91,16 +91,27 @@ async def verify_otp(req: OTPVerify):
             # We don't pop the OTP here so they can retry with their name
             raise HTTPException(status_code=400, detail="Name required for new users")
         
-        # We only include columns that we are sure exist in the database schema
+        # 1. Fetch available columns dynamically to avoid crashes if schema is missing 'district' or 'state'
+        try:
+            sample = sb.table("users").select("*").limit(1).execute()
+            if sample.data:
+                available_cols = set(sample.data[0].keys())
+            else:
+                available_cols = {"phone", "name", "language", "created_at"}
+        except Exception:
+            available_cols = {"phone", "name", "language", "created_at"}
+
+        # 2. Build safe insert dictionary
         new_user = {
             "phone": req.phone,
             "name": req.name,
             "language": req.language or "hi-IN",
-            "district": req.district or "",
-            "state": req.state or "",
             "created_at": datetime.utcnow().isoformat(),
             "last_login": datetime.utcnow().isoformat(),
         }
+        if "district" in available_cols: new_user["district"] = req.district or ""
+        if "state" in available_cols:    new_user["state"] = req.state or ""
+        if "city" in available_cols:     new_user["city"] = req.city or ""
         
         try:
             insert_res = sb.table("users").insert(new_user).execute()
@@ -109,7 +120,7 @@ async def verify_otp(req: OTPVerify):
             user_data = insert_res.data[0]
         except Exception as e:
             logger.error(f"DATABASE ERROR: {e}")
-            raise HTTPException(status_code=500, detail="Error creating your profile. Please check if your information is correct.")
+            raise HTTPException(status_code=500, detail=f"Error creating your profile: {str(e)}")
 
     response = Token(
         access_token=_make_token(req.phone),
