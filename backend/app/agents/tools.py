@@ -293,14 +293,16 @@ async def get_nearest_mandis(lat: float, lon: float):
             )
         if geo.status_code == 200:
             addr = geo.json().get("address", {})
-            district = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("county")
+            district = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("county") or addr.get("suburb")
             state = addr.get("state")
-    except Exception:
-        pass
+            print(f"DEBUG: Geocoded to District={district}, State={state}")
+    except Exception as e:
+        print(f"DEBUG: Geocoding failed: {e}")
 
     # --- STEP 2: Fetch LIVE mandis from Agmarknet API ---
     if district and state and settings.datagov_api_key and "your_" not in settings.datagov_api_key:
         try:
+            print(f"DEBUG: Querying Agmarknet API for {district}, {state}")
             async with httpx.AsyncClient(timeout=10) as client:
                 # Try with district first
                 r = await client.get(
@@ -319,6 +321,7 @@ async def get_nearest_mandis(lat: float, lon: float):
 
                 # If no records for district, try nearby state-level data
                 if not records:
+                    print(f"DEBUG: No records for district {district}, trying state {state}")
                     async with httpx.AsyncClient(timeout=10) as client:
                         r2 = await client.get(
                             "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070",
@@ -333,6 +336,7 @@ async def get_nearest_mandis(lat: float, lon: float):
                         records = r2.json().get("records", [])
 
                 if records:
+                    print(f"DEBUG: Found {len(records)} live records")
                     # De-duplicate by market name and build response
                     seen = set()
                     live_mandis = []
@@ -351,20 +355,23 @@ async def get_nearest_mandis(lat: float, lon: float):
                             })
                     if live_mandis:
                         return live_mandis[:5]
-        except Exception:
-            pass  # Fall through to haversine fallback
+        except Exception as e:
+            print(f"DEBUG: Agmarknet API error: {e}")
 
     # --- STEP 3: FALLBACK — Haversine on static MANDI_HUBS ---
+    print(f"DEBUG: No live data found. Falling back to static MANDI_HUBS list...")
     nearby = []
     for m in MANDI_HUBS:
         dist = calculate_distance(lat, lon, m["lat"], m["lon"])
-        if dist < 150:
+        if dist < 250: # Increased to 250km
             m_copy = m.copy()
             m_copy["distance"] = round(dist, 1)
             m_copy["source"] = "offline"
             nearby.append(m_copy)
     nearby.sort(key=lambda x: x["distance"])
+    print(f"DEBUG: Return top {len(nearby[:5])} offline mandis.")
     return nearby[:5]
+
 
 async def scrape_agricultural_news(query: str) -> str:
     """Uses Firecrawl to get the latest agricultural news or scheme details."""

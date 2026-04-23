@@ -24,6 +24,15 @@ async def chat(req: ChatRequest):
     state_name = user.get("state", "Delhi")    if user else "Delhi"
     city       = user.get("city", district)    if user else district
     name       = user.get("name", "Kisaan")    if user else "Kisaan"
+
+    # LATEST LIVE LOCATION OVERRIDE (CRITICAL FOR ACCURACY)
+    if req.location and isinstance(req.location, dict):
+        live_dist = req.location.get("place") or req.location.get("district")
+        live_state = req.location.get("state")
+        live_city = req.location.get("city")
+        if live_dist: district = live_dist
+        if live_state: state_name = live_state
+        if live_city: city = live_city
     # Prioritize requested/detected language for dynamic response, fallback to profile
     language = req.language if req.language else (user.get("language", "hi-IN") if user else "hi-IN")
 
