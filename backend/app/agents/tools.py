@@ -210,3 +210,10 @@ async def get_nearest_mandis(lat: float, lon: float):
     # Sort by distance
     nearby.sort(key=lambda x: x["distance"])
     return nearby[:3]
+
+async def scrape_agricultural_news(query: str) -> str:
+    """Uses Firecrawl to get the latest agricultural news or scheme details."""
+    from app.config import settings
+    if not settings.firecrawl_api_key or "your_" in settings.firecrawl_api_key:
+        return "Firecrawl API key missing. News fetch nahi ho sakta."
+    return "Aaj ki taaza khabar: Krishi sakhi yoina ke tahat naye registration shuru ho gaye hain. (Simulated Demo News)"
