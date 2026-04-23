@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Mic, Square, Loader, MapPin, AlertCircle, TrendingUp } from 'lucide-react'
+import { Mic, Square, Loader, MapPin, AlertCircle, TrendingUp, Image as ImageIcon, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { chatWithAgent, transcribeAudio, speakText } from '../../api'
 
@@ -32,6 +32,8 @@ export default function Hero() {
   const [location, setLocation]       = useState(null)
   const [weatherAlert, setWeatherAlert] = useState(null)
   const [locLoading, setLocLoading]   = useState(true)
+  const [image, setImg]               = useState(null)
+  const [imgPreview, setImgPreview]   = useState(null)
 
   const mediaRecorderRef = useRef(null)
   const chunksRef        = useRef([])
@@ -138,6 +140,17 @@ export default function Hero() {
     return () => navigator.geolocation.clearWatch(wid)
   }, [user])
 
+  const handleImage = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImgPreview(URL.createObjectURL(file))
+    const reader = new FileReader()
+    reader.onloadend = () => setImg(reader.result)
+    reader.readAsDataURL(file)
+  }
+
+  const clearImg = () => { setImg(null); setImgPreview(null) }
+
   // ─── VOICE RECORDING ──────────────────────────────────────────────────────
   async function startRecording() {
     setError(''); setTranscript(''); setReply(''); chunksRef.current = []
@@ -152,9 +165,10 @@ export default function Hero() {
           const res = await transcribeAudio(blob, selectedLang)
           if (res.status === 'SUCCESS') {
             setTranscript(res.transcript)
-            // Pass full live location to agent so it uses GPS, not saved profile
-            const chatRes = await chatWithAgent(res.transcript, null, selectedLang, null, location)
+            // Pass full live location and image to agent
+            const chatRes = await chatWithAgent(res.transcript, null, selectedLang, image, location)
             setReply(chatRes.response)
+            clearImg() // Clear after processing
             const audioUrl = await speakText(chatRes.response, selectedLang)
             playAudio(audioUrl)
           } else {
@@ -220,6 +234,15 @@ export default function Hero() {
         </div>
       )}
 
+      {/* IMAGE PREVIEW */}
+      {imgPreview && (
+        <div className="img-preview-container animate-reveal">
+          <img src={imgPreview} alt="Crop" />
+          <button className="clear-img-btn" onClick={clearImg}><X size={14} /></button>
+          <div className="img-badge">Fasal ki photo taiyar hai 📸</div>
+        </div>
+      )}
+
       {/* RESPONSE AREA */}
       {(transcript || reply) && (
         <div className="glass-panel animate-reveal" style={{ padding: '1.2rem', width: '100%', borderLeft: '3px solid var(--primary)' }}>
@@ -251,28 +274,35 @@ export default function Hero() {
                                      'BOLNE KE LIYE DABAYEIN'}
         </p>
 
-        {/* ALL 11 SARVAM LANGUAGES */}
-        <select
-          value={selectedLang}
-          onChange={(e) => setSelectedLang(e.target.value)}
-          style={{
-            background: 'rgba(139,92,246,0.08)',
-            border: '1px solid rgba(139,92,246,0.3)',
-            color: '#fff',
-            padding: '8px 14px',
-            borderRadius: '12px',
-            fontSize: '0.82rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            outline: 'none',
-            width: '100%',
-            maxWidth: '280px'
-          }}
-        >
-          {LANGUAGES.map(l => (
-            <option key={l.code} value={l.code} style={{ background: '#0c0c14' }}>{l.label}</option>
-          ))}
-        </select>
+        <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '280px' }}>
+          <label className="image-upload-btn">
+            <ImageIcon size={18} />
+            <span>Photo</span>
+            <input type="file" accept="image/*" onChange={handleImage} hidden />
+          </label>
+
+          {/* ALL 11 SARVAM LANGUAGES */}
+          <select
+            value={selectedLang}
+            onChange={(e) => setSelectedLang(e.target.value)}
+            style={{
+              background: 'rgba(139,92,246,0.08)',
+              border: '1px solid rgba(139,92,246,0.3)',
+              color: '#fff',
+              padding: '8px 14px',
+              borderRadius: '12px',
+              fontSize: '0.82rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              outline: 'none',
+              flex: 1
+            }}
+          >
+            {LANGUAGES.map(l => (
+              <option key={l.code} value={l.code} style={{ background: '#0c0c14' }}>{l.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
     </div>
