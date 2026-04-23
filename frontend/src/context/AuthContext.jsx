@@ -40,12 +40,18 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }, [])
 
-  const API_BASE_URL = ''
+  // FORCE DIRECT URL to bypass Netlify Proxy/Redirect issues
+  const API_BASE_URL = 'https://kisaanvaani-ai-1.onrender.com'
+  
+  const api = axios.create({
+    baseURL: API_BASE_URL,
+    timeout: 30000, // 30s timeout
+  })
 
   const sendOTP = async (phone) => {
     console.log('[AuthContext] Sending OTP to:', `${API_BASE_URL}/api/auth/otp/send`)
     try {
-      const { data } = await axios.post(`${API_BASE_URL}/api/auth/otp/send`, { phone })
+      const { data } = await api.post('/api/auth/otp/send', { phone })
       console.log('[AuthContext] OTP Response:', data)
       return data
     } catch (err) {
@@ -57,7 +63,7 @@ export function AuthProvider({ children }) {
   const verifyOTP = async (phone, otp, name, language, district, state, city) => {
     console.log('[AuthContext] Verifying OTP for:', phone)
     try {
-      const { data } = await axios.post(`${API_BASE_URL}/api/auth/otp/verify`, {
+      const { data } = await api.post('/api/auth/otp/verify', {
         phone, otp, name, language, district, state, city,
       })
       console.log('[AuthContext] Verify Response:', data)
