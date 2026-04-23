@@ -93,22 +93,17 @@ def _system_prompt(state: AgentState) -> str:
     supported_langs = ", ".join(LANG_MAP.values())
     
     return (
-        f"Aap KisaanVaani AI hain — Indian farmers ke liye ek mahan aur adarniya agricultural expert. "
-        f"Aapka kaam kisanon ko sahi, professional aur sammanjanak salah dena hai. "
-        f"Aap abhi {state['farmer_name']} ji se baat kar rahe hain jo {state['district']}, {state['state_name']} se hain. "
-        f"Hamesha {lang_name} mein jawab dein. "
-        f"IMPORTANT: Aap ek multilingual AI hain jo in bhashayon ko samajhta aur bol sakta hai: {supported_langs}. "
-        "Agar user aapki capabilities ke bare mein pooche, to garv se batayein ki aap in sabhi bhashayon mein madad kar sakte hain. "
-        "\n\nGUIDELINES:\n"
-        "1. Samman: Apne har jawab ki shuruat 'Adarniya' ya 'Ji' jaise sammanjanak shabdon se karein.\n"
-        "2. Scope: Agar user koi aisa sawal pooche jo kheti ya project se related nahi hai, "
-        "to pehle pyaar se bole ki 'Adarniya {state['farmer_name']} ji, ye sawal hamare kheti prashikshan se thoda alag hai, "
-        "par aapki jankari ke liye...' aur phir agar aapko jawab pata ho to chhota sa jawab de dein taaki user khush rahe.\n"
-        "3. Impact: Aapka jawab impactful aur informative hona chahiye. "
-        "Koshish karein ki user ko poori jaankari mile, lekin baatein faltu na hon. "
-        "Ek expert scientist ki tarah jawab dein.\n"
-        "4. Location Identity: Agar user kisi specific jagah ka naam le (e.g. 'Mumbai ka mausam'), "
-        "to us jagah ka data dein. Agar koi jagah mention na ho, tabhi unke registered district ({state['district']}) ka data dein."
+        "You are KisaanVaani AI, a senior agricultural advisor for Indian farmers.\n"
+        f"Current farmer: {state['farmer_name']} from {state['district']}, {state['state_name']}.\n"
+        f"Always respond in {lang_name}. Supported languages: {supported_langs}.\n\n"
+        "Non-negotiable response rules:\n"
+        "1) Respectful tone: Start with a respectful greeting like 'Adarniya ... ji'.\n"
+        "2) Data-first: If tool data is provided, prioritize it over assumptions.\n"
+        "3) No hallucination: If data is unavailable, say it clearly and suggest next best action.\n"
+        "4) Actionable output: End with clear next steps for farmer.\n"
+        "5) Brevity with depth: Keep answers concise but practical (typically 3-6 lines).\n"
+        "6) Location logic: If user explicitly asks another city, use that city; otherwise use live/current farmer location.\n"
+        "7) Safety: Avoid harmful, illegal, or unsafe advice."
     )
 
 
@@ -137,13 +132,15 @@ async def intent_router(state: AgentState) -> AgentState:
             
     # 2. LLM Fallback (Smart)
     intent_prompt = (
-        "Classify user intent into: weather, mandi, news, crop_advice, eligibility, scheme, or lang_switch (if user wants to change response language). "
-        "Return ONLY the word of the intent.\n\n"
+        "Classify user intent into EXACTLY one of these labels: weather, mandi, news, crop_advice, eligibility, scheme, lang_switch. "
+        "Return only the label text with no punctuation and no explanation.\n\n"
         f"Message: {msg}"
     )
     try:
         raw_intent = await _call_groq([{"role": "system", "content": intent_prompt}], max_tokens=10)
-        intent = raw_intent.strip().lower()
+        intent = raw_intent.strip().lower().replace(".", "").replace("`", "")
+        if intent not in {"weather", "mandi", "news", "crop_advice", "eligibility", "scheme", "lang_switch"}:
+            intent = "scheme"
     except Exception:
         intent = "scheme"
         
@@ -163,10 +160,9 @@ async def weather_node(state: AgentState) -> AgentState:
     # If they did, use that city's geocoding instead of live GPS
     messages = [
         {"role": "system", "content": (
-            "Identify if the user is asking about weather for a SPECIFIC city different from their current location. "
-            "Return JSON: {\"city\": \"city name or null\"}. "
-            "IMPORTANT: Return null if they just asked for 'aaj ka mausam' or 'weather' without naming a city. "
-            "Only return a city name if they EXPLICITLY mentioned a different place."
+            "Identify whether user asked weather for a specific city different from current location. "
+            "Return strict JSON only: {\"city\": \"<name>\"} OR {\"city\": null}. "
+            "If no explicit different city is mentioned, return null."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
@@ -192,10 +188,9 @@ async def weather_node(state: AgentState) -> AgentState:
             f"{_system_prompt(state)}\n\n"
             f"Live Location: {location_label}\n"
             f"Weather Data: {weather_data}\n"
-            "Explain the weather in detail including Rain Probability (POP). "
-            f"IMPORTANT: Tell the farmer you are giving weather for '{location_label}' — their live GPS location. "
-            "If Rain > 70%, warn very strongly about covering crops. "
-            "Jawab itna sateek dein ki lagae aap unke khet mein khade hokar dekh rahe hain."
+            f"Tell farmer clearly that this forecast is for '{location_label}'. "
+            "Include: current condition, rain probability, risk level, and 2 concrete farm actions. "
+            "If rain probability > 70%, issue a strong crop protection alert."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
@@ -210,8 +205,8 @@ async def mandi_node(state: AgentState) -> AgentState:
         {"role": "system", "content": (
             f"Aap ek Mandi Market Analyst hain. User message: {state['messages'][-1]['content']}. "
             f"Extract the crop/commodity. If no district mentioned, assume '{state['district']}'. "
-            "Return ONLY a JSON: {'commodity': 'wheat/rice/soybean etc', 'district': 'name'}. "
-            "Use only English for JSON keys and values."
+            "Return ONLY strict JSON: {\"commodity\": \"wheat/rice/soybean\", \"district\": \"name\", \"state\": \"name\"}. "
+            "Use English keys/values only. No explanation."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
@@ -230,8 +225,8 @@ async def mandi_node(state: AgentState) -> AgentState:
             {"role": "system", "content": (
                 f"{_system_prompt(state)}\n\n"
                 f"Mandi Data for {crop} in {dist}: {mandi_data}. "
-                "Evaluate the prices. Is it a good time to sell? Mention the trends. "
-                f"Explain thoroughly in {lang_name}. Make it feel like an expert market analysis."
+                "Evaluate if this is a good sell window. Mention price trend signal and one negotiation tip. "
+                "If mandi data is missing, state it explicitly and suggest nearby fallback market query."
             )},
             {"role": "user", "content": state["messages"][-1]["content"]},
         ]
@@ -251,8 +246,8 @@ async def news_node(state: AgentState) -> AgentState:
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
             "Aapne internet se yeh taaza news scrape ki hai. "
-            "Is news ko kisan ke sawal ke hisaab se summarize karein. "
-            "IMPORTANT: Jawab sirf 2-3 sentences mein hona chahiye. Sirf mahatvapoorn baat batayein."
+            "Summarize as: (1) Key update, (2) Farmer impact, (3) What farmer should do now. "
+            "Keep it concise and practical."
         )},
         {"role": "user", "content": f"Scraped News Content: {raw_content}\n\nFarmer Question: {state['messages'][-1]['content']}"},
     ]
@@ -348,8 +343,8 @@ async def crop_advice_node(state: AgentState) -> AgentState:
             f"{_system_prompt(state)}\n\n"
             "Aap ek Agri-Scientist hain. Farmer ko fasal, mitti, keet-nashak (pesticide), ya khad ka expert advice chahiye. "
             "Provide deep technical yet easy to understand tips. Mention specific fertilizer names like Urea, DAP, NPK if relevant. "
-            f"Respond in {lang_name} professionally. "
-            "Jawab itna bada nahi hona chahiye ki user bor ho jaye (MAX 4 sentences)."
+            "Give answer in 4 compact parts: diagnosis/context, recommendation, dosage/timing, caution. "
+            "Keep it useful and field-ready."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
