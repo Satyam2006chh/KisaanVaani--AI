@@ -1,58 +1,67 @@
 .about__layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 72px;
+  gap: 64px;
   align-items: center;
 }
+
 .about__text { max-width: 480px; }
+
 .about__solution {
-  margin-top: 32px;
+  margin-top: 28px;
   display: flex;
   align-items: flex-start;
   gap: 16px;
   padding: 24px;
-  background: hsla(190, 100%, 50%, 0.05);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  background: var(--primary-glow);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   border-radius: var(--radius-md);
 }
+
 .about__solution-icon { font-size: 2rem; flex-shrink: 0; }
-.about__solution p    { font-size: 1rem; color: var(--text-dim); line-height: 1.7; }
+.about__solution p { font-size: 1rem; color: var(--text-dim); line-height: 1.7; }
 .about__solution strong { color: var(--text-main); }
 
-.about__cards { display: flex; flex-direction: column; gap: 16px; }
-.about__card  {
+.about__cards { display: flex; flex-direction: column; gap: 14px; }
+
+.about__card {
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 24px 28px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 22px 24px;
+  background: var(--bg-card);
+  border: var(--border-glass);
   border-radius: var(--radius-md);
   transition: var(--transition);
 }
+
 .about__card:hover {
   background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(6, 182, 212, 0.3);
+  border-color: rgba(139, 92, 246, 0.25);
 }
+
 .about__card-icon {
   flex-shrink: 0;
-  width: 48px; height: 48px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
   background: var(--primary-glow);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.25);
   border-radius: 12px;
   color: var(--primary);
 }
+
 .about__card-title {
   font-family: var(--font-heading);
   font-size: 0.95rem;
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-weight: 700;
+  margin-bottom: 3px;
 }
-.about__card-desc { font-size: 0.85rem; color: var(--text-secondary); }
+
+.about__card-desc { font-size: 0.85rem; color: var(--text-dim); }
 
 @media (max-width: 900px) {
-  .about__layout { grid-template-columns: 1fr; gap: 48px; }
-  .about__text   { max-width: 100%; }
+  .about__layout { grid-template-columns: 1fr; gap: 40px; }
+  .about__text { max-width: 100%; }
 }

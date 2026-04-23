@@ -3,14 +3,14 @@
   top: 0;
   left: 0;
   width: 100%;
-  padding: 30px 0;
+  padding: 20px 0;
   z-index: 1000;
   transition: var(--transition);
 }
 
 .navbar--scrolled {
   padding: 12px 0;
-  background: hsla(222, 47%, 4%, 0.85);
+  background: rgba(7, 7, 10, 0.9);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -24,37 +24,36 @@
 .navbar__logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-family: var(--font-heading);
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 800;
   color: white;
   text-decoration: none;
 }
 
 .navbar__logo-icon {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   background: var(--primary-glow);
-  border-radius: 14px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   color: var(--primary);
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
 .navbar__links {
   display: flex;
-  gap: 40px;
+  gap: 36px;
 }
 
 .navbar__link {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-dim);
   text-decoration: none;
   transition: var(--transition);
-  letter-spacing: 0.02em;
 }
 
 .navbar__link:hover {
@@ -64,21 +63,21 @@
 .navbar__cta {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
 
 .navbar__user {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   background: rgba(255, 255, 255, 0.05);
-  padding: 6px 16px;
-  border-radius: 100px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: var(--border-glass);
 }
 
 .navbar__user-name {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: white;
   display: flex;
@@ -95,9 +94,7 @@
   display: flex;
 }
 
-.navbar__logout:hover {
-  color: #ef4444;
-}
+.navbar__logout:hover { color: #ef4444; }
 
 .navbar__hamburger {
   display: none;
@@ -107,7 +104,6 @@
   cursor: pointer;
 }
 
-/* Mobile Adjustments */
 @media (max-width: 900px) {
   .navbar__links { display: none; }
   .navbar__hamburger { display: block; }
@@ -120,16 +116,16 @@
   left: 0;
   width: 100%;
   height: 100vh;
-  background: var(--bg-deep);
+  background: var(--bg-primary);
   padding: 100px 40px;
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 24px;
   z-index: 999;
 }
 
 .navbar__mobile-link {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: white;
   text-decoration: none;
