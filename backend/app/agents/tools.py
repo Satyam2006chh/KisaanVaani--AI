@@ -417,3 +417,119 @@ async def scrape_agricultural_news(query: str) -> str:
     except Exception as e:
         logger.warning(f"Firecrawl request failed: {repr(e)}")
         return "Firecrawl se news fetch karne mein samasya aa rahi hai."
+
+
+async def get_nearby_services(lat: float, lon: float, radius_m: int = 12000):
+    """
+    Fetch nearby services from OpenStreetMap Overpass API for:
+    - agri shops / agricultural offices
+    - clinics / hospitals / doctors
+    - soil/agri labs (best-effort from OSM tags)
+    """
+    query = f"""
+    [out:json][timeout:25];
+    (
+      node(around:{radius_m},{lat},{lon})["shop"="agricultural"];
+      way(around:{radius_m},{lat},{lon})["shop"="agricultural"];
+      node(around:{radius_m},{lat},{lon})["office"="agricultural"];
+      way(around:{radius_m},{lat},{lon})["office"="agricultural"];
+      node(around:{radius_m},{lat},{lon})["government"="agriculture"];
+      way(around:{radius_m},{lat},{lon})["government"="agriculture"];
+      node(around:{radius_m},{lat},{lon})["amenity"="clinic"];
+      node(around:{radius_m},{lat},{lon})["amenity"="hospital"];
+      node(around:{radius_m},{lat},{lon})["amenity"="doctors"];
+      way(around:{radius_m},{lat},{lon})["amenity"="clinic"];
+      way(around:{radius_m},{lat},{lon})["amenity"="hospital"];
+      way(around:{radius_m},{lat},{lon})["amenity"="doctors"];
+      node(around:{radius_m},{lat},{lon})["laboratory"="yes"];
+      way(around:{radius_m},{lat},{lon})["laboratory"="yes"];
+    );
+    out center tags;
+    """
+
+    try:
+        r = None
+        endpoints = [
+            "https://overpass-api.de/api/interpreter",
+            "https://lz4.overpass-api.de/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter",
+        ]
+        async with httpx.AsyncClient(timeout=30) as client:
+            for ep in endpoints:
+                try:
+                    candidate = await client.post(
+                        ep,
+                        data={"data": query},
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    )
+                    if candidate.status_code == 200:
+                        r = candidate
+                        break
+                    logger.warning(f"Overpass API non-200 from {ep}: {candidate.status_code}")
+                except Exception as e:
+                    logger.warning(f"Overpass request failed for {ep}: {repr(e)}")
+        if r is None:
+            return []
+
+        data = r.json()
+        elements = data.get("elements", [])
+        results = []
+        seen = set()
+
+        for el in elements:
+            tags = el.get("tags", {})
+            name = tags.get("name") or tags.get("operator") or tags.get("brand")
+            if not name:
+                continue
+
+            lat2 = el.get("lat") or (el.get("center") or {}).get("lat")
+            lon2 = el.get("lon") or (el.get("center") or {}).get("lon")
+            if lat2 is None or lon2 is None:
+                continue
+
+            key = f"{name}|{lat2}|{lon2}"
+            if key in seen:
+                continue
+            seen.add(key)
+
+            service_type = "service"
+            amenity = tags.get("amenity", "")
+            shop = tags.get("shop", "")
+            office = tags.get("office", "")
+            government = tags.get("government", "")
+            if amenity in {"clinic", "hospital", "doctors"}:
+                service_type = "doctor/health"
+            elif shop == "agricultural":
+                service_type = "agri-shop"
+            elif office == "agricultural" or government == "agriculture":
+                service_type = "agri-office"
+            elif tags.get("laboratory") == "yes":
+                service_type = "lab"
+
+            address = ", ".join(
+                filter(
+                    None,
+                    [
+                        tags.get("addr:street"),
+                        tags.get("addr:city"),
+                        tags.get("addr:state"),
+                    ],
+                )
+            )
+            phone = tags.get("phone") or tags.get("contact:phone") or ""
+            distance = round(calculate_distance(lat, lon, float(lat2), float(lon2)), 2)
+
+            results.append({
+                "name": name,
+                "type": service_type,
+                "distance_km": distance,
+                "phone": phone,
+                "address": address,
+                "source": "osm_overpass",
+            })
+
+        results.sort(key=lambda x: x["distance_km"])
+        return results[:12]
+    except Exception as e:
+        logger.warning(f"Nearby services fetch failed: {repr(e)}")
+        return []

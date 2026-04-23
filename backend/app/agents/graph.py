@@ -6,7 +6,7 @@ import httpx
 from langgraph.graph import END, StateGraph
 
 import google.generativeai as genai
-from app.agents.tools import get_mandi_price, get_weather, scrape_agricultural_news
+from app.agents.tools import get_mandi_price, get_weather, scrape_agricultural_news, get_nearby_services
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -119,10 +119,11 @@ async def intent_router(state: AgentState) -> AgentState:
     keywords = {
         "weather": ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature"],
         "mandi": ["bhav", "mandi", "rate", "keemat", "price", "daam"],
-        "vision": ["kya hai", "bimari", "check", "doctor", "pesticide", "bimari kya hai", "photo", "image"],
+        "vision": ["kya hai", "bimari", "check", "pesticide", "bimari kya hai", "photo", "image"],
         "crop_advice": ["fasal", "crop", "ugao", "kheti", "kya lagao"],
         "news": ["new", "latest", "news", "update", "samachar", "khabar", "taza", "yojana", "scheme", "labh", "benefit", "subsidy"],
         "eligibility": ["eligible", "patrata", "apply", "registration"],
+        "trusted_vendor": ["vendor", "dealer", "shop", "store", "doctor", "hospital", "clinic", "soil lab", "agri officer", "nearby service", "contact number"],
         "lang_switch": ["punjabi", "hindi", "english", "tamil", "gujarati", "bengali", "marathi", "odiya", "kannada", "malayalam", "telugu", "assamese", "bhasha", "language", "mein bolo", "mein jawab do"]
     }
     
@@ -352,6 +353,45 @@ async def crop_advice_node(state: AgentState) -> AgentState:
     return {**state, "tool_result": result}
 
 
+async def trusted_vendor_node(state: AgentState) -> AgentState:
+    loc = state.get("location") or {}
+    lat = loc.get("lat")
+    lon = loc.get("lon")
+    city = loc.get("city") or state.get("city")
+
+    if lat is None or lon is None:
+        return {
+            **state,
+            "tool_result": (
+                "Adarniya ji, trusted vendor/doctor dhoondhne ke liye live location required hai. "
+                "Kripya location permission allow karke phir se poochiye."
+            ),
+        }
+
+    services = await get_nearby_services(float(lat), float(lon))
+    if not services:
+        return {
+            **state,
+            "tool_result": (
+                f"Adarniya ji, {city} ke aas paas verified services abhi nahi mili. "
+                "Main nearby mandi ya agriculture office details se madad kar sakta hoon."
+            ),
+        }
+
+    messages = [
+        {"role": "system", "content": (
+            f"{_system_prompt(state)}\n\n"
+            f"User location: {city} ({lat}, {lon}).\n"
+            f"Nearby trusted services data: {services}\n"
+            "Return a concise list with: name, type, distance (km), and phone if available. "
+            "Also add one safety note: user should verify by call before visiting."
+        )},
+        {"role": "user", "content": state["messages"][-1]["content"]},
+    ]
+    result = await _call_groq(messages)
+    return {**state, "tool_result": result}
+
+
 async def format_answer(state: AgentState) -> AgentState:
     return {**state, "final_answer": state["tool_result"]}
 
@@ -364,6 +404,7 @@ def _route(state: AgentState) -> str:
         "scheme":     "news_node",
         "vision":     "llm_node",
         "crop_advice":"crop_advice_node",
+        "trusted_vendor":"trusted_vendor_node",
         "lang_switch":"lang_switch_node",
     }.get(state["intent"], "llm_node")
 
@@ -376,6 +417,7 @@ def _build_agent():
     g.add_node("news_node",        news_node)
     g.add_node("llm_node",         llm_node)
     g.add_node("crop_advice_node", crop_advice_node)
+    g.add_node("trusted_vendor_node", trusted_vendor_node)
     g.add_node("lang_switch_node", lang_switch_node)
     g.add_node("format_answer",    format_answer)
     g.set_entry_point("intent_router")
@@ -385,9 +427,10 @@ def _build_agent():
         "news_node":        "news_node",
         "llm_node":         "llm_node",
         "crop_advice_node": "crop_advice_node",
+        "trusted_vendor_node": "trusted_vendor_node",
         "lang_switch_node": "lang_switch_node",
     })
-    for node in ["weather_node", "mandi_node", "news_node", "llm_node", "crop_advice_node", "lang_switch_node"]:
+    for node in ["weather_node", "mandi_node", "news_node", "llm_node", "crop_advice_node", "trusted_vendor_node", "lang_switch_node"]:
         g.add_edge(node, "format_answer")
     g.add_edge("format_answer", END)
     return g.compile()

@@ -1,4 +1,5 @@
 import logging
+import re
 from fastapi import APIRouter, HTTPException
 from app.agents.graph import agent
 from app.agents.tools import get_nearest_mandis
@@ -10,6 +11,33 @@ from app.lib.translation import translate_text
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/agent", tags=["Agent"])
+
+_NAME_PATTERNS = [
+    re.compile(r"\bmera naam\s+([A-Za-z][A-Za-z\s]{1,40})\s+hai\b", re.IGNORECASE),
+    re.compile(r"\bmy name is\s+([A-Za-z][A-Za-z\s]{1,40})\b", re.IGNORECASE),
+]
+
+
+def _extract_name_from_message(message: str) -> str | None:
+    if not message:
+        return None
+    for p in _NAME_PATTERNS:
+        m = p.search(message.strip())
+        if m:
+            name = re.sub(r"\s+", " ", m.group(1)).strip()
+            if name and name.lower() not in {"kya", "kaun"}:
+                return name[:60]
+    return None
+
+
+def _is_name_recall_question(message: str) -> bool:
+    msg = (message or "").lower()
+    return (
+        "mera naam kya" in msg
+        or "mera name kya" in msg
+        or ("what is my name" in msg)
+        or ("tell me my name" in msg)
+    )
 
 
 @router.post("/mandis/nearby")
@@ -40,6 +68,15 @@ async def chat(req: ChatRequest):
     city       = user.get("city", district)    if user else district
     name       = user.get("name", "Kisaan")    if user else "Kisaan"
 
+    # Explicit memory write from chat: "mera naam X hai" / "my name is X"
+    remembered_name = _extract_name_from_message(req.message)
+    if remembered_name:
+        try:
+            sb.table("users").update({"name": remembered_name}).eq("phone", req.farmer_id).execute()
+            name = remembered_name
+        except Exception as e:
+            logger.warning(f"Failed to persist remembered name: {e}")
+
     # LATEST LIVE LOCATION OVERRIDE (CRITICAL FOR ACCURACY)
     if req.location and isinstance(req.location, dict):
         live_dist = req.location.get("place") or req.location.get("district")
@@ -50,6 +87,20 @@ async def chat(req: ChatRequest):
         if live_city: city = live_city
     # Prioritize requested/detected language for dynamic response, fallback to profile
     language = req.language if req.language else (user.get("language", "hi-IN") if user else "hi-IN")
+
+    # Explicit memory recall shortcut
+    if _is_name_recall_question(req.message):
+        answer = (
+            f"Adarniya ji, aapka naam {name} hai."
+            if name and name.strip() and name.strip().lower() != "kisaan"
+            else "Adarniya ji, aapne abhi tak naam confirm nahi kiya hai. Kripya boliye: 'Mera naam ... hai'."
+        )
+        try:
+            await save_message(req.farmer_id, req.session_id, "user", req.message)
+            await save_message(req.farmer_id, req.session_id, "assistant", answer)
+        except Exception as e:
+            logger.warning(f"History save failed: {e}")
+        return ChatResponse(response=answer, session_id=req.session_id, tool_used="memory")
 
     # Multilingual Flow: AI works in English
     agent_message = req.english_message
