@@ -31,7 +31,6 @@ export default function Hero() {
   const [error, setError]             = useState('')
   const [location, setLocation]       = useState(null)
   const [weatherAlert, setWeatherAlert] = useState(null)
-  const [mandiList, setMandiList]     = useState([])
   const [locLoading, setLocLoading]   = useState(true)
 
   const mediaRecorderRef = useRef(null)
@@ -68,19 +67,7 @@ export default function Hero() {
     } catch { setWeatherAlert(null) }
   }
 
-  // ─── STEP 3: Fetch nearest mandis from backend (Agmarknet API) ────────────
-  async function fetchMandis(lat, lon) {
-    try {
-      const r = await fetch(`${API_URL}/api/agent/mandis/nearby`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat, lon })
-      })
-      if (!r.ok) return
-      const data = await r.json()
-      if (Array.isArray(data) && data.length > 0) setMandiList(data)
-    } catch { /* silent fail */ }
-  }
+
 
   // ─── MAIN: All location-based data fetch ──────────────────────────────────
   async function onNewPosition(lat, lon) {
@@ -103,9 +90,8 @@ export default function Hero() {
       }).catch(() => {})
     }
 
-    // Parallel: weather + mandis (Don't await mandis to avoid blocking the UI)
+    // Parallel: weather
     fetchWeather(lat, lon);
-    fetchMandis(lat, lon);
     setLocLoading(false)
   }
 
@@ -233,35 +219,6 @@ export default function Hero() {
           <p>{weatherAlert}</p>
         </div>
       )}
-
-      {/* MANDI CAROUSEL */}
-      <div className="mandi-section animate-reveal">
-        <span className="section-label">📍 Kareebi Mandiyan</span>
-        <div className="mandi-carousel">
-          {mandiList.length > 0 ? mandiList.map((m, i) => (
-            <div key={i} className="mandi-card-premium">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <TrendingUp size={16} style={{ color: 'var(--accent)' }} />
-                <span style={{
-                  fontSize: '9px', fontWeight: '800', padding: '2px 7px', borderRadius: '20px',
-                  background: m.source === 'live' ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.04)',
-                  color: m.source === 'live' ? '#4ade80' : 'var(--text-dim)',
-                  border: m.source === 'live' ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(255,255,255,0.08)'
-                }}>
-                  {m.source === 'live' ? '🟢 LIVE' : 'NEARBY'}
-                </span>
-              </div>
-              <h4>{m.name}</h4>
-              {m.distance != null && <p className="mandi-dist">{m.distance} km away</p>}
-              {m.price && <p style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: '700', marginTop: '5px' }}>{m.price}</p>}
-            </div>
-          )) : (
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', padding: '8px 0' }}>
-              {locLoading ? 'Mandis fetch ho rahi hain...' : 'Aas paas koi mandi nahi mili.'}
-            </p>
-          )}
-        </div>
-      </div>
 
       {/* RESPONSE AREA */}
       {(transcript || reply) && (

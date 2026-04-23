@@ -91,27 +91,4 @@ async def chat(req: ChatRequest):
     return ChatResponse(response=answer, session_id=req.session_id, tool_used=intent)
 
 
-@router.post("/mandis/nearby")
-async def nearby_mandis(req: dict):
-    lat = req.get("lat")
-    lon = req.get("lon")
-    if lat is None or lon is None:
-        return []
-    
-    from app.agents.tools import get_nearest_mandis, get_mandi_price
-    mandis = await get_nearest_mandis(float(lat), float(lon))
-    
-    # Fetch real rates for each nearby mandi in parallel to save time
-    import asyncio
-    async def _fill_rate(m):
-        try:
-            m["rate_info"] = await get_mandi_price("Wheat", m["name"], m["state"])
-        except:
-            m["rate_info"] = None
 
-    try:
-        await asyncio.wait_for(asyncio.gather(*[_fill_rate(m) for m in mandis]), timeout=5.0)
-    except asyncio.TimeoutError:
-        logger.warning("Mandi price fetch timed out")
-    
-    return mandis

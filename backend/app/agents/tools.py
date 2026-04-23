@@ -293,7 +293,8 @@ async def get_nearest_mandis(lat: float, lon: float):
             )
         if geo.status_code == 200:
             addr = geo.json().get("address", {})
-            district = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("county") or addr.get("suburb")
+            # For Agmarknet, we need the administrative District (e.g., Patiala, not Jansla)
+            district = addr.get("county") or addr.get("state_district") or addr.get("city") or addr.get("town")
             state = addr.get("state")
             print(f"DEBUG: Geocoded to District={district}, State={state}")
     except Exception as e:
@@ -358,18 +359,17 @@ async def get_nearest_mandis(lat: float, lon: float):
         except Exception as e:
             print(f"DEBUG: Agmarknet API error: {e}")
 
-    # --- STEP 3: FALLBACK — Haversine on static MANDI_HUBS ---
-    print(f"DEBUG: No live data found. Falling back to static MANDI_HUBS list...")
+    # --- STEP 3: FALLBACK — Always return at least 5 closest hubs from database ---
+    print(f"DEBUG: Falling back to MANDI_HUBS list for lat={lat}, lon={lon}")
     nearby = []
     for m in MANDI_HUBS:
         dist = calculate_distance(lat, lon, m["lat"], m["lon"])
-        if dist < 250: # Increased to 250km
-            m_copy = m.copy()
-            m_copy["distance"] = round(dist, 1)
-            m_copy["source"] = "offline"
-            nearby.append(m_copy)
+        m_copy = m.copy()
+        m_copy["distance"] = round(dist, 1)
+        m_copy["source"] = "hub"
+        nearby.append(m_copy)
+    
     nearby.sort(key=lambda x: x["distance"])
-    print(f"DEBUG: Return top {len(nearby[:5])} offline mandis.")
     return nearby[:5]
 
 
