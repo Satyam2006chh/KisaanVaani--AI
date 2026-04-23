@@ -175,13 +175,21 @@ export default function Hero() {
 
       {/* MANDI CAROUSEL */}
       <div className="mandi-section animate-reveal" style={{animationDelay: '0.1s'}}>
-         <span className="section-label">📍 Regional Mandi Hubs</span>
+         <span className="section-label">📍 Kareebi Mandiyan</span>
          <div className="mandi-carousel">
             {mandiList.length > 0 ? mandiList.map((m, idx) => (
               <div key={idx} className="mandi-card-premium">
-                 <TrendingUp size={22} style={{color: 'var(--accent)', marginBottom: '8px'}} />
+                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px'}}>
+                   <TrendingUp size={18} style={{color: 'var(--accent)'}} />
+                   <span style={{fontSize:'9px', fontWeight:'800', padding:'2px 7px', borderRadius:'20px',
+                     background: m.source === 'live' ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.04)',
+                     color: m.source === 'live' ? '#4ade80' : 'var(--text-dim)',
+                     border: m.source === 'live' ? '1px solid rgba(34,197,94,0.25)' : 'var(--border-glass)'
+                   }}>{m.source === 'live' ? '🟢 LIVE' : 'OFFLINE'}</span>
+                 </div>
                  <h4>{m.name}</h4>
-                 <p className="mandi-dist">{m.distance} km away</p>
+                 {m.distance != null && <p className="mandi-dist">{m.distance} km away</p>}
+                 {m.price && <p style={{fontSize:'0.78rem', color:'var(--accent)', fontWeight:'700', marginTop:'6px'}}>{m.price}</p>}
               </div>
             )) : <p style={{fontSize: '0.75rem', color: 'var(--text-dim)'}}>Fetching nearby marketplaces...</p>}
          </div>

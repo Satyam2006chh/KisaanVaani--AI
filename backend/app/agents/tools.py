@@ -273,17 +273,98 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     return R * c
 
 async def get_nearest_mandis(lat: float, lon: float):
-    """Finds top 5 nearest mandis using GPS coordinates. Radius: 150km."""
+    """
+    LIVE DATA PIPELINE:
+    Step 1: Reverse geocode GPS coords -> get real district & state
+    Step 2: Query Agmarknet (data.gov.in) for real mandis + prices in that area
+    Step 3: Fallback to MANDI_HUBS haversine only if API fails
+    """
+    from app.config import settings
+
+    # --- STEP 1: Get district/state from GPS coordinates ---
+    district = None
+    state = None
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            geo = await client.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={"format": "json", "lat": lat, "lon": lon, "accept-language": "en"},
+                headers={"User-Agent": "KisaanVaani/2.0"}
+            )
+        if geo.status_code == 200:
+            addr = geo.json().get("address", {})
+            district = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("county")
+            state = addr.get("state")
+    except Exception:
+        pass
+
+    # --- STEP 2: Fetch LIVE mandis from Agmarknet API ---
+    if district and state and settings.datagov_api_key and "your_" not in settings.datagov_api_key:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                # Try with district first
+                r = await client.get(
+                    "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070",
+                    params={
+                        "api-key": settings.datagov_api_key,
+                        "format": "json",
+                        "limit": 10,
+                        "filters[state]": state,
+                        "filters[district]": district,
+                    }
+                )
+
+            if r.status_code == 200:
+                records = r.json().get("records", [])
+
+                # If no records for district, try nearby state-level data
+                if not records:
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        r2 = await client.get(
+                            "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070",
+                            params={
+                                "api-key": settings.datagov_api_key,
+                                "format": "json",
+                                "limit": 10,
+                                "filters[state]": state,
+                            }
+                        )
+                    if r2.status_code == 200:
+                        records = r2.json().get("records", [])
+
+                if records:
+                    # De-duplicate by market name and build response
+                    seen = set()
+                    live_mandis = []
+                    for rec in records:
+                        market = rec.get("market") or rec.get("Market")
+                        commodity = rec.get("commodity") or rec.get("Commodity", "")
+                        modal_price = rec.get("modal_price") or rec.get("Modal_Price", "N/A")
+                        if market and market not in seen:
+                            seen.add(market)
+                            live_mandis.append({
+                                "name": market,
+                                "state": state,
+                                "distance": None,  # Real API doesn't provide distance
+                                "price": f"{commodity}: ₹{modal_price}/qtl" if commodity else None,
+                                "source": "live"
+                            })
+                    if live_mandis:
+                        return live_mandis[:5]
+        except Exception:
+            pass  # Fall through to haversine fallback
+
+    # --- STEP 3: FALLBACK — Haversine on static MANDI_HUBS ---
     nearby = []
     for m in MANDI_HUBS:
         dist = calculate_distance(lat, lon, m["lat"], m["lon"])
-        if dist < 150:  # Expanded to 150km for better coverage
+        if dist < 150:
             m_copy = m.copy()
             m_copy["distance"] = round(dist, 1)
+            m_copy["source"] = "offline"
             nearby.append(m_copy)
-
     nearby.sort(key=lambda x: x["distance"])
-    return nearby[:5]  # Return top 5 nearest
+    return nearby[:5]
 
 async def scrape_agricultural_news(query: str) -> str:
     """Uses Firecrawl to get the latest agricultural news or scheme details."""
