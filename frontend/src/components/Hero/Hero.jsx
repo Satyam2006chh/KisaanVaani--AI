@@ -53,15 +53,17 @@ export default function Hero() {
               city: addressStr
             })
 
-            // UPDATE DB: Sync live address with profile
+            // UPDATE DB: Sync live address with profile (Fixed Endpoint)
             if (user?.farmer_id) {
-               fetch(`${import.meta.env.VITE_API_URL}/api/profile/update`, {
+               const apiUrl = import.meta.env.VITE_API_URL || '';
+               fetch(`${apiUrl}/api/auth/profile/update`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ 
                     phone: user.farmer_id, 
                     district: readableAddress,
-                    state: geoData.address.state
+                    state: geoData.address.state,
+                    city: addressStr
                   })
                }).catch(e => console.log("DB Sync failed", e))
             }
