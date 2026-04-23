@@ -101,8 +101,14 @@ async def nearby_mandis(req: dict):
     from app.agents.tools import get_nearest_mandis, get_mandi_price
     mandis = await get_nearest_mandis(float(lat), float(lon))
     
-    # Fetch real rates for each nearby mandi
-    for m in mandis:
-        m["rate_info"] = await get_mandi_price("Wheat", m["name"], m["state"])
+    # Fetch real rates for each nearby mandi in parallel to save time
+    import asyncio
+    async def _fill_rate(m):
+        try:
+            m["rate_info"] = await get_mandi_price("Wheat", m["name"], m["state"])
+        except:
+            m["rate_info"] = None
+
+    await asyncio.gather(*[_fill_rate(m) for m in mandis])
     
     return mandis

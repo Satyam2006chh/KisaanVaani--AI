@@ -120,7 +120,7 @@ async def verify_otp(req: OTPVerify):
             language=user_data.get("language", "hi-IN"),
             district=user_data.get("district", ""),
             state=user_data.get("state", ""),
-            city=user_data.get("city", ""),
+            city=user_data.get("city", "") if "city" in user_data else "",
         ),
     )
     
@@ -137,7 +137,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         language=current_user.get("language", "hi-IN"),
         district=current_user.get("district", ""),
         state=current_user.get("state", ""),
-        city=current_user.get("city", ""),
+        city=current_user.get("city", "") if "city" in current_user else "",
     )
 
 
@@ -153,15 +153,26 @@ async def update_profile(data: dict):
         raise HTTPException(status_code=400, detail="Phone required")
     
     sb = get_supabase()
-    # Update location-based fields
-    update_data = {
-        "district": data.get("district", ""),
-        "state": data.get("state", ""),
-        "city": data.get("city", ""),
-    }
-    
-    # Remove empty updates
-    update_data = {k: v for k, v in update_data.items() if v}
-    
+    # 1. Fetch available columns dynamically to avoid crashes if schema is missing 'city' or 'lat'
+    try:
+        sample = sb.table("users").select("*").limit(1).execute()
+        if sample.data:
+            available_cols = set(sample.data[0].keys())
+        else:
+            available_cols = {"phone", "name", "district", "state"}
+    except Exception:
+        available_cols = {"phone", "name", "district", "state"}
+
+    # 2. Build safe update dictionary
+    update_data = {}
+    if "district" in available_cols and data.get("district"): update_data["district"] = data.get("district")
+    if "state" in available_cols and data.get("state"):       update_data["state"] = data.get("state")
+    if "city" in available_cols and data.get("city"):         update_data["city"] = data.get("city")
+    if "lat" in available_cols and data.get("lat"):           update_data["lat"] = data.get("lat")
+    if "lon" in available_cols and data.get("lon"):           update_data["lon"] = data.get("lon")
+
+    if not update_data:
+        return {"status": "skipped", "message": "No valid columns to update"}
+
     res = sb.table("users").update(update_data).eq("phone", phone).execute()
     return {"status": "success", "data": res.data}

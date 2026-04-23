@@ -23,7 +23,7 @@ class UserOut(BaseModel):
     language: str
     district: str
     state: str
-    city: str
+    city: Optional[str] = ""
 
 
 class Token(BaseModel):
