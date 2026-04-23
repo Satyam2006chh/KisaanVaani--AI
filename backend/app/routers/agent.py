@@ -59,6 +59,7 @@ async def chat(req: ChatRequest):
         "tool_result":  "",
         "final_answer": "",
         "image_data":   req.image,
+        "location":     req.location, # Rajpura Coords passed here
     }
 
     try:

@@ -46,14 +46,25 @@ export default function Hero() {
             const geoData = await geoRes.json()
             const readableAddress = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.suburb || 'Sateek Location'
             
+            const addressStr = `${readableAddress}, ${geoData.address.state || ''}`
             setLocation({ 
               lat: latitude, 
               lon: longitude, 
-              city: `${readableAddress}, ${geoData.address.state || ''}` 
+              city: addressStr
             })
-          } catch (err) {
-            setLocation({ lat: latitude, lon: longitude, city: user?.city || 'Sateek Location' })
-          }
+
+            // UPDATE DB: Sync live address with profile
+            if (user?.farmer_id) {
+               fetch(`${import.meta.env.VITE_API_URL}/api/profile/update`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    phone: user.farmer_id, 
+                    district: readableAddress,
+                    state: geoData.address.state
+                  })
+               }).catch(e => console.log("DB Sync failed", e))
+            }
           
           // Trigger a sample alert for demo (75% Rain Probability)
           setTimeout(() => {

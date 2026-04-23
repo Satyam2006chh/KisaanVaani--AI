@@ -144,3 +144,24 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 @router.post("/refresh")
 async def refresh_token(current_user: dict = Depends(get_current_user)):
     return {"access_token": _make_token(current_user["phone"]), "token_type": "bearer"}
+
+
+@router.post("/profile/update")
+async def update_profile(data: dict):
+    phone = data.get("phone")
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone required")
+    
+    sb = get_supabase()
+    # Update location-based fields
+    update_data = {
+        "district": data.get("district", ""),
+        "state": data.get("state", ""),
+        "city": data.get("city", ""),
+    }
+    
+    # Remove empty updates
+    update_data = {k: v for k, v in update_data.items() if v}
+    
+    res = sb.table("users").update(update_data).eq("phone", phone).execute()
+    return {"status": "success", "data": res.data}

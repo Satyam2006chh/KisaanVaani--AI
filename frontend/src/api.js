@@ -20,7 +20,7 @@ const api = () => axios.create({
 })
 
 
-export async function chatWithAgent(message, englishMessage = null, language = null, image = null) {
+export async function chatWithAgent(message, englishMessage = null, language = null, image = null, location = null) {
   const user = getUser()
   const { data } = await api().post('/api/agent/chat', {
     farmer_id:  user?.farmer_id || 'guest',
@@ -28,7 +28,8 @@ export async function chatWithAgent(message, englishMessage = null, language = n
     message,
     english_message: englishMessage,
     language:   language || user?.language || 'hi-IN',
-    image:      image
+    image:      image,
+    location:   location
   })
   return data // Return full data object
 }
