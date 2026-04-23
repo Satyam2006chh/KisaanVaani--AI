@@ -9,6 +9,12 @@ Run all tests from the root directory:
 python "./Manual Testers/test_tools_logic.py"
 ```
 
+For deployed backend testing, set `BASE_URL` first:
+```powershell
+$env:BASE_URL="https://kisaanvaani-ai-1.onrender.com"
+python "./Manual Testers/test_live_mandis_and_agent.py"
+```
+
 ### Scripts
 
 1. **test_tools_logic.py**:

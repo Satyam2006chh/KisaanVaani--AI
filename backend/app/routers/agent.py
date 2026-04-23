@@ -1,6 +1,7 @@
 import logging
 from fastapi import APIRouter, HTTPException
 from app.agents.graph import agent
+from app.agents.tools import get_nearest_mandis
 from app.config import settings
 from app.db.supabase import get_supabase
 from app.models.schemas import ChatRequest, ChatResponse
@@ -9,6 +10,20 @@ from app.lib.translation import translate_text
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/agent", tags=["Agent"])
+
+
+@router.post("/mandis/nearby")
+async def mandis_nearby(payload: dict):
+    lat = payload.get("lat")
+    lon = payload.get("lon")
+    if lat is None or lon is None:
+        raise HTTPException(status_code=400, detail="lat and lon are required")
+    try:
+        lat_f = float(lat)
+        lon_f = float(lon)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="lat and lon must be numbers")
+    return await get_nearest_mandis(lat_f, lon_f)
 
 
 @router.post("/chat", response_model=ChatResponse)

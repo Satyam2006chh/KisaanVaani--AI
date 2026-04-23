@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 
 const AuthContext = createContext(null)
@@ -21,11 +21,12 @@ const LANGUAGES = [
 export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null)
   const [loading, setLoading] = useState(true)
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://kisaanvaani-ai-1.onrender.com'
 
   useEffect(() => {
     // 1. WAKE UP CALL: Immediately ping backend to start the "wake up" process (for Render free tier)
     console.log('[AuthContext] Pre-warming backend...')
-    axios.get('https://kisaanvaani-ai-1.onrender.com/').catch(() => {})
+    axios.get(`${API_BASE_URL}/`).catch(() => {})
 
     // 2. Check for existing session
     const token = localStorage.getItem('token')
@@ -42,15 +43,12 @@ export function AuthProvider({ children }) {
       }
     }
     setLoading(false)
-  }, [])
+  }, [API_BASE_URL])
 
-  // FORCE DIRECT URL to bypass Netlify Proxy/Redirect issues
-  const API_BASE_URL = 'https://kisaanvaani-ai-1.onrender.com'
-  
-  const api = axios.create({
+  const api = useMemo(() => axios.create({
     baseURL: API_BASE_URL,
-    timeout: 30000, // 30s timeout
-  })
+    timeout: 15000,
+  }), [API_BASE_URL])
 
   const sendOTP = async (phone) => {
     console.log('[AuthContext] Sending OTP to:', `${API_BASE_URL}/api/auth/otp/send`)
@@ -67,9 +65,12 @@ export function AuthProvider({ children }) {
   const verifyOTP = async (phone, otp, name, language, district, state, city) => {
     console.log('[AuthContext] Verifying OTP for:', phone)
     try {
-      const { data } = await api.post('/api/auth/otp/verify', {
-        phone, otp, name, language, district, state, city,
+      const payload = { phone, otp, name, language, district, state, city }
+      const verifyPromise = api.post('/api/auth/otp/verify', payload)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('OTP verification timed out')), 12000)
       })
+      const { data } = await Promise.race([verifyPromise, timeoutPromise])
       console.log('[AuthContext] Verify Response:', data)
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('user',  JSON.stringify(data.user))
@@ -78,16 +79,27 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error('[AuthContext] Verify Error:', err.response?.data || err.message)
       
-      // GOD MODE FALLBACK: If it's the demo OTP, let them in anyway!
+      // GOD MODE FALLBACK: If it's the demo OTP, keep login/profile flow usable even if backend is slow.
       if (otp === '123456') {
-        console.warn('[AuthContext] Server failed/timed out. Using God-Mode Fallback Login.')
+        const existingRaw = localStorage.getItem('user')
+        let existingUser = null
+        try { existingUser = existingRaw ? JSON.parse(existingRaw) : null } catch { existingUser = null }
+        const hasExistingUser = existingUser?.farmer_id === phone && !!existingUser?.name
+
+        if (!name?.trim() && !hasExistingUser) {
+          const profileErr = new Error('Name required for new users')
+          profileErr.response = { data: { detail: 'Name required for new users' } }
+          throw profileErr
+        }
+
+        console.warn('[AuthContext] Server failed/timed out. Using God-Mode fallback.')
         const fallbackUser = {
           farmer_id: phone,
-          name: name || 'Kisaan Dost',
-          language: language || 'hi-IN',
-          district: district || 'Hoshangabad',
-          state: state || 'Madhya Pradesh',
-          city: city || 'Local Area'
+          name: name?.trim() || existingUser?.name || 'Kisaan Dost',
+          language: language || existingUser?.language || 'hi-IN',
+          district: district || existingUser?.district || '',
+          state: state || existingUser?.state || '',
+          city: city || existingUser?.city || ''
         }
         localStorage.setItem('token', 'fallback_token_123456')
         localStorage.setItem('user',  JSON.stringify(fallbackUser))

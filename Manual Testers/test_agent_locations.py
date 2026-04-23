@@ -1,8 +1,9 @@
 import httpx
 import asyncio
 import json
+import os
 
-BASE_URL = "http://127.0.0.1:8000" # Testing locally
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 TEST_LOCATIONS = [
     {"name": "Rajpura, Punjab", "lat": 30.48, "lon": 76.59},

@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 sys.stdout.reconfigure(encoding='utf-8')
 
-BASE = "http://127.0.0.1:8000"
+BASE = os.getenv("BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 TEST_LOCATIONS = [
     {"name": "Chitkara University (Punjab)", "lat": 30.51, "lon": 76.57},
@@ -67,10 +67,12 @@ async def main():
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             h = await client.get(f"{BASE}/health")
-        print("✅ Backend server is running!\n")
+        if h.status_code != 200:
+            raise RuntimeError(f"health returned {h.status_code}")
+        print(f"✅ Backend server is running at {BASE}!\n")
     except Exception:
-        print("❌ Backend server is NOT running at port 8000!")
-        print("   Please run: cd backend && uvicorn app.main:app --reload")
+        print(f"❌ Backend server is NOT reachable at {BASE}!")
+        print("   Set BASE_URL env var or run local backend: cd backend && uvicorn app.main:app --reload")
         return
     
     for loc in TEST_LOCATIONS:

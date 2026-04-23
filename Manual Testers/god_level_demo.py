@@ -2,10 +2,11 @@ import httpx
 import asyncio
 import json
 import sys
+import os
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-BASE = "http://127.0.0.1:8000"
+BASE = os.getenv("BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 async def test_agent_interaction():
     # TEST DATA

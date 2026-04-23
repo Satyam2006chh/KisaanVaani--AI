@@ -176,11 +176,14 @@ async def update_profile(data: dict):
 
     # 2. Build safe update dictionary
     update_data = {}
+    lat = data.get("lat", data.get("latitude"))
+    lon = data.get("lon", data.get("longitude"))
+
     if "district" in available_cols and data.get("district"): update_data["district"] = data.get("district")
     if "state" in available_cols and data.get("state"):       update_data["state"] = data.get("state")
     if "city" in available_cols and data.get("city"):         update_data["city"] = data.get("city")
-    if "lat" in available_cols and data.get("lat"):           update_data["lat"] = data.get("lat")
-    if "lon" in available_cols and data.get("lon"):           update_data["lon"] = data.get("lon")
+    if "lat" in available_cols and lat is not None:           update_data["lat"] = lat
+    if "lon" in available_cols and lon is not None:           update_data["lon"] = lon
 
     if not update_data:
         return {"status": "skipped", "message": "No valid columns to update"}

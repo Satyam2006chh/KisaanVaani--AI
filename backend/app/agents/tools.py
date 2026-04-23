@@ -1,4 +1,7 @@
 import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 WMO_CODES = {
     0: "Saaf aasman", 1: "Zyaadatar saaf", 2: "Aansik badal", 3: "Badal chhaye hain",

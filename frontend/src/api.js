@@ -12,7 +12,7 @@ const getSessionId = () => {
   return sid
 }
 
-const API_BASE_URL = 'https://kisaanvaani-ai-1.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://kisaanvaani-ai-1.onrender.com';
 
 const api = () => axios.create({
   baseURL: API_BASE_URL,

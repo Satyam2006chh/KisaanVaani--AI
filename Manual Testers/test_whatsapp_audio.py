@@ -7,6 +7,7 @@ load_dotenv("backend/.env")
 
 SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 AUDIO_FILE = "WhatsApp Ptt 2026-04-17 at 10.43.47 PM.ogg"
 
@@ -48,7 +49,7 @@ async def test_audio_flow():
     async with httpx.AsyncClient(timeout=60) as client:
         try:
             r = await client.post(
-                "http://localhost:8000/api/agent/chat",
+                f"{BASE_URL}/api/agent/chat",
                 json={
                     "farmer_id": "9876543210",
                     "session_id": "test_session",

@@ -20,8 +20,17 @@ const LANGUAGES = [
 
 const S = { IDLE: 'IDLE', RECORDING: 'RECORDING', PROCESSING: 'PROCESSING', SPEAKING: 'SPEAKING' }
 
-// IMPORTANT: Backend URL must come from env var for deployed app
-const API_URL = import.meta.env.VITE_API_URL || ''
+const API_URL = import.meta.env.VITE_API_URL || 'https://kisaanvaani-ai-1.onrender.com'
+
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  const toRad = (deg) => (deg * Math.PI) / 180
+  const R = 6371000
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 export default function Hero() {
   const { user } = useAuth()
@@ -72,10 +81,11 @@ export default function Hero() {
 
 
   // ─── MAIN: All location-based data fetch ──────────────────────────────────
-  async function onNewPosition(lat, lon) {
+  async function onNewPosition(lat, lon, accuracy = null) {
     setLocLoading(true)
+    setError('')
     const geo = await geocodeCoords(lat, lon)
-    setLocation({ lat, lon, city: geo.display, place: geo.place, state: geo.state })
+    setLocation({ lat, lon, accuracy, city: geo.display, place: geo.place, state: geo.state, updatedAt: Date.now() })
 
     // Sync live location to backend profile (non-blocking)
     if (user?.farmer_id) {
@@ -105,13 +115,13 @@ export default function Hero() {
       return
     }
 
-    const GEO_OPTS = { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    const GEO_OPTS = { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
 
     // Immediate fetch — show location ASAP
     navigator.geolocation.getCurrentPosition(
-      ({ coords: { latitude, longitude } }) => {
-        lastPosRef.current = { lat: latitude, lon: longitude }
-        onNewPosition(latitude, longitude)
+      ({ coords: { latitude, longitude, accuracy } }) => {
+        lastPosRef.current = { lat: latitude, lon: longitude, accuracy, timestamp: Date.now() }
+        onNewPosition(latitude, longitude, accuracy)
       },
       (err) => {
         setLocLoading(false)
@@ -121,16 +131,17 @@ export default function Hero() {
       GEO_OPTS
     )
 
-    // Live movement watch — refresh if moved >500m (~0.005 deg)
+    // Live movement watch — refresh on movement, better GPS accuracy, or stale fix
     const wid = navigator.geolocation.watchPosition(
-      ({ coords: { latitude, longitude } }) => {
+      ({ coords: { latitude, longitude, accuracy } }) => {
         const last = lastPosRef.current
-        const moved = !last
-          || Math.abs(last.lat - latitude) > 0.005
-          || Math.abs(last.lon - longitude) > 0.005
-        if (moved) {
-          lastPosRef.current = { lat: latitude, lon: longitude }
-          onNewPosition(latitude, longitude)
+        const movedMeters = !last ? Infinity : distanceMeters(last.lat, last.lon, latitude, longitude)
+        const accuracyImproved = typeof accuracy === 'number'
+          && (typeof last?.accuracy !== 'number' || accuracy + 15 < last.accuracy)
+        const staleFix = !last?.timestamp || (Date.now() - last.timestamp) > 60000
+        if (movedMeters > 50 || accuracyImproved || staleFix) {
+          lastPosRef.current = { lat: latitude, lon: longitude, accuracy, timestamp: Date.now() }
+          onNewPosition(latitude, longitude, accuracy)
         }
       },
       () => {},
@@ -206,6 +217,7 @@ export default function Hero() {
         <MapPin size={15} />
         <span>
           {locLoading && !location ? 'Detecting live location...' : (location?.city || 'Location unavailable')}
+          {typeof location?.accuracy === 'number' ? ` (±${Math.round(location.accuracy)}m)` : ''}
         </span>
         {locLoading && location && (
           <span style={{ fontSize: '9px', opacity: 0.6, marginLeft: '4px' }}>updating...</span>
