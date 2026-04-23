@@ -18,11 +18,7 @@ export default function Hero() {
   // GOD LEVEL STATES
   const [location, setLocation] = useState(null)
   const [weatherAlert, setWeatherAlert] = useState(null)
-  const [mandiList, setMandiList] = useState([
-    { id: 1, name: 'Rewari Anaj Mandi', distance: '3.2 km', price: 'Sarson: ₹5450' },
-    { id: 2, name: 'Bawal Mandi', distance: '12.5 km', price: 'Kapas: ₹7200' },
-    { id: 3, name: 'Dharuhera Mandi', distance: '8.1 km', price: 'Gehu: ₹2275' }
-  ])
+  const [mandiList, setMandiList] = useState([])
   const fileInputRef = useRef(null)
   
   const mediaRecorderRef = useRef(null)
@@ -67,20 +63,29 @@ export default function Hero() {
                }).catch(e => console.log("DB Sync failed", e))
             }
 
-            // 2. FETCH REAL WEATHER ALERT (No more fake data)
+            // 2. FETCH REAL WEATHER ALERT
             try {
               const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=precipitation_probability_max&timezone=Asia%2FKolkata&forecast_days=1`)
               const wData = await wRes.json()
               const rainProb = wData.daily.precipitation_probability_max[0] || 0
-              
               if (rainProb > 50) {
                 setWeatherAlert(`🚨 REAL ALERT: Aapke khet par baarish ki sambhavna ${rainProb}% hai. Fasal ka dhyan rakhein!`)
               } else {
-                setWeatherAlert(null) // Hide if no real danger
+                setWeatherAlert(null)
               }
-            } catch (err) {
-              console.log("Weather fetch failed", err)
-            }
+            } catch (err) { console.log("Weather fetch failed", err) }
+
+            // 3. FETCH NEARBY MANDIS (Proximity Discovery)
+            try {
+              const apiUrl = import.meta.env.VITE_API_URL || '';
+              const mRes = await fetch(`${apiUrl}/api/agent/mandis/nearby`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lat: latitude, lon: longitude })
+              })
+              const mData = await mRes.json()
+              setMandiList(mData)
+            } catch (err) { console.log("Mandi fetch failed", err) }
           } catch (err) {
             setLocation({ lat: latitude, lon: longitude, city: user?.city || 'Sateek Location' })
           }

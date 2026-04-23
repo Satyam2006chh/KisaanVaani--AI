@@ -174,37 +174,39 @@ async def get_mandi_price(crop: str, district: str, state: str) -> str:
         return f"Mandi rate error: {str(e)}"
 
 
-async def scrape_agricultural_news(query: str) -> str:
-    """Uses Firecrawl to get the latest agricultural news or scheme details from live sites."""
-    if not settings.firecrawl_api_key or "your_" in settings.firecrawl_api_key:
-        return "Firecrawl API key missing. Latest news fetch nahi ho sakta."
+import math
 
-    try:
-        # We use Firecrawl Search/Crawl to find latest news
-        url = "https://api.firecrawl.dev/v1/scrape"
-        # For simplicity in demo, we'll scrape PIB India's agriculture section or a search
-        target_url = f"https://pib.gov.in/allRel.aspx" # Example target
-        
-        headers = {
-            "Authorization": f"Bearer {settings.firecrawl_api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        # In a real scenario, we'd search first, but here we simulate a scrape of latest releases
-        payload = {
-            "url": target_url,
-            "formats": ["markdown"],
-            "onlyMainContent": True
-        }
-        
-        async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(url, json=payload, headers=headers)
-        
-        if r.status_code != 200:
-            return "Latest news fetch karne mein samasya aa rahi hai."
-        
-        content = r.json().get("data", {}).get("markdown", "")
-        # Return first 500 chars summarized
-        return content[:800] + "..." if content else "Abhi koi naya update nahi mila."
-    except Exception:
-        return "News scan error. Kripya thodi der baad try karein."
+# REGIONAL MANDI DATABASE (Lat, Lon, Name)
+# This will be expanded/queried from Agmarknet, but for proximity matching:
+MANDI_HUBS = [
+    {"name": "Fatehgarh Sahib", "lat": 30.64, "lon": 76.39, "state": "Punjab"},
+    {"name": "Ambala City", "lat": 30.37, "lon": 76.77, "state": "Haryana"},
+    {"name": "Saharanpur", "lat": 29.96, "lon": 77.55, "state": "Uttar Pradesh"},
+    {"name": "Rajpura", "lat": 30.48, "lon": 76.59, "state": "Punjab"},
+    {"name": "Sirhind", "lat": 30.62, "lon": 76.40, "state": "Punjab"},
+    {"name": "Karnal", "lat": 29.68, "lon": 76.99, "state": "Haryana"},
+    {"name": "Rohtak", "lat": 28.89, "lon": 76.60, "state": "Haryana"},
+    {"name": "Batala", "lat": 31.81, "lon": 75.20, "state": "Punjab"},
+]
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    R = 6371 # Earth radius in km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
+async def get_nearest_mandis(lat: float, lon: float):
+    """Finds top 3 nearest mandis from the hub list and fetches rates if possible."""
+    nearby = []
+    for m in MANDI_HUBS:
+        dist = calculate_distance(lat, lon, m["lat"], m["lon"])
+        if dist < 100: # Within 100km
+            m_copy = m.copy()
+            m_copy["distance"] = round(dist, 1)
+            nearby.append(m_copy)
+    
+    # Sort by distance
+    nearby.sort(key=lambda x: x["distance"])
+    return nearby[:3]
