@@ -214,7 +214,7 @@ export default function Hero() {
       {/* WELCOME */}
       <div className="welcome-msg animate-reveal">
         <h1>Namaste <span className="farmer-name">{user?.name || 'Kisaan'}</span> ji</h1>
-        <p className="hero-subtitle">Live location se sateek mausam aur mandi data.</p>
+        <p className="hero-subtitle">Mausam aur Mandi ki sateek report — Royale Edition.</p>
       </div>
 
       {/* GPS ERROR */}

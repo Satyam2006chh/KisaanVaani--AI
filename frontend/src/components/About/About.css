@@ -28,11 +28,13 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 22px 24px;
+  padding: 24px 28px;
   background: var(--bg-card);
+  backdrop-filter: var(--glass);
   border: var(--border-glass);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   transition: var(--transition);
+  box-shadow: var(--shadow-premium);
 }
 
 .about__card:hover {

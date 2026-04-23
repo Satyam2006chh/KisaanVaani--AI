@@ -1,4 +1,4 @@
-import { Mic, Heart, Github, Twitter, Linkedin } from 'lucide-react'
+import { Mic, Heart } from 'lucide-react'
 import './Footer.css'
 
 export default function Footer() {
