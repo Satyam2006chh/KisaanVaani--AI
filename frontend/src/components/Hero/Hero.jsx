@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import { Mic, Square, Loader, MapPin, AlertCircle, TrendingUp, Image as ImageIcon, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { chatWithAgent, transcribeAudio, speakText } from '../../api'
+import './Hero.css'
 
-// All 11 Sarvam-supported languages
+// All Sarvam-supported languages used in app
 const LANGUAGES = [
   { code: 'hi-IN', label: 'हिंदी (Hindi)' },
   { code: 'pa-IN', label: 'ਪੰਜਾਬੀ (Punjabi)' },
@@ -45,6 +46,8 @@ export default function Hero() {
   const [imgPreview, setImgPreview]   = useState(null)
 
   const mediaRecorderRef = useRef(null)
+  const mediaStreamRef   = useRef(null)
+  const processingTimerRef = useRef(null)
   const chunksRef        = useRef([])
   const lastPosRef       = useRef(null)
   const [selectedLang, setSelectedLang] = useState(user?.language || 'hi-IN')
@@ -163,35 +166,75 @@ export default function Hero() {
   const clearImg = () => { setImg(null); setImgPreview(null) }
 
   // ─── VOICE RECORDING ──────────────────────────────────────────────────────
+  function stopMediaStream() {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      mediaStreamRef.current = null
+    }
+  }
+
+  function clearProcessingWatchdog() {
+    if (processingTimerRef.current) {
+      clearTimeout(processingTimerRef.current)
+      processingTimerRef.current = null
+    }
+  }
+
   async function startRecording() {
     setError(''); setTranscript(''); setReply(''); chunksRef.current = []
+    clearProcessingWatchdog()
     try {
       const stream   = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStreamRef.current = stream
       const recorder = new MediaRecorder(stream)
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.onstop = async () => {
+        stopMediaStream()
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        if (!blob.size) {
+          setStatus(S.IDLE)
+          setError('Audio capture failed. Please try again.')
+          return
+        }
+
         setStatus(S.PROCESSING)
+        processingTimerRef.current = setTimeout(() => {
+          setStatus(S.IDLE)
+          setError('Processing took too long. Please try again.')
+        }, 90000)
+
         try {
           const res = await transcribeAudio(blob, selectedLang)
-          if (res.status === 'SUCCESS') {
+          if (res.status === 'SUCCESS' && res.transcript) {
             setTranscript(res.transcript)
-            // Pass full live location and image to agent
-            const chatRes = await chatWithAgent(res.transcript, null, selectedLang, image, location)
+            // Agent always receives English meaning via english_message.
+            const englishTranscript = res.english_transcript || res.transcript
+            const chatRes = await chatWithAgent(res.transcript, englishTranscript, selectedLang, image, location)
             setReply(chatRes.response)
             clearImg() // Clear after processing
             const audioUrl = await speakText(chatRes.response, selectedLang)
             playAudio(audioUrl)
+          } else if (res.status === 'SILENCE_DETECTED') {
+            setStatus(S.IDLE)
+            setError(res.silence_reply || 'Voice not understood. Please speak clearly.')
           } else {
             setStatus(S.IDLE)
-            setError('Voice not understood. Please speak clearly.')
+            setError(res.error || 'Voice not understood. Please speak clearly.')
           }
-        } catch (err) { setStatus(S.IDLE); setError('Error processing voice. Try again.') }
+        } catch (err) {
+          setStatus(S.IDLE)
+          setError('Error processing voice. Try again.')
+        } finally {
+          clearProcessingWatchdog()
+        }
       }
       mediaRecorderRef.current = recorder
       recorder.start()
       setStatus(S.RECORDING)
-    } catch (err) { setError('Mic access blocked. Please allow microphone.') }
+    } catch (err) {
+      stopMediaStream()
+      setError('Mic access blocked. Please allow microphone.')
+    }
   }
 
   function stopRecording() {
@@ -208,6 +251,13 @@ export default function Hero() {
     audio.onerror = () => setStatus(S.IDLE)
     audio.play().catch(() => setStatus(S.IDLE))
   }
+
+  useEffect(() => {
+    return () => {
+      clearProcessingWatchdog()
+      stopMediaStream()
+    }
+  }, [])
 
   return (
     <div className="hero-container">
@@ -286,29 +336,18 @@ export default function Hero() {
                                      'BOLNE KE LIYE DABAYEIN'}
         </p>
 
-        <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '280px' }}>
+        <div className="voice-controls-row">
           <label className="image-upload-btn">
             <ImageIcon size={18} />
             <span>Photo</span>
             <input type="file" accept="image/*" onChange={handleImage} hidden />
           </label>
 
-          {/* ALL 11 SARVAM LANGUAGES */}
+          {/* Selected language controls translation + Sarvam TTS output language */}
           <select
             value={selectedLang}
             onChange={(e) => setSelectedLang(e.target.value)}
-            style={{
-              background: 'rgba(139,92,246,0.08)',
-              border: '1px solid rgba(139,92,246,0.3)',
-              color: '#fff',
-              padding: '8px 14px',
-              borderRadius: '12px',
-              fontSize: '0.82rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              outline: 'none',
-              flex: 1
-            }}
+            className="voice-lang-select"
           >
             {LANGUAGES.map(l => (
               <option key={l.code} value={l.code} style={{ background: '#0c0c14' }}>{l.label}</option>

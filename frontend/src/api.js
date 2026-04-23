@@ -16,6 +16,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://kisaanvaani-ai-1.o
 
 const api = () => axios.create({
   baseURL: API_BASE_URL,
+  timeout: 45000,
   headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
 })
 

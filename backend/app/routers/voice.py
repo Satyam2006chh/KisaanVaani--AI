@@ -79,7 +79,14 @@ def _to_wav(audio_bytes: bytes, ext: str) -> bytes:
 async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
     if "your_sarvam_api_key" in settings.sarvam_api_key or not settings.sarvam_api_key:
         print("WARNING: Using mock Sarvam STT response because SARVAM_API_KEY is not configured.")
-        return {"transcript": "[MOCK TRANSCRIPT] Aap kaise hain?", "language": language}
+        transcript = "[MOCK TRANSCRIPT] Aap kaise hain?"
+        return {
+            "transcript": transcript,
+            "english_transcript": transcript,
+            "language": language,
+            "detected_language": language,
+            "status": "SUCCESS",
+        }
 
     audio_bytes = await audio.read()
     if not audio_bytes:
@@ -94,7 +101,15 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
     
     if not wav or len(wav) < 1000:
         logger.warning("Audio processing failed or is too small")
-        return {"transcript": "", "language": language, "error": "Silent audio"}
+        return {
+            "transcript": "",
+            "english_transcript": "",
+            "language": language,
+            "detected_language": language,
+            "status": "SILENCE_DETECTED",
+            "silence_reply": SILENCE_REPLY.get(language, SILENCE_REPLY["en-IN"]),
+            "error": "Silent audio",
+        }
 
     logger.info(f"Transcribe: original={len(audio_bytes)}B processed_wav={len(wav)}B lang={language}")
 
@@ -140,6 +155,9 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
 
 @router.post("/speak")
 async def speak(req: TTSRequest):
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=400, detail="Text required for speech")
+
     if "your_sarvam_api_key" in settings.sarvam_api_key or not settings.sarvam_api_key:
         print("WARNING: Using mock Sarvam TTS response because SARVAM_API_KEY is not configured.")
         # Return a tiny silent WAV (1sec of silence, 16kHz, mono)
@@ -152,18 +170,21 @@ async def speak(req: TTSRequest):
     max_chunk = 500
     chunks = [text[i:i+max_chunk] for i in range(0, len(text), max_chunk)]
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(
-            SARVAM_TTS,
-            headers={"api-subscription-key": settings.sarvam_api_key, "Content-Type": "application/json"},
-            json={
-                "inputs": chunks,
-                "target_language_code": req.language,
-                "speaker": req.speaker or SPEAKERS.get(req.language, "anushka"),
-                "enable_preprocessing": True,
-                "model": "bulbul:v2",
-            },
-        )
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(
+                SARVAM_TTS,
+                headers={"api-subscription-key": settings.sarvam_api_key, "Content-Type": "application/json"},
+                json={
+                    "inputs": chunks,
+                    "target_language_code": req.language,
+                    "speaker": req.speaker or SPEAKERS.get(req.language, "anushka"),
+                    "enable_preprocessing": True,
+                    "model": "bulbul:v2",
+                },
+            )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Sarvam TTS request failed: {str(e)}")
 
     if r.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Sarvam TTS error: {r.text}")

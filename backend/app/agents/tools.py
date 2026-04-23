@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import logging
 
@@ -378,7 +379,41 @@ async def get_nearest_mandis(lat: float, lon: float):
 
 async def scrape_agricultural_news(query: str) -> str:
     """Uses Firecrawl to get the latest agricultural news or scheme details."""
-    from app.config import settings
     if not settings.firecrawl_api_key or "your_" in settings.firecrawl_api_key:
         return "Firecrawl API key missing. News fetch nahi ho sakta."
-    return "Aaj ki taaza khabar: Krishi sakhi yoina ke tahat naye registration shuru ho gaye hain. (Simulated Demo News)"
+    headers = {
+        "Authorization": f"Bearer {settings.firecrawl_api_key}",
+        "Content-Type": "application/json",
+    }
+
+    def _fetch_news() -> str:
+        with httpx.Client(timeout=12) as client:
+            r = client.post(
+                "https://api.firecrawl.dev/v1/search",
+                headers=headers,
+                json={
+                    "query": f"India agriculture news {query}",
+                    "limit": 3,
+                },
+            )
+
+            if r.status_code == 200:
+                payload = r.json()
+                items = payload.get("data") or payload.get("results") or []
+                if items:
+                    lines = []
+                    for item in items[:3]:
+                        title = item.get("title") or item.get("metadata", {}).get("title") or "Untitled"
+                        url = item.get("url") or item.get("sourceURL") or ""
+                        desc = item.get("description") or ""
+                        desc = str(desc).strip().replace("\n", " ")
+                        lines.append(f"- {title}: {desc[:220]}{'...' if len(desc) > 220 else ''} {url}".strip())
+                    return "Latest agriculture web results:\n" + "\n".join(lines)
+
+            return f"Firecrawl API error ({r.status_code}). News fetch nahi ho pa raha."
+
+    try:
+        return await asyncio.to_thread(_fetch_news)
+    except Exception as e:
+        logger.warning(f"Firecrawl request failed: {repr(e)}")
+        return "Firecrawl se news fetch karne mein samasya aa rahi hai."
