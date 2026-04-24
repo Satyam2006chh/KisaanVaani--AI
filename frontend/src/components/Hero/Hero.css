@@ -215,6 +215,7 @@
   align-items: center;
   gap: 3px;
   margin-top: -10px;
+  pointer-events: none; /* Crucial: ensures clicks go THROUGH to the button */
 }
 
 .vis-bar {

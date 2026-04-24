@@ -215,17 +215,37 @@ export default function Hero() {
     } catch (err) { setError('Mic permission nahi mili.') }
   }
 
-  function stopRecording() {
-    console.log('[VOICE] Stopping Recording...')
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop()
+  const handleMicToggle = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
+    console.log('[VOICE] Mic Toggle Clicked. Current Status:', status);
+    
+    if (status === S.RECORDING) {
+      stopRecording();
+    } else if (status === S.IDLE) {
+      startRecording();
+    }
+  };
+
+  function stopRecording() {
+    console.log('[VOICE] Force Stopping Recording...');
+    
+    // 1. Stop Speech Recognition first
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.stop()
-      } catch (e) {
-        console.warn('Recognition stop error:', e)
-      }
+        recognitionRef.current.stop();
+      } catch (e) { console.warn('Recognition stop error:', e); }
+    }
+
+    // 2. Stop MediaRecorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    } else {
+      // If for some reason recorder is already inactive, manually clean up
+      stopMediaStream();
+      setStatus(S.IDLE);
     }
   }
 
@@ -294,7 +314,7 @@ export default function Hero() {
 
         <button
           className={`mic-button-premium ${status === S.RECORDING ? 'pulsing' : ''}`}
-          onClick={status === S.RECORDING ? stopRecording : startRecording}
+          onClick={handleMicToggle}
           disabled={status === S.PROCESSING || status === S.SPEAKING}
         >
           {status === S.RECORDING  ? <Square size={28} /> :
@@ -303,7 +323,7 @@ export default function Hero() {
                                      <Mic size={32} />}
         </button>
 
-        <p className="status-text">
+        <p className="status-text" style={{ pointerEvents: 'none' }}>
           {status === S.RECORDING  ? 'BOLNA BAND KAREIN' :
            status === S.PROCESSING ? '⚙️ AI SOCH RAHA HAI...' :
            status === S.SPEAKING   ? '🔊 JAWAB SUN RAHE HAIN...' :
