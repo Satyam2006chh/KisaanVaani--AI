@@ -170,7 +170,13 @@ export default function Hero() {
       startVisualizer(stream)
 
       // Start Browser Recognition Parallel
-      if (recognitionRef.current) recognitionRef.current.start()
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start()
+        } catch (e) {
+          console.warn('Recognition start error (likely already started):', e)
+        }
+      }
 
       const recorder = new MediaRecorder(stream)
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
@@ -210,7 +216,17 @@ export default function Hero() {
   }
 
   function stopRecording() {
-    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
+    console.log('[VOICE] Stopping Recording...')
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+      } catch (e) {
+        console.warn('Recognition stop error:', e)
+      }
+    }
   }
 
   function playAudio(url) {
