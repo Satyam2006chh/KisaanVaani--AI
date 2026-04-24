@@ -57,12 +57,11 @@ def _to_wav(audio_bytes: bytes, ext: str) -> bytes:
         )
         if result.returncode != 0:
             stderr = result.stderr.decode() if result.stderr else "unknown error"
-            logger.warning(f"ffmpeg error: {stderr}")
-            logger.info(f"Fallback: returning raw audio ({len(audio_bytes)} bytes)")
+            logger.error(f"FFmpeg error: {stderr}")
             return audio_bytes
         with open(out_path, "rb") as f:
             wav_data = f.read()
-            logger.info(f"FFmpeg conversion: {len(audio_bytes)} -> {len(wav_data)} bytes")
+            logger.info(f"FFmpeg success: {len(audio_bytes)}B -> {len(wav_data)}B (WAV)")
             return wav_data
     except FileNotFoundError:
         logger.warning("ffmpeg not found — sending raw audio (install ffmpeg for better compatibility)")
@@ -142,8 +141,11 @@ async def transcribe(audio: UploadFile = File(...), language: str = Form("hi-IN"
             logger.info(f"Sarvam STT response: status={r.status_code}")
             
             if r.status_code != 200:
-                logger.error(f"Sarvam STT error: {r.status_code} {r.text}")
-                raise HTTPException(status_code=502, detail=f"Sarvam STT error: {r.status_code}")
+                err_body = r.text
+                logger.error(f"Sarvam STT Error {r.status_code}: {err_body}")
+                if r.status_code == 401:
+                    raise HTTPException(status_code=401, detail="Invalid Sarvam API Key. Please check .env")
+                raise HTTPException(status_code=502, detail=f"Sarvam STT failed ({r.status_code})")
             
             res_json = r.json()
             transcript = res_json.get("transcript", "").strip()
