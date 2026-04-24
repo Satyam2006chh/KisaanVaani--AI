@@ -384,13 +384,30 @@ export default function Hero() {
         </div>
       )}
 
-      {/* RESPONSE AREA */}
+      {/* CHAT AREA — User's voice + AI response */}
       {(transcript || reply) && (
-        <div className="glass-panel animate-reveal" style={{ padding: '1.2rem', width: '100%', borderLeft: '3px solid var(--primary)' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--primary)', marginBottom: '6px', fontWeight: '800', letterSpacing: '1px' }}>
-            {reply ? '🤖 AI JAWAB:' : '🎤 AAPNE KAHA:'}
-          </p>
-          <p style={{ fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--text-main)' }}>{reply || transcript}</p>
+        <div className="chat-area animate-reveal">
+          {/* What the user said */}
+          {transcript && (
+            <div className="chat-bubble user-bubble">
+              <div className="chat-bubble-label">🎤 AAPNE KAHA</div>
+              <p>{transcript}</p>
+            </div>
+          )}
+          {/* AI processing indicator */}
+          {transcript && !reply && status === S.PROCESSING && (
+            <div className="chat-bubble ai-bubble typing">
+              <div className="chat-bubble-label">🤖 AI SOCH RAHA HAI...</div>
+              <div className="typing-dots"><span></span><span></span><span></span></div>
+            </div>
+          )}
+          {/* AI reply */}
+          {reply && (
+            <div className="chat-bubble ai-bubble">
+              <div className="chat-bubble-label">🤖 AI JAWAB</div>
+              <p>{reply}</p>
+            </div>
+          )}
         </div>
       )}
 
