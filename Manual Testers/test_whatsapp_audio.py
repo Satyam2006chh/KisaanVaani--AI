@@ -9,11 +9,12 @@ SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
-AUDIO_FILE = "WhatsApp Ptt 2026-04-17 at 10.43.47 PM.ogg"
+AUDIO_FILE = os.getenv("TEST_AUDIO_FILE", "sample_audio.ogg")
 
 async def test_audio_flow():
     if not os.path.exists(AUDIO_FILE):
         print(f"File not found: {AUDIO_FILE}")
+        print("Set TEST_AUDIO_FILE to a local .ogg file path before running this script.")
         return
 
     print(f"--- 1. Testing Transcription for {AUDIO_FILE} ---")
