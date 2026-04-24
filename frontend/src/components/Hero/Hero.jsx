@@ -189,7 +189,13 @@ export default function Hero() {
       const stream   = await navigator.mediaDevices.getUserMedia({ audio: true })
       console.log('[VOICE] Microphone stream acquired')
       mediaStreamRef.current = stream
-      const recorder = new MediaRecorder(stream)
+
+      // Robust MimeType Selection (Crucial for mobile/Safari compatibility)
+      const types = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/wav']
+      const supportedMime = types.find(t => MediaRecorder.isTypeSupported(t)) || ''
+      console.log('[VOICE] Supported MimeType found:', supportedMime || 'default')
+      
+      const recorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : {})
       
       recorder.ondataavailable = (e) => { 
         if (e.data.size > 0) {
@@ -197,26 +203,13 @@ export default function Hero() {
           console.log('[VOICE] Audio chunk received:', e.data.size, 'bytes')
         }
       }
-      
-      recorder.onerror = (e) => {
-        console.error('[VOICE] MediaRecorder error:', e.error)
-        setError('Recording error. Please try again.')
+
+      recorder.onstop = async () => {
         stopMediaStream()
-      }
-      
-      mediaRecorderRef.current = recorder
-      recorder.start(100)  // Request data every 100ms for safety
-      setStatus(S.RECORDING)
-      console.log('[VOICE] Recording started - awaiting stop signal')
-    } catch (err) {
-      console.error('[VOICE] Recording failed:', err.message || err)
-      stopMediaStream()
-      setError('Mic access blocked. Please allow microphone.')
-    }
-  }
-        stopMediaStream()
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        console.log('[VOICE] Recording stopped. Blob size:', blob.size, 'bytes')
+        // Use the actual mimeType the recorder used
+        const blobType = recorder.mimeType || supportedMime || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type: blobType })
+        console.log('[VOICE] Recording stopped. Blob size:', blob.size, 'bytes', 'Type:', blobType)
         
         if (!blob.size) {
           console.error('[VOICE] Blob is empty - audio capture failed')
@@ -273,11 +266,19 @@ export default function Hero() {
           clearProcessingWatchdog()
         }
       }
+      
+      recorder.onerror = (e) => {
+        console.error('[VOICE] MediaRecorder error:', e.error)
+        setError('Recording error. Please try again.')
+        stopMediaStream()
+      }
+      
       mediaRecorderRef.current = recorder
       recorder.start(100)  // Request data every 100ms for safety
       setStatus(S.RECORDING)
       console.log('[VOICE] Recording started - awaiting stop signal')
     } catch (err) {
+      console.error('[VOICE] Recording failed:', err.message || err)
       stopMediaStream()
       setError('Mic access blocked. Please allow microphone.')
     }
