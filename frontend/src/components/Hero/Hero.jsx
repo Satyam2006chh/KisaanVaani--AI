@@ -21,7 +21,7 @@ const LANGUAGES = [
 
 const S = { IDLE: 'IDLE', RECORDING: 'RECORDING', PROCESSING: 'PROCESSING', SPEAKING: 'SPEAKING' }
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://kisaanvaani-ai-1.onrender.com'
+const API_URL = import.meta.env.VITE_API_URL || ''
 
 function distanceMeters(lat1, lon1, lat2, lon2) {
   const toRad = (deg) => (deg * Math.PI) / 180
@@ -51,6 +51,16 @@ export default function Hero() {
   const chunksRef        = useRef([])
   const lastPosRef       = useRef(null)
   const [selectedLang, setSelectedLang] = useState(user?.language || 'hi-IN')
+
+  function withTimeout(promise, timeoutMs, timeoutMessage) {
+    let timer = null
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
+    })
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+      if (timer) clearTimeout(timer)
+    })
+  }
 
   // ─── STEP 1: Reverse geocode coords to city name ──────────────────────────
   async function geocodeCoords(lat, lon) {
@@ -222,14 +232,18 @@ export default function Hero() {
         console.log('[VOICE] Status set to PROCESSING. Starting transcription...')
         
         processingTimerRef.current = setTimeout(() => {
-          console.error('[VOICE] Processing timeout - response took >90s')
+          console.error('[VOICE] Processing timeout - response took >120s')
           setStatus(S.IDLE)
-          setError('Processing took too long. Please try again.')
-        }, 90000)
+          setError('Processing took too long. Kripya dobara koshish karein.')
+        }, 120000)
 
         try {
           console.log('[VOICE] Calling transcribeAudio with language:', selectedLang)
-          const res = await transcribeAudio(blob, selectedLang)
+          const res = await withTimeout(
+            transcribeAudio(blob, selectedLang),
+            55000,
+            'Transcription timed out. Kripya dobara koshish karein.'
+          )
           console.log('[VOICE] Transcription response:', { status: res.status, hasTranscript: !!res.transcript, error: res.error })
           
           if (res.status === 'SUCCESS' && res.transcript) {
@@ -239,7 +253,11 @@ export default function Hero() {
             const englishTranscript = res.english_transcript || res.transcript
             console.log('[VOICE] Calling agent with:', { userMessage: res.transcript, englishMessage: englishTranscript, lang: selectedLang })
             
-            const chatRes = await chatWithAgent(res.transcript, englishTranscript, selectedLang, image, location)
+            const chatRes = await withTimeout(
+              chatWithAgent(res.transcript, englishTranscript, selectedLang, image, location),
+              55000,
+              'AI response timed out. Kripya dobara koshish karein.'
+            )
             console.log('[VOICE] Agent response:', { hasResponse: !!chatRes.response })
             
             setReply(chatRes.response)
@@ -247,7 +265,11 @@ export default function Hero() {
             
             try {
               console.log('[VOICE] Calling speak with language:', selectedLang)
-              const audioUrl = await speakText(chatRes.response, selectedLang)
+              const audioUrl = await withTimeout(
+                speakText(chatRes.response, selectedLang),
+                30000,
+                'Audio generation timed out.'
+              )
               console.log('[VOICE] Audio URL generated, starting playback')
               playAudio(audioUrl)
             } catch (ttsErr) {
@@ -265,9 +287,10 @@ export default function Hero() {
             setError(res.error || 'Voice not understood. Please speak clearly.')
           }
         } catch (err) {
-          console.error('[VOICE] Exception during processing:', err.message || err)
+          const errMsg = err?.response?.data?.detail || err?.message || 'Error processing voice.'
+          console.error('[VOICE] Exception during processing:', errMsg, err)
           setStatus(S.IDLE)
-          setError('Error processing voice. Try again.')
+          setError(`Voice error: ${errMsg}. Kripya dobara koshish karein.`)
         } finally {
           clearProcessingWatchdog()
         }

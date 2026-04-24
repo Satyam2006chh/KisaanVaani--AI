@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 import httpx
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.config import settings
@@ -83,8 +83,8 @@ def _to_wav(audio_bytes: bytes, ext: str) -> bytes:
 
 
 @router.post("/transcribe")
-async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
-    logger.info(f"Transcribe request: language={language}, filename={audio.filename}")
+async def transcribe(audio: UploadFile = File(...), language: str = Form("hi-IN")):
+    logger.info(f"Transcribe request: language={language}, filename={audio.filename}, content_type={audio.content_type}")
     
     if "your_sarvam_api_key" in settings.sarvam_api_key or not settings.sarvam_api_key:
         print("WARNING: Using mock Sarvam STT response because SARVAM_API_KEY is not configured.")

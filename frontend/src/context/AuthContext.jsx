@@ -21,12 +21,12 @@ const LANGUAGES = [
 export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null)
   const [loading, setLoading] = useState(true)
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://kisaanvaani-ai-1.onrender.com'
+  const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
   useEffect(() => {
     // 1. WAKE UP CALL: Immediately ping backend to start the "wake up" process (for Render free tier)
     console.log('[AuthContext] Pre-warming backend...')
-    axios.get(`${API_BASE_URL}/`).catch(() => {})
+    axios.get(`${API_BASE_URL}/health`).catch(() => {})
 
     // 2. Check for existing session
     const token = localStorage.getItem('token')

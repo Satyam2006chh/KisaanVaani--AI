@@ -12,11 +12,13 @@ const getSessionId = () => {
   return sid
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://kisaanvaani-ai-1.onrender.com';
+// In dev mode (Vite), VITE_API_URL is empty → requests go to relative /api/...
+// which Vite proxies to localhost:8000.  In production, it's the full Render URL.
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
 const api = () => axios.create({
   baseURL: API_BASE_URL,
-  timeout: 45000,
+  timeout: 60000,
   headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
 })
 
@@ -70,17 +72,17 @@ export async function transcribeAudio(blob, language = null) {
   form.append('audio', blob, `audio.${ext}`)
   form.append('language', language || user?.language || 'hi-IN')
   
-  console.log('[API] transcribeAudio:', { blobSize: blob.size, ext, language })
+  console.log('[API] transcribeAudio:', { blobSize: blob.size, ext, language, baseUrl: API_BASE_URL || '(relative/proxy)' })
   
   try {
-    // Don't let axios set Content-Type - FormData will set it with proper boundary
-    const headers = getToken() ? { Authorization: `Bearer ${getToken()}` } : {}
-    const { data } = await axios.post(
-      `${API_BASE_URL}/api/voice/transcribe`,
+    // Use the shared api() instance so base URL + proxy + auth are consistent
+    const { data } = await api().post(
+      '/api/voice/transcribe',
       form,
       { 
-        timeout: 45000,
-        headers
+        timeout: 60000,
+        // Let axios + FormData set the correct Content-Type with boundary
+        headers: { 'Content-Type': undefined }
       }
     )
     console.log('[API] transcribeAudio response:', { status: data.status, hasTranscript: !!data.transcript })
