@@ -20,8 +20,6 @@ const LANGUAGES = [
 
 const S = { IDLE: 'IDLE', RECORDING: 'RECORDING', PROCESSING: 'PROCESSING', SPEAKING: 'SPEAKING' }
 
-const API_URL = import.meta.env.VITE_API_URL || ''
-
 export default function Hero() {
   const { user } = useAuth()
   const [status, setStatus]           = useState(S.IDLE)
@@ -30,88 +28,35 @@ export default function Hero() {
   const [error, setError]             = useState('')
   const [location, setLocation]       = useState(null)
   const [weatherAlert, setWeatherAlert] = useState(null)
-  const [locLoading, setLocLoading]   = useState(true)
   const [image, setImg]               = useState(null)
   const [imgPreview, setImgPreview]   = useState(null)
+  const [selectedLang, setSelectedLang] = useState(user?.language || 'hi-IN')
 
   const mediaRecorderRef = useRef(null)
   const mediaStreamRef   = useRef(null)
-  const processingTimerRef = useRef(null)
   const chunksRef        = useRef([])
-  const [selectedLang, setSelectedLang] = useState(user?.language || 'hi-IN')
+  const isRecordingRef   = useRef(false)
   
-  // Visualizer & Hybrid Recognition
   const audioCtxRef = useRef(null)
   const analyzerRef = useRef(null)
   const [volume, setVolume] = useState(0)
-  const recognitionRef = useRef(null)
-  const browserTranscriptRef = useRef('')
 
-  function withTimeout(promise, timeoutMs, timeoutMessage) {
-    let timer = null
-    const timeoutPromise = new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
-    })
-    return Promise.race([promise, timeoutPromise]).finally(() => {
-      if (timer) clearTimeout(timer)
-    })
-  }
-
-  // --- HYBRID RECOGNITION SETUP ---
+  // ─── EFFECTS ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition()
-      recognition.continuous = true
-      recognition.interimResults = true
-      recognition.lang = selectedLang
-
-      recognition.onresult = (event) => {
-        let interimTranscript = ''
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            browserTranscriptRef.current += event.results[i][0].transcript
-          } else {
-            interimTranscript += event.results[i][0].transcript
-          }
-        }
-        // Show interim results in the UI immediately
-        setTranscript(browserTranscriptRef.current + interimTranscript)
-      }
-
-      recognition.onerror = (event) => {
-        console.warn('[HYBRID] Browser Recognition Error:', event.error)
-      }
-
-      recognitionRef.current = recognition
-    }
-  }, [selectedLang])
-
-  // Geolocation & Weather (Condensed for brevity)
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocLoading(false)
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords: { latitude, longitude, accuracy } }) => {
+    // Location detection
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async ({ coords: { latitude, longitude } }) => {
         try {
           const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=en`)
           const d = await r.json()
           const city = d.address.city || d.address.town || d.address.village || 'Your Location'
           setLocation({ lat: latitude, lon: longitude, city })
-          
-          const wr = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=precipitation_probability_max&timezone=Asia%2FKolkata&forecast_days=1`)
-          const wd = await wr.json()
-          const prob = wd?.daily?.precipitation_probability_max?.[0] || 0
-          if (prob > 50) setWeatherAlert(`🌧️ Aaj ${prob}% baarish ke chances hain.`)
         } catch (e) {}
-        setLocLoading(false)
-      },
-      () => setLocLoading(false)
-    )
+      })
+    }
   }, [])
 
+  // ─── ACTIONS ──────────────────────────────────────────────────────────────
   const handleImage = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -130,122 +75,81 @@ export default function Hero() {
       source.connect(analyzer)
       audioCtxRef.current = audioCtx
       analyzerRef.current = analyzer
-      const bufferLength = analyzer.frequencyBinCount
-      const dataArray = new Uint8Array(bufferLength)
+      const dataArray = new Uint8Array(analyzer.frequencyBinCount)
       const updateVolume = () => {
         if (!analyzerRef.current) return
         analyzerRef.current.getByteFrequencyData(dataArray)
         let sum = 0
-        for (let i = 0; i < bufferLength; i++) sum += dataArray[i]
-        setVolume(sum / bufferLength)
-        if (mediaStreamRef.current) requestAnimationFrame(updateVolume)
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i]
+        setVolume(sum / dataArray.length)
+        if (isRecordingRef.current) requestAnimationFrame(updateVolume)
       }
       updateVolume()
     } catch (e) {}
   }
 
-  async function processVoice(finalText) {
-    setStatus(S.PROCESSING)
-    try {
-      const chatRes = await withTimeout(
-        chatWithAgent(finalText, null, selectedLang, image, location),
-        55000,
-        'AI sochne mein der laga raha hai.'
-      )
-      setReply(chatRes.response)
-      setImg(null); setImgPreview(null)
-      const audioUrl = await speakText(chatRes.response, selectedLang)
-      playAudio(audioUrl)
-    } catch (err) {
-      setStatus(S.IDLE)
-      setError(`Galti: ${err.message}. Kripya dobara bolein.`)
-    }
-  }
-
   async function startRecording() {
-    setError(''); setTranscript(''); setReply(''); chunksRef.current = []; browserTranscriptRef.current = ''
+    console.log('[MIC] Start Recording triggered')
+    setError(''); setTranscript(''); setReply(''); chunksRef.current = []
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       mediaStreamRef.current = stream
+      isRecordingRef.current = true
+      setStatus(S.RECORDING)
       startVisualizer(stream)
-
-      // Start Browser Recognition Parallel
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start()
-        } catch (e) {
-          console.warn('Recognition start error (likely already started):', e)
-        }
-      }
 
       const recorder = new MediaRecorder(stream)
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.onstop = async () => {
-        if (recognitionRef.current) recognitionRef.current.stop()
-        stopMediaStream()
-
-        // HYBRID LOGIC: If Browser already got the text, use it! No need to wait for upload.
-        if (browserTranscriptRef.current.trim().length > 2) {
-          console.log('[HYBRID] Using Browser Recognition:', browserTranscriptRef.current)
-          await processVoice(browserTranscriptRef.current)
+        console.log('[MIC] Recorder onstop fired')
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        if (!blob.size) {
+          setStatus(S.IDLE)
           return
         }
 
-        // Fallback to Sarvam Upload
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        if (!blob.size) { setStatus(S.IDLE); return }
         setStatus(S.PROCESSING)
         try {
-          const res = await withTimeout(transcribeAudio(blob, selectedLang), 50000, 'Network slow hai.')
+          const res = await transcribeAudio(blob, selectedLang)
           if (res.status === 'SUCCESS' && res.transcript) {
             setTranscript(res.transcript)
-            await processVoice(res.transcript)
+            const chatRes = await chatWithAgent(res.transcript, res.english_transcript, selectedLang, image, location)
+            setReply(chatRes.response)
+            setImg(null); setImgPreview(null)
+            const audioUrl = await speakText(chatRes.response, selectedLang)
+            playAudio(audioUrl)
           } else {
-            setStatus(S.IDLE)
             setError(res.error || 'Samajh nahi aaya.')
+            setStatus(S.IDLE)
           }
-        } catch (e) {
+        } catch (err) {
+          setError('Network issue ya API error. Phir se koshish karein.')
           setStatus(S.IDLE)
-          setError('Network issue. Kripya check karein.')
         }
       }
+
       mediaRecorderRef.current = recorder
       recorder.start()
-      setStatus(S.RECORDING)
-    } catch (err) { setError('Mic permission nahi mili.') }
+    } catch (err) {
+      setError('Mic access denied.')
+      setStatus(S.IDLE)
+    }
   }
 
-  const handleMicToggle = async (e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    console.log('[VOICE] Mic Toggle Clicked. Current Status:', status);
-    
-    if (status === S.RECORDING) {
-      stopRecording();
-    } else if (status === S.IDLE) {
-      startRecording();
-    }
-  };
-
   function stopRecording() {
-    console.log('[VOICE] Force Stopping Recording...');
-    
-    // 1. Stop Speech Recognition first
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) { console.warn('Recognition stop error:', e); }
+    console.log('[MIC] Stop Recording triggered')
+    isRecordingRef.current = false
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop()
     }
-
-    // 2. Stop MediaRecorder
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    } else {
-      // If for some reason recorder is already inactive, manually clean up
-      stopMediaStream();
-      setStatus(S.IDLE);
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(t => t.stop())
+      mediaStreamRef.current = null
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {})
+      audioCtxRef.current = null
     }
   }
 
@@ -257,16 +161,24 @@ export default function Hero() {
     audio.play().catch(() => setStatus(S.IDLE))
   }
 
+  const handleMicClick = () => {
+    if (status === S.RECORDING) {
+      stopRecording()
+    } else if (status === S.IDLE) {
+      startRecording()
+    }
+  }
+
   return (
     <div className="hero-container">
       <div className="location-status">
         <MapPin size={14} />
-        <span>{location?.city || (locLoading ? 'Detecting...' : 'India')}</span>
+        <span>{location?.city || 'India'}</span>
       </div>
 
       <div className="welcome-msg">
         <h1>Namaste <span className="farmer-name">{user?.name || 'Kisaan'}</span> ji</h1>
-        <p className="hero-subtitle">Mausam aur Mandi ki sateek report — Royale Edition.</p>
+        <p className="hero-subtitle">Mausam aur Mandi ki sateek report.</p>
       </div>
 
       {error && (
@@ -291,7 +203,7 @@ export default function Hero() {
             </div>
           )}
           {status === S.PROCESSING && !reply && (
-            <div className="chat-bubble ai-bubble typing-bubble">
+            <div className="chat-bubble ai-bubble">
               <div className="chat-bubble-label">AI Soch raha hai...</div>
               <Loader className="spin" size={18} />
             </div>
@@ -302,19 +214,15 @@ export default function Hero() {
       <div className="interaction-zone">
         {status === S.RECORDING && (
           <div className="visualizer-container">
-            {[...Array(15)].map((_, i) => (
-              <div 
-                key={i} 
-                className="vis-bar" 
-                style={{ height: `${Math.max(4, volume * (0.4 + Math.random()))}px` }}
-              />
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="vis-bar" style={{ height: `${Math.max(4, volume * (0.4 + Math.random()))}px` }} />
             ))}
           </div>
         )}
 
         <button
           className={`mic-button-premium ${status === S.RECORDING ? 'pulsing' : ''}`}
-          onClick={handleMicToggle}
+          onClick={handleMicClick}
           disabled={status === S.PROCESSING || status === S.SPEAKING}
         >
           {status === S.RECORDING  ? <Square size={28} /> :
@@ -323,7 +231,7 @@ export default function Hero() {
                                      <Mic size={32} />}
         </button>
 
-        <p className="status-text" style={{ pointerEvents: 'none' }}>
+        <p className="status-text">
           {status === S.RECORDING  ? 'BOLNA BAND KAREIN' :
            status === S.PROCESSING ? '⚙️ AI SOCH RAHA HAI...' :
            status === S.SPEAKING   ? '🔊 JAWAB SUN RAHE HAIN...' :
@@ -336,19 +244,11 @@ export default function Hero() {
             <span>Fasal ki Photo</span>
             <input type="file" accept="image/*" onChange={handleImage} hidden />
           </label>
-          {imgPreview && <div className="img-mini-preview"><img src={imgPreview} alt="crop" /></div>}
-        </div>
-
-        <div className="lang-selector-group">
-          <select
-            value={selectedLang}
-            onChange={(e) => setSelectedLang(e.target.value)}
-            className="voice-lang-select"
-          >
-            {LANGUAGES.map(l => (
-              <option key={l.code} value={l.code}>{l.label}</option>
-            ))}
-          </select>
+          <div className="lang-selector-group">
+            <select value={selectedLang} onChange={(e) => setSelectedLang(e.target.value)} className="voice-lang-select">
+              {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+            </select>
+          </div>
         </div>
       </div>
     </div>
