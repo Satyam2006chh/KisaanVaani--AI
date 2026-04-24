@@ -56,15 +56,22 @@ def _to_wav(audio_bytes: bytes, ext: str) -> bytes:
             capture_output=True, timeout=30,
         )
         if result.returncode != 0:
-            logger.warning(f"ffmpeg error: {result.stderr.decode()}")
+            stderr = result.stderr.decode() if result.stderr else "unknown error"
+            logger.warning(f"ffmpeg error: {stderr}")
+            logger.info(f"Fallback: returning raw audio ({len(audio_bytes)} bytes)")
             return audio_bytes
         with open(out_path, "rb") as f:
-            return f.read()
+            wav_data = f.read()
+            logger.info(f"FFmpeg conversion: {len(audio_bytes)} -> {len(wav_data)} bytes")
+            return wav_data
     except FileNotFoundError:
-        logger.warning("ffmpeg not found — sending raw audio")
+        logger.warning("ffmpeg not found — sending raw audio (install ffmpeg for better compatibility)")
+        return audio_bytes
+    except subprocess.TimeoutExpired:
+        logger.error("FFmpeg timeout - audio too large or slow system")
         return audio_bytes
     except Exception as e:
-        logger.warning(f"Audio conversion failed: {e}")
+        logger.error(f"Audio conversion failed: {type(e).__name__}: {e}")
         return audio_bytes
     finally:
         for p in [inp_path, out_path]:
@@ -77,6 +84,8 @@ def _to_wav(audio_bytes: bytes, ext: str) -> bytes:
 
 @router.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
+    logger.info(f"Transcribe request: language={language}, filename={audio.filename}")
+    
     if "your_sarvam_api_key" in settings.sarvam_api_key or not settings.sarvam_api_key:
         print("WARNING: Using mock Sarvam STT response because SARVAM_API_KEY is not configured.")
         transcript = "[MOCK TRANSCRIPT] Aap kaise hain?"
@@ -88,19 +97,27 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
             "status": "SUCCESS",
         }
 
-    audio_bytes = await audio.read()
+    try:
+        audio_bytes = await audio.read()
+    except Exception as e:
+        logger.error(f"Failed to read audio: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to read audio: {str(e)}")
+    
     if not audio_bytes:
+        logger.error("Empty audio file received")
         raise HTTPException(status_code=400, detail="Empty audio file")
 
     fname = audio.filename or "audio.webm"
     ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else "webm"
+    
+    logger.info(f"Processing audio: file={fname}, ext={ext}, size={len(audio_bytes)}")
     
     # Universal Conversion using FFmpeg (Handles OGG/WebM/MP3 to WAV)
     # This is the ONLY way to guarantee compatibility across WhatsApp/Mobile
     wav = _to_wav(audio_bytes, ext)
     
     if not wav or len(wav) < 1000:
-        logger.warning("Audio processing failed or is too small")
+        logger.warning(f"Audio processing failed or too small: wav_size={len(wav) if wav else 0}")
         return {
             "transcript": "",
             "english_transcript": "",
@@ -108,20 +125,26 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
             "detected_language": language,
             "status": "SILENCE_DETECTED",
             "silence_reply": SILENCE_REPLY.get(language, SILENCE_REPLY["en-IN"]),
-            "error": "Silent audio",
+            "error": "Silent or invalid audio",
         }
 
     logger.info(f"Transcribe: original={len(audio_bytes)}B processed_wav={len(wav)}B lang={language}")
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        try:
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            logger.info(f"Calling Sarvam STT API with {len(wav)} bytes")
             r = await client.post(
                 SARVAM_STT,
                 headers={"api-subscription-key": settings.sarvam_api_key},
                 files={"file": ("audio.wav", wav, "audio/wav")},
                 data={"language_code": language, "model": "saarika:v2.5"},
             )
-            r.raise_for_status()
+            logger.info(f"Sarvam STT response: status={r.status_code}")
+            
+            if r.status_code != 200:
+                logger.error(f"Sarvam STT error: {r.status_code} {r.text}")
+                raise HTTPException(status_code=502, detail=f"Sarvam STT error: {r.status_code}")
+            
             res_json = r.json()
             transcript = res_json.get("transcript", "").strip()
             detected_lang = res_json.get("language_code", language)
@@ -129,6 +152,7 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
             logger.info(f"Sarvam Answer: '{transcript}' [Detected: {detected_lang}]")
             
             if not transcript:
+                logger.warning("Empty transcript from Sarvam")
                 return {
                     "transcript": "", 
                     "english_transcript": "", 
@@ -139,6 +163,7 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
                 }
 
             # Translate to English for Agent consumption using DETECTED language
+            logger.info(f"Translating '{transcript}' from {detected_lang} to en-IN")
             english_transcript = await translate_text(transcript, detected_lang, "en-IN")
             
             return {
@@ -148,9 +173,17 @@ async def transcribe(audio: UploadFile = File(...), language: str = "hi-IN"):
                 "detected_language": detected_lang,
                 "status": "SUCCESS"
             }
-        except Exception as e:
-            logger.error(f"Sarvam STT Failed: {e}")
-            return {"transcript": "", "language": language, "error": str(e), "status": "ERROR"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Sarvam STT Failed: {type(e).__name__}: {e}")
+        return {
+            "transcript": "", 
+            "english_transcript": "",
+            "language": language, 
+            "status": "ERROR", 
+            "error": f"STT failed: {str(e)}"
+        }
 
 
 @router.post("/speak")

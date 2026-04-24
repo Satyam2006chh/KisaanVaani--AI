@@ -23,27 +23,42 @@ const api = () => axios.create({
 
 export async function chatWithAgent(message, englishMessage = null, language = null, image = null, location = null) {
   const user = getUser()
-  const { data } = await api().post('/api/agent/chat', {
-    farmer_id:  user?.farmer_id || 'guest',
-    session_id: getSessionId(),
-    message,
-    english_message: englishMessage,
-    language:   language || user?.language || 'hi-IN',
-    image:      image,
-    location:   location
-  })
-  return data // Return full data object
+  console.log('[API] chatWithAgent:', { message: message?.substring(0, 50), hasEnglish: !!englishMessage, language })
+  try {
+    const { data } = await api().post('/api/agent/chat', {
+      farmer_id:  user?.farmer_id || 'guest',
+      session_id: getSessionId(),
+      message,
+      english_message: englishMessage,
+      language:   language || user?.language || 'hi-IN',
+      image:      image,
+      location:   location
+    })
+    console.log('[API] chatWithAgent response:', { hasResponse: !!data.response })
+    return data // Return full data object
+  } catch (err) {
+    console.error('[API] chatWithAgent error:', err.response?.status, err.message)
+    throw err
+  }
 }
 
 
 export async function speakText(text, language = null, speaker = null) {
   const user = getUser()
-  const response = await api().post(
-    '/api/voice/speak',
-    { text, language: language || user?.language || 'hi-IN', speaker },
-    { responseType: 'blob' },
-  )
-  return URL.createObjectURL(response.data)
+  console.log('[API] speakText:', { textLength: text?.length, language })
+  try {
+    const response = await api().post(
+      '/api/voice/speak',
+      { text, language: language || user?.language || 'hi-IN', speaker },
+      { responseType: 'blob' },
+    )
+    const audioUrl = URL.createObjectURL(response.data)
+    console.log('[API] speakText audio generated:', audioUrl.substring(0, 50))
+    return audioUrl
+  } catch (err) {
+    console.error('[API] speakText error:', err.response?.status, err.message)
+    throw err
+  }
 }
 
 
@@ -54,6 +69,24 @@ export async function transcribeAudio(blob, language = null) {
   const form = new FormData()
   form.append('audio', blob, `audio.${ext}`)
   form.append('language', language || user?.language || 'hi-IN')
-  const { data } = await api().post('/api/voice/transcribe', form)
-  return data // Return full object {transcript, english_transcript, status...}
+  
+  console.log('[API] transcribeAudio:', { blobSize: blob.size, ext, language })
+  
+  try {
+    // Don't let axios set Content-Type - FormData will set it with proper boundary
+    const headers = getToken() ? { Authorization: `Bearer ${getToken()}` } : {}
+    const { data } = await axios.post(
+      `${API_BASE_URL}/api/voice/transcribe`,
+      form,
+      { 
+        timeout: 45000,
+        headers
+      }
+    )
+    console.log('[API] transcribeAudio response:', { status: data.status, hasTranscript: !!data.transcript })
+    return data
+  } catch (err) {
+    console.error('[API] transcribeAudio error:', { status: err.response?.status, message: err.message, data: err.response?.data })
+    throw err
+  }
 }

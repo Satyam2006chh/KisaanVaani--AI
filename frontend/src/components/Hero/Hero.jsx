@@ -181,47 +181,92 @@ export default function Hero() {
   }
 
   async function startRecording() {
+    console.log('[VOICE] Starting recording...')
     setError(''); setTranscript(''); setReply(''); chunksRef.current = []
     clearProcessingWatchdog()
     try {
+      console.log('[VOICE] Requesting microphone access...')
       const stream   = await navigator.mediaDevices.getUserMedia({ audio: true })
+      console.log('[VOICE] Microphone stream acquired')
       mediaStreamRef.current = stream
       const recorder = new MediaRecorder(stream)
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
-      recorder.onstop = async () => {
+      
+      recorder.ondataavailable = (e) => { 
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data)
+          console.log('[VOICE] Audio chunk received:', e.data.size, 'bytes')
+        }
+      }
+      
+      recorder.onerror = (e) => {
+        console.error('[VOICE] MediaRecorder error:', e.error)
+        setError('Recording error. Please try again.')
+        stopMediaStream()
+      }
+      
+      mediaRecorderRef.current = recorder
+      recorder.start(100)  // Request data every 100ms for safety
+      setStatus(S.RECORDING)
+      console.log('[VOICE] Recording started - awaiting stop signal')
+    } catch (err) {
+      console.error('[VOICE] Recording failed:', err.message || err)
+      stopMediaStream()
+      setError('Mic access blocked. Please allow microphone.')
+    }
+  }
         stopMediaStream()
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        console.log('[VOICE] Recording stopped. Blob size:', blob.size, 'bytes')
+        
         if (!blob.size) {
+          console.error('[VOICE] Blob is empty - audio capture failed')
           setStatus(S.IDLE)
           setError('Audio capture failed. Please try again.')
           return
         }
 
         setStatus(S.PROCESSING)
+        console.log('[VOICE] Status set to PROCESSING. Starting transcription...')
+        
         processingTimerRef.current = setTimeout(() => {
+          console.error('[VOICE] Processing timeout - response took >90s')
           setStatus(S.IDLE)
           setError('Processing took too long. Please try again.')
         }, 90000)
 
         try {
+          console.log('[VOICE] Calling transcribeAudio with language:', selectedLang)
           const res = await transcribeAudio(blob, selectedLang)
+          console.log('[VOICE] Transcription response:', { status: res.status, hasTranscript: !!res.transcript, error: res.error })
+          
           if (res.status === 'SUCCESS' && res.transcript) {
+            console.log('[VOICE] Transcription SUCCESS:', res.transcript)
             setTranscript(res.transcript)
             // Agent always receives English meaning via english_message.
             const englishTranscript = res.english_transcript || res.transcript
+            console.log('[VOICE] Calling agent with:', { userMessage: res.transcript, englishMessage: englishTranscript, lang: selectedLang })
+            
             const chatRes = await chatWithAgent(res.transcript, englishTranscript, selectedLang, image, location)
+            console.log('[VOICE] Agent response:', { hasResponse: !!chatRes.response })
+            
             setReply(chatRes.response)
             clearImg() // Clear after processing
+            
+            console.log('[VOICE] Calling speak with language:', selectedLang)
             const audioUrl = await speakText(chatRes.response, selectedLang)
+            console.log('[VOICE] Audio URL generated, starting playback')
             playAudio(audioUrl)
           } else if (res.status === 'SILENCE_DETECTED') {
+            console.warn('[VOICE] Silence detected')
             setStatus(S.IDLE)
             setError(res.silence_reply || 'Voice not understood. Please speak clearly.')
           } else {
+            console.error('[VOICE] Error response:', res.error)
             setStatus(S.IDLE)
             setError(res.error || 'Voice not understood. Please speak clearly.')
           }
         } catch (err) {
+          console.error('[VOICE] Exception during processing:', err.message || err)
           setStatus(S.IDLE)
           setError('Error processing voice. Try again.')
         } finally {
@@ -229,8 +274,9 @@ export default function Hero() {
         }
       }
       mediaRecorderRef.current = recorder
-      recorder.start()
+      recorder.start(100)  // Request data every 100ms for safety
       setStatus(S.RECORDING)
+      console.log('[VOICE] Recording started - awaiting stop signal')
     } catch (err) {
       stopMediaStream()
       setError('Mic access blocked. Please allow microphone.')
@@ -239,7 +285,10 @@ export default function Hero() {
 
   function stopRecording() {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      console.log('[VOICE] Stop signal sent to MediaRecorder')
       mediaRecorderRef.current.stop()
+    } else {
+      console.warn('[VOICE] Stop called but recorder is not in recording state:', mediaRecorderRef.current?.state)
     }
   }
 
