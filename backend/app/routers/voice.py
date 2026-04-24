@@ -51,9 +51,14 @@ def _to_wav(audio_bytes: bytes, ext: str) -> bytes:
             f.write(audio_bytes)
             inp_path = f.name
         out_path = inp_path.replace(f".{ext}", "_out.wav")
+         # Optimized command for speed and Sarvam compatibility
+        cmd = [
+            "ffmpeg", "-y", "-i", inp_path,
+            "-ar", "16000", "-ac", "1", "-sample_fmt", "s16",
+            "-preset", "ultrafast", out_path
+        ]
         result = subprocess.run(
-            ["ffmpeg", "-y", "-i", inp_path, "-ar", "16000", "-ac", "1", "-sample_fmt", "s16", out_path],
-            capture_output=True, timeout=30,
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
         )
         if result.returncode != 0:
             stderr = result.stderr.decode() if result.stderr else "unknown error"
