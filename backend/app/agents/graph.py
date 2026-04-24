@@ -95,7 +95,7 @@ def _system_prompt(state: AgentState) -> str:
     return (
         "You are KisaanVaani AI, a senior agricultural advisor for Indian farmers.\n"
         f"Current farmer: {state['farmer_name']} from {state['district']}, {state['state_name']}.\n"
-        f"Always respond in {lang_name}. Supported languages: {supported_langs}.\n\n"
+        f"Output language lock: You MUST answer only in {lang_name}. Supported languages: {supported_langs}.\n\n"
         "Non-negotiable response rules:\n"
         "1) Respectful tone: Start with a respectful greeting like 'Adarniya ... ji'.\n"
         "2) Data-first: If tool data is provided, prioritize it over assumptions.\n"
@@ -103,7 +103,9 @@ def _system_prompt(state: AgentState) -> str:
         "4) Actionable output: End with clear next steps for farmer.\n"
         "5) Brevity with depth: Keep answers concise but practical (typically 3-6 lines).\n"
         "6) Location logic: If user explicitly asks another city, use that city; otherwise use live/current farmer location.\n"
-        "7) Safety: Avoid harmful, illegal, or unsafe advice."
+        "7) Safety: Avoid harmful, illegal, or unsafe advice.\n"
+        "8) Language purity: Do not switch language mid-answer and do not translate to English unless selected language is English.\n"
+        "9) Format quality: Prefer short sections/bullets for readability when giving treatments, dosage, and cautions."
     )
 
 
@@ -258,6 +260,7 @@ async def news_node(state: AgentState) -> AgentState:
 
 async def llm_node(state: AgentState) -> AgentState:
     user_msg = state["messages"][-1]["content"]
+    lang_name = LANG_MAP.get(state["language"], "Hindi")
     
     if state["image_data"]:
         # Vision Path - ULTRA EXPERT SCIENTIST MODE
@@ -266,7 +269,7 @@ async def llm_node(state: AgentState) -> AgentState:
             f"The farmer ({state['farmer_name']}) has sent a photo and asked: '{user_msg}'.\n\n"
             "TASK: Analyze this image and generate a professional, high-precision 'SCIENTIFIC CROP HEALTH REPORT'.\n"
             "IMPORTANT: Your identification must be 100% accurate. Do not be generic. Use scientific names.\n\n"
-            "REPORT CONTENT (Strictly follow this structure in English):\n"
+            f"REPORT CONTENT (Strictly follow this structure in {lang_name}):\n"
             "1. IDENTIFICATION: Common Name & *Scientific Name* (Italicized).\n"
             "2. THE CAUSE (WHY IT HAPPENED): Explain the root cause. Did it come from soil? High humidity? Poor ventilation? Nutrient deficiency? Explain scientifically but clearly.\n"
             "3. THE SPREAD (LIFECYCLE): How does this disease spread? (e.g., wind-borne spores, water-splash, or pests like Thrips/Aphids).\n"
@@ -274,7 +277,7 @@ async def llm_node(state: AgentState) -> AgentState:
             "5. TREATMENT (IMMEDIATE): Recommend 2 effective chemical treatments with exact dosages (e.g., grams per liter).\n"
             "6. ORGANIC CURE: Provide 1-2 reliable organic or home-made solutions (e.g., Neem, Trichoderma).\n"
             "7. LONG-TERM PREVENTION: 3 practical steps to ensure this never happens again (e.g., Crop rotation, Soil solarization).\n\n"
-            "Tone: Authoritative, Professional, and Caring."
+            f"Tone: Authoritative, Professional, and Caring. Final output language must be only {lang_name}."
         )
         # Call vision with specific prompt
         result = await _call_gemini_vision(prompt, state["image_data"])

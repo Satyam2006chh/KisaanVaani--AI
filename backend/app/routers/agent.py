@@ -142,8 +142,8 @@ async def chat(req: ChatRequest):
         answer_en = result.get("final_answer", "Something went wrong, please try again.")
         intent = result.get("intent", "general")
         
-        # Translate back to User Language
-        answer = await translate_text(answer_en, "en-IN", language)
+        # Translate back only when needed; prompts already enforce output language.
+        answer = answer_en if language == "en-IN" else await translate_text(answer_en, "en-IN", language)
     except Exception as e:
         logger.exception("Agent error")
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")

@@ -245,10 +245,16 @@ export default function Hero() {
             setReply(chatRes.response)
             clearImg() // Clear after processing
             
-            console.log('[VOICE] Calling speak with language:', selectedLang)
-            const audioUrl = await speakText(chatRes.response, selectedLang)
-            console.log('[VOICE] Audio URL generated, starting playback')
-            playAudio(audioUrl)
+            try {
+              console.log('[VOICE] Calling speak with language:', selectedLang)
+              const audioUrl = await speakText(chatRes.response, selectedLang)
+              console.log('[VOICE] Audio URL generated, starting playback')
+              playAudio(audioUrl)
+            } catch (ttsErr) {
+              console.error('[VOICE] TTS failed, showing text response only:', ttsErr?.message || ttsErr)
+              setStatus(S.IDLE)
+              setError('Audio response is unavailable right now. Text answer is shown below.')
+            }
           } else if (res.status === 'SILENCE_DETECTED') {
             console.warn('[VOICE] Silence detected')
             setStatus(S.IDLE)
@@ -394,6 +400,9 @@ export default function Hero() {
           </label>
 
           {/* Selected language controls translation + Sarvam TTS output language */}
+          <label style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: '700' }}>
+            Kis bhasha mein sawal-jawab karna chahoge?
+          </label>
           <select
             value={selectedLang}
             onChange={(e) => setSelectedLang(e.target.value)}
