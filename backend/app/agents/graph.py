@@ -42,7 +42,7 @@ class AgentState(TypedDict):
     original_message: str   # Raw user message in their language (for follow-up detection)
 
 
-async def _call_groq(messages: list, max_tokens: int = 512) -> str:
+async def _call_groq(messages: list, max_tokens: int = 900) -> str:
     if "your_groq_api_key" in settings.groq_api_key or not settings.groq_api_key:
         print("WARNING: Using mock Groq response because GROQ_API_KEY is not configured.")
         return "[MOCK RESPONSE] Namaste! Main aapka KisaanVaani AI assistant hoon. Main abhi demo mode mein hoon kyunki API keys set nahi hain, lekin main aapki madad karne ke liye taiyaar hoon."
@@ -215,14 +215,19 @@ def _system_prompt(state: AgentState) -> str:
         f"CRITICAL — NAME RULE: You MUST address this farmer as '{name} ji' in EVERY response.\n"
         "If any previous message in history used a DIFFERENT name — IGNORE IT COMPLETELY.\n"
         "The name above is the ONLY correct, authoritative name. Never use any other name.\n\n"
+        "⚠️  LANGUAGE RULE (MOST IMPORTANT):\n"
+        f"  - ALL your responses MUST be in {lang_name} ONLY.\n"
+        "  - User messages may appear in English because they are AUTO-TRANSLATED for processing.\n"
+        "  - This does NOT mean the user wants English replies.\n"
+        "  - NEVER say 'I cannot answer in English' or apologize about language.\n"
+        f"  - Just answer directly in {lang_name}. Always.\n\n"
         "ABSOLUTE RULES (never break):\n"
         "1. ANSWER WHAT WAS ASKED — answer the exact question, do NOT redirect.\n"
-        "2. Greeting: start with 'Adarniya {name} ji' or equivalent in output language.\n"
+        "2. Complete your answer fully — never stop mid-sentence.\n"
         "3. No hallucination — if data unavailable, say so clearly.\n"
-        "4. Concise & actionable — 3-6 lines. Use bullets for lists.\n"
+        "4. Use bullets for lists. Be specific with names, dates, amounts.\n"
         "5. NEVER mention 'Test District', 'Test State' or any dummy values.\n"
-        "6. Language purity — stay in the selected language throughout.\n"
-        "7. Safety — no harmful or dangerous advice.\n"
+        "6. Safety — no harmful or dangerous advice.\n"
     ).replace("{name}", name)
 
 
@@ -439,20 +444,50 @@ async def mandi_node(state: AgentState) -> AgentState:
 
 
 async def news_node(state: AgentState) -> AgentState:
-    # 1. Scrape raw content via Firecrawl
-    raw_content = await scrape_agricultural_news(state["messages"][-1]["content"])
-    
-    # 2. Pass raw content to AI for professional summarization
+    lang_name   = LANG_MAP.get(state["language"], "Hindi")
+    # Use original language message for scraping (more accurate keywords)
+    user_question = state.get("original_message") or state["messages"][-1]["content"]
+
+    # Built-in scheme knowledge base (fallback when scraping fails/is vague)
+    SCHEME_KB = """
+    PM-KISAN: Rs 6000/year in 3 installments. Eligibility: small/marginal farmers with land < 2 hectares.
+      Documents: Aadhaar, land records (khasra/khatauni), bank passbook. Register at pmkisan.gov.in or CSC.
+    PMFBY (Fasal Bima Yojana): Crop insurance. Premium: 2% for Kharif, 1.5% for Rabi, 5% for commercial.
+      Last date: Usually 10-15 days before sowing cutoff date (varies by state and crop).
+      Documents: Aadhaar, land records, bank account, sowing certificate from patwari.
+      Check state agriculture dept website or call 1800-180-1551.
+    PM-KUSUM (Solar Pump): 60-90% subsidy on solar pumps (30% central + 30% state + farmer pays 10-40%).
+      Eligibility: Any farmer with agricultural land and own water source.
+      Documents: Aadhaar, land records, bank account, water source proof.
+      Apply: State DISCOM office or state agriculture portal.
+    Kisan Credit Card (KCC): Short-term crop loan at 4% interest (2% subvention + 3% prompt repayment incentive).
+      Limit: Based on crop + land. Apply at any nationalized bank or cooperative bank.
+    e-NAM (Mandi Portal): Online mandi platform. Register at enam.gov.in for better price discovery.
+    """
+
+    # 1. Scrape live content
+    raw_content = await scrape_agricultural_news(user_question)
+
+    # 2. Compose answer using BOTH scraped data AND built-in KB
     messages = [
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
-            "Aapne internet se yeh taaza news scrape ki hai. "
-            "Summarize as: (1) Key update, (2) Farmer impact, (3) What farmer should do now. "
-            "Keep it concise and practical."
+            "You are an expert on Indian agricultural government schemes and policies.\n"
+            f"FARMER'S QUESTION: {user_question}\n\n"
+            "Use the information below to give a COMPLETE, SPECIFIC answer:\n"
+            f"--- LIVE SCRAPED DATA ---\n{raw_content[:1500]}\n\n"
+            f"--- SCHEME KNOWLEDGE BASE ---\n{SCHEME_KB}\n\n"
+            "TASK: Give a COMPLETE answer that includes:\n"
+            "  1. Specific scheme name(s) relevant to the question\n"
+            "  2. Exact eligibility criteria\n"
+            "  3. Required documents (list them specifically)\n"
+            "  4. How to apply / where to go\n"
+            "  5. Deadline/important dates if asked\n"
+            f"Answer in {lang_name}. Be specific. Never give vague generic answers."
         )},
-        {"role": "user", "content": f"Scraped News Content: {raw_content}\n\nFarmer Question: {state['messages'][-1]['content']}"},
+        {"role": "user", "content": user_question},
     ]
-    formatted_result = await _call_groq(messages)
+    formatted_result = await _call_groq(messages, max_tokens=1000)
     return {**state, "tool_result": formatted_result}
 
 
