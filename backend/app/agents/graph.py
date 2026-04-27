@@ -180,65 +180,94 @@ async def _groq_vision_fallback(original_prompt: str) -> str:
         )
 
 
+def _clean_location(val: str) -> str:
+    """Return cleaned location or empty string if it's a test/dummy value."""
+    if not val:
+        return ""
+    lower = val.lower().strip()
+    # Hide test/dummy/empty profile values from AI
+    junk = {"test", "test district", "test state", "n/a", "na", "none", "null", "undefined", "unknown"}
+    if lower in junk or lower.startswith("test "):
+        return ""
+    return val.strip()
+
+
 def _system_prompt(state: AgentState) -> str:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
-    supported_langs = ", ".join(LANG_MAP.values())
-    
+
+    name     = state.get("farmer_name", "Kisaan") or "Kisaan"
+    district = _clean_location(state.get("district", ""))
+    st       = _clean_location(state.get("state_name", ""))
+    loc_str  = f"{district}, {st}" if district and st else (district or st or "India")
+
     return (
-        "You are KisaanVaani AI, a senior agricultural advisor for Indian farmers.\n"
-        f"Current farmer: {state['farmer_name']} from {state['district']}, {state['state_name']}.\n"
-        f"Output language lock: You MUST answer only in {lang_name}. Supported languages: {supported_langs}.\n\n"
-        "Non-negotiable response rules:\n"
-        "1) Respectful tone: Start with a respectful greeting like 'Adarniya ... ji'.\n"
-        "2) Data-first: If tool data is provided, prioritize it over assumptions.\n"
-        "3) No hallucination: If data is unavailable, say it clearly and suggest next best action.\n"
-        "4) Actionable output: End with clear next steps for farmer.\n"
-        "5) Brevity with depth: Keep answers concise but practical (typically 3-6 lines).\n"
-        "6) Location logic: If user explicitly asks another city, use that city; otherwise use live/current farmer location.\n"
-        "7) Safety: Avoid harmful, illegal, or unsafe advice.\n"
-        "8) Language purity: Do not switch language mid-answer and do not translate to English unless selected language is English.\n"
-        "9) Format quality: Prefer short sections/bullets for readability when giving treatments, dosage, and cautions."
+        "You are KisaanVaani AI — India's most trusted voice assistant for farmers.\n"
+        f"Farmer: {name} | Location: {loc_str}\n"
+        f"STRICT OUTPUT LANGUAGE: {lang_name}. Never switch mid-answer.\n\n"
+        "ABSOLUTE RULES (never break these):\n"
+        "1. ANSWER WHAT WAS ASKED — if user asks X, answer X. Do NOT redirect to a different topic.\n"
+        "2. Respectful greeting: start with 'Adarniya {name} ji' or equivalent in the output language.\n"
+        "3. No hallucination — if real data is unavailable, say so clearly and honestly.\n"
+        "4. Concise & actionable — 3-6 lines typically. Use bullets for lists.\n"
+        "5. NEVER mention 'Test District', 'Test State' or any dummy/placeholder profile value.\n"
+        "6. Language purity — stay in the selected language throughout the entire response.\n"
+        "7. Safety — no harmful, illegal, or dangerous advice.\n"
     )
 
 
 async def intent_router(state: AgentState) -> AgentState:
     msg = state["messages"][-1]["content"].lower()
-    
-    # 0. VISION PRIORITY: If ANY image data is present, force vision intent
+
+    # 0. VISION PRIORITY: image present → always vision
     img = state.get("image_data")
-    if img and len(str(img)) > 100: # Check it has content
+    if img and len(str(img)) > 100:
         return {**state, "intent": "vision"}
 
-    # 1. Primary Keyword match (Very fast)
+    # 1. Fast keyword match for tool-specific intents
     keywords = {
-        "weather": ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature"],
-        "mandi": ["bhav", "mandi", "rate", "keemat", "price", "daam"],
-        "vision": ["kya hai", "bimari", "check", "pesticide", "bimari kya hai", "photo", "image"],
-        "crop_advice": ["fasal", "crop", "ugao", "kheti", "kya lagao"],
-        "news": ["new", "latest", "news", "update", "samachar", "khabar", "taza", "yojana", "scheme", "labh", "benefit", "subsidy"],
-        "eligibility": ["eligible", "patrata", "apply", "registration"],
-        "trusted_vendor": ["vendor", "dealer", "shop", "store", "doctor", "hospital", "clinic", "soil lab", "agri officer", "nearby service", "contact number"],
-        "lang_switch": ["punjabi", "hindi", "english", "tamil", "gujarati", "bengali", "marathi", "odiya", "kannada", "malayalam", "telugu", "assamese", "bhasha", "language", "mein bolo", "mein jawab do"]
+        "weather":        ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature", "tapman"],
+        "mandi":          ["bhav", "mandi", "rate", "keemat", "price", "daam", "bikri", "sell"],
+        "vision":         ["bimari kya hai", "photo", "image", "pesticide", "fungus"],
+        "crop_advice":    ["fasal", "crop", "ugao", "kheti", "kya lagao", "beej", "seed", "fertilizer", "khad"],
+        "news":           ["news", "samachar", "khabar", "taza", "yojana", "scheme", "labh", "benefit", "subsidy", "latest"],
+        "eligibility":    ["eligible", "patrata", "apply", "registration"],
+        "trusted_vendor": ["vendor", "dealer", "shop", "doctor", "hospital", "clinic", "soil lab", "agri officer", "nearby"],
+        "lang_switch":    ["punjabi mein", "hindi mein", "english mein", "tamil mein", "gujarati mein",
+                           "bengali mein", "marathi mein", "bhasha badlo", "language change", "mein bolo", "mein jawab do"],
+        # General knowledge / geography / off-topic → LLM answers directly, no tool
+        "general":        ["kahan hai", "kahan par hai", "kahaan h", "where is", "where are", "location of",
+                           "kitni door", "distance", "kaun sa state", "which state", "capital of",
+                           "kya hota hai", "what is", "what are", "explain", "batao", "bata do",
+                           "namaste", "hello", "hi ", "shukriya", "dhanyawad", "thanks",
+                           "aap kaun", "who are you", "kisaanvaani kya"],
     }
-    
+
     for intent, words in keywords.items():
         if any(w in msg for w in words):
             return {**state, "intent": intent}
-            
-    # 2. LLM Fallback (Smart)
+
+    # 2. LLM fallback — now includes 'general'
     intent_prompt = (
-        "Classify user intent into EXACTLY one of these labels: weather, mandi, news, crop_advice, eligibility, scheme, lang_switch. "
-        "Return only the label text with no punctuation and no explanation.\n\n"
+        "You are an intent classifier for KisaanVaani, an AI assistant for Indian farmers.\n"
+        "Classify the user message into EXACTLY ONE of these labels:\n"
+        "  weather       — asking about rain, temperature, forecast\n"
+        "  mandi         — asking about crop prices, market rates\n"
+        "  crop_advice   — asking about crop care, fertilizers, seeds, pests\n"
+        "  news          — asking about government schemes, subsidies, agri news\n"
+        "  trusted_vendor — asking about nearby shops, doctors, agri offices\n"
+        "  general       — geography questions, greetings, off-topic, general knowledge\n\n"
+        "Return ONLY the label. No punctuation, no explanation.\n"
         f"Message: {msg}"
     )
     try:
-        raw_intent = await _call_groq([{"role": "system", "content": intent_prompt}], max_tokens=10)
-        intent = raw_intent.strip().lower().replace(".", "").replace("`", "")
-        if intent not in {"weather", "mandi", "news", "crop_advice", "eligibility", "scheme", "lang_switch"}:
-            intent = "scheme"
+        raw = await _call_groq([{"role": "system", "content": intent_prompt}], max_tokens=10)
+        intent = raw.strip().lower().replace(".", "").replace("`", "").split()[0]
+        valid = {"weather", "mandi", "crop_advice", "news", "trusted_vendor", "general"}
+        if intent not in valid:
+            intent = "general"   # safe default — LLM will answer directly
     except Exception:
-        intent = "scheme"
-        
+        intent = "general"
+
     return {**state, "intent": intent}
 
 
@@ -295,41 +324,63 @@ async def weather_node(state: AgentState) -> AgentState:
 
 
 async def mandi_node(state: AgentState) -> AgentState:
-    lang_name = LANG_MAP.get(state["language"], "Hindi")
-    messages = [
-        {"role": "system", "content": (
-            f"Aap ek Mandi Market Analyst hain. User message: {state['messages'][-1]['content']}. "
-            f"Extract the crop/commodity. If no district mentioned, assume '{state['district']}'. "
-            "Return ONLY strict JSON: {\"commodity\": \"wheat/rice/soybean\", \"district\": \"name\", \"state\": \"name\"}. "
-            "Use English keys/values only. No explanation."
-        )},
-        {"role": "user", "content": state["messages"][-1]["content"]},
-    ]
-    
+    import json
+
+    user_msg   = state["messages"][-1]["content"]
+    profile_district = _clean_location(state.get("district", "")) or "Delhi"
+    profile_state    = _clean_location(state.get("state_name", "")) or "Delhi"
+
+    # Step 1: Use LLM to extract crop + target district from the user's message
+    extract_prompt = (
+        "You are a mandi price analyst for Indian agriculture.\n"
+        f"Farmer profile: district='{profile_district}', state='{profile_state}'.\n\n"
+        "From the user message below, extract:\n"
+        "  - commodity : the crop/commodity in English (e.g. wheat, rice, sarson, soybean)\n"
+        "  - district  : the mandi/district the user is asking about.\n"
+        "    * If user says 'mere zile' / 'apne ilake' / 'my district' / no specific place → use the profile district above.\n"
+        "    * If user names a specific mandi or city (e.g. 'Azadpur', 'Ludhiana', 'Karnal') → use that.\n"
+        "  - state     : the state the district belongs to. Use profile state if unknown.\n\n"
+        "Return ONLY valid JSON like: {\"commodity\": \"wheat\", \"district\": \"Patiala\", \"state\": \"Punjab\"}\n"
+        "No explanation. No markdown.\n\n"
+        f"User message: {user_msg}"
+    )
+
+    dist = profile_district
+    st   = profile_state
+    crop = "wheat"
     try:
-        raw = await _call_groq(messages, max_tokens=50)
-        import json
-        params = json.loads(raw.strip())
-        crop = params.get("commodity", "")
-        dist = params.get("district", state["district"])
-        st = params.get("state", state["state_name"])
-        
-        mandi_data = await get_mandi_price(crop, dist, st)
-        
-        advice_msg = [
-            {"role": "system", "content": (
-                f"{_system_prompt(state)}\n\n"
-                f"Mandi Data for {crop} in {dist}: {mandi_data}. "
-                "Evaluate if this is a good sell window. Mention price trend signal and one negotiation tip. "
-                "If mandi data is missing, state it explicitly and suggest nearby fallback market query."
-            )},
-            {"role": "user", "content": state["messages"][-1]["content"]},
-        ]
+        raw  = await _call_groq([{"role": "system", "content": extract_prompt}], max_tokens=60)
+        # Strip any markdown code fences if present
+        clean = raw.strip().strip("```json").strip("```").strip()
+        params = json.loads(clean)
+        crop = params.get("commodity", crop).lower().strip()
+        dist = params.get("district", dist) or dist
+        st   = params.get("state",     st)   or st
+    except Exception as parse_err:
+        logger.warning(f"Mandi param extraction failed: {parse_err} | raw='{raw[:80]}'")
+
+    # Step 2: Fetch mandi price data
+    mandi_data = await get_mandi_price(crop, dist, st)
+
+    # Step 3: Compose final answer
+    advice_msg = [
+        {"role": "system", "content": (
+            f"{_system_prompt(state)}\n\n"
+            f"MANDI DATA — {crop.title()} in {dist}, {st}:\n{mandi_data}\n\n"
+            "TASK: Give a clear, practical mandi price report to the farmer.\n"
+            "Include: (a) current price / MSP reference, (b) whether it's a good time to sell, "
+            "(c) one negotiation tip. If data is unavailable, say so clearly and suggest "
+            f"checking nearby mandis or calling the local APMC in {dist}."
+        )},
+        {"role": "user", "content": user_msg},
+    ]
+    try:
         result = await _call_groq(advice_msg)
     except Exception:
-        result = f"Maaf kijiye, {dist} ki mandi mein filhaal data mil nahi raha hai."
+        result = f"Maaf kijiye, {dist} ki mandi mein {crop} ka data abhi nahi mil raha. Kripya thodi der baad dobara poochein."
 
     return {**state, "tool_result": result}
+
 
 
 async def news_node(state: AgentState) -> AgentState:
@@ -487,48 +538,82 @@ async def trusted_vendor_node(state: AgentState) -> AgentState:
     return {**state, "tool_result": result}
 
 
+async def general_node(state: AgentState) -> AgentState:
+    """Handles general knowledge, geography, greetings and off-topic questions.
+    Always answers the actual question, then gently bridges to farming if relevant."""
+    lang_name  = LANG_MAP.get(state["language"], "Hindi")
+    user_msg   = state["messages"][-1]["content"]
+    name       = state.get("farmer_name", "Kisaan") or "Kisaan"
+
+    messages = [
+        {"role": "system", "content": (
+            f"{_system_prompt(state)}\n\n"
+            "TASK: The farmer asked a general/off-topic question (not directly about crops or mandi).\n"
+            "INSTRUCTIONS:\n"
+            "  a) FIRST answer the actual question clearly and correctly.\n"
+            "  b) THEN, in 1 short sentence, gently connect it to farming IF naturally relevant.\n"
+            "     e.g. if they asked about Saharanpur's location, mention it is a good agricultural region.\n"
+            "  c) If there is NO farming connection, just answer the question warmly and offer to help with crops/mandi/weather.\n"
+            "  d) Keep the total response to 4-5 lines maximum.\n"
+            f"  e) Language: {lang_name} only."
+        )},
+        {"role": "user", "content": user_msg},
+    ]
+    result = await _call_groq(messages)
+    return {**state, "tool_result": result}
+
+
 async def format_answer(state: AgentState) -> AgentState:
     return {**state, "final_answer": state["tool_result"]}
 
 
 def _route(state: AgentState) -> str:
     return {
-        "weather":    "weather_node",
-        "mandi":      "mandi_node",
-        "news":       "news_node",
-        "scheme":     "news_node",
-        "vision":     "llm_node",
-        "crop_advice":"crop_advice_node",
-        "trusted_vendor":"trusted_vendor_node",
-        "lang_switch":"lang_switch_node",
-    }.get(state["intent"], "llm_node")
+        "weather":        "weather_node",
+        "mandi":          "mandi_node",
+        "news":           "news_node",
+        "scheme":         "news_node",
+        "vision":         "llm_node",
+        "crop_advice":    "crop_advice_node",
+        "trusted_vendor": "trusted_vendor_node",
+        "lang_switch":    "lang_switch_node",
+        "general":        "general_node",
+        "eligibility":    "general_node",
+    }.get(state["intent"], "general_node")  # default → general, not llm_node
 
 
 def _build_agent():
     g = StateGraph(AgentState)
-    g.add_node("intent_router",    intent_router)
-    g.add_node("weather_node",     weather_node)
-    g.add_node("mandi_node",       mandi_node)
-    g.add_node("news_node",        news_node)
-    g.add_node("llm_node",         llm_node)
-    g.add_node("crop_advice_node", crop_advice_node)
+    g.add_node("intent_router",       intent_router)
+    g.add_node("weather_node",        weather_node)
+    g.add_node("mandi_node",          mandi_node)
+    g.add_node("news_node",           news_node)
+    g.add_node("llm_node",            llm_node)
+    g.add_node("crop_advice_node",    crop_advice_node)
     g.add_node("trusted_vendor_node", trusted_vendor_node)
-    g.add_node("lang_switch_node", lang_switch_node)
-    g.add_node("format_answer",    format_answer)
+    g.add_node("lang_switch_node",    lang_switch_node)
+    g.add_node("general_node",        general_node)
+    g.add_node("format_answer",       format_answer)
     g.set_entry_point("intent_router")
     g.add_conditional_edges("intent_router", _route, {
-        "weather_node":     "weather_node",
-        "mandi_node":       "mandi_node",
-        "news_node":        "news_node",
-        "llm_node":         "llm_node",
-        "crop_advice_node": "crop_advice_node",
+        "weather_node":        "weather_node",
+        "mandi_node":          "mandi_node",
+        "news_node":           "news_node",
+        "llm_node":            "llm_node",
+        "crop_advice_node":    "crop_advice_node",
         "trusted_vendor_node": "trusted_vendor_node",
-        "lang_switch_node": "lang_switch_node",
+        "lang_switch_node":    "lang_switch_node",
+        "general_node":        "general_node",
     })
-    for node in ["weather_node", "mandi_node", "news_node", "llm_node", "crop_advice_node", "trusted_vendor_node", "lang_switch_node"]:
+    for node in ["weather_node", "mandi_node", "news_node", "llm_node",
+                 "crop_advice_node", "trusted_vendor_node", "lang_switch_node", "general_node"]:
         g.add_edge(node, "format_answer")
     g.add_edge("format_answer", END)
     return g.compile()
 
 
 agent = _build_agent()
+
+
+
+

@@ -63,10 +63,57 @@ async def chat(req: ChatRequest):
     res = sb.table("users").select("*").eq("phone", req.farmer_id).execute()
     user = res.data[0] if res.data else None
 
-    district   = user.get("district", "Delhi") if user else "Delhi"
-    state_name = user.get("state", "Delhi")    if user else "Delhi"
-    city       = user.get("city", district)    if user else district
-    name       = user.get("name", "Kisaan")    if user else "Kisaan"
+    district   = user.get("district", "") if user else ""
+    state_name = user.get("state", "")    if user else ""
+    city       = user.get("city", "")     if user else ""
+    name       = user.get("name", "Kisaan") if user else "Kisaan"
+
+    # ── GPS Override (HIGHEST PRIORITY) ─────────────────────────────
+    # If live location is sent, always prefer it over profile data
+    if req.location and isinstance(req.location, dict):
+        live_dist  = req.location.get("place") or req.location.get("district") or ""
+        live_state = req.location.get("state") or ""
+        live_city  = req.location.get("city")  or ""
+        if live_dist:  district   = live_dist
+        if live_state: state_name = live_state
+        if live_city:  city       = live_city
+
+    # ── Reverse geocode if district is still dummy/empty ────────────
+    _JUNK = {"test", "test district", "test state", "n/a", "na", "none", "null", "undefined", "unknown", ""}
+    if district.lower().strip() in _JUNK or state_name.lower().strip() in _JUNK:
+        lat = (req.location or {}).get("lat")
+        lon = (req.location or {}).get("lon")
+        if lat and lon:
+            try:
+                import httpx as _httpx
+                async with _httpx.AsyncClient(timeout=6) as _c:
+                    _r = await _c.get(
+                        "https://nominatim.openstreetmap.org/reverse",
+                        params={"format": "json", "lat": lat, "lon": lon, "accept-language": "en"},
+                        headers={"User-Agent": "KisaanVaani/2.0"},
+                    )
+                if _r.status_code == 200:
+                    _addr = _r.json().get("address", {})
+                    gps_district = (_addr.get("county") or _addr.get("state_district")
+                                    or _addr.get("city") or _addr.get("town") or "")
+                    gps_state    = _addr.get("state", "")
+                    if gps_district and district.lower().strip() in _JUNK:
+                        district = gps_district
+                    if gps_state and state_name.lower().strip() in _JUNK:
+                        state_name = gps_state
+                    if not city:
+                        city = _addr.get("city") or _addr.get("town") or gps_district
+                    logger.info(f"GPS geocode: district={district}, state={state_name}")
+            except Exception as geo_err:
+                logger.warning(f"Reverse geocode failed: {geo_err}")
+
+    # Final fallbacks if still empty
+    if not district:   district   = "Delhi"
+    if not state_name: state_name = "Delhi"
+    if not city:       city       = district
+
+    # Prioritize requested language, fallback to profile
+    language = req.language if req.language else (user.get("language", "hi-IN") if user else "hi-IN")
 
     # Explicit memory write from chat: "mera naam X hai" / "my name is X"
     remembered_name = _extract_name_from_message(req.message)
@@ -76,17 +123,6 @@ async def chat(req: ChatRequest):
             name = remembered_name
         except Exception as e:
             logger.warning(f"Failed to persist remembered name: {e}")
-
-    # LATEST LIVE LOCATION OVERRIDE (CRITICAL FOR ACCURACY)
-    if req.location and isinstance(req.location, dict):
-        live_dist = req.location.get("place") or req.location.get("district")
-        live_state = req.location.get("state")
-        live_city = req.location.get("city")
-        if live_dist: district = live_dist
-        if live_state: state_name = live_state
-        if live_city: city = live_city
-    # Prioritize requested/detected language for dynamic response, fallback to profile
-    language = req.language if req.language else (user.get("language", "hi-IN") if user else "hi-IN")
 
     # Explicit memory recall shortcut
     if _is_name_recall_question(req.message):
