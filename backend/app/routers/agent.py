@@ -159,18 +159,19 @@ async def chat(req: ChatRequest):
         logger.warning(f"Failed to load history context: {e}")
 
     initial_state = {
-        "messages":     history_msgs + [{"role": "user", "content": agent_message}],
-        "farmer_id":    req.farmer_id,
-        "farmer_name":  name,
-        "language":     language,
-        "city":         city,
-        "district":     district,
-        "state_name":   state_name,
-        "intent":       "",
-        "tool_result":  "",
-        "final_answer": "",
-        "image_data":   req.image,
-        "location":     req.location, # Rajpura Coords passed here
+        "messages":         history_msgs + [{"role": "user", "content": agent_message}],
+        "farmer_id":        req.farmer_id,
+        "farmer_name":      name,
+        "language":         language,
+        "city":             city,
+        "district":         district,
+        "state_name":       state_name,
+        "intent":           "",
+        "tool_result":      "",
+        "final_answer":     "",
+        "image_data":       req.image,
+        "location":         req.location,
+        "original_message": req.message or "",  # Raw original for follow-up detection
     }
 
     try:

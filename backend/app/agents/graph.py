@@ -27,18 +27,19 @@ LANG_MAP = {
 
 
 class AgentState(TypedDict):
-    messages:     List[dict]
-    farmer_id:    str
-    farmer_name:  str
-    language:     str
-    city:         str
-    district:     str
-    state_name:   str
-    intent:       str
-    tool_result:  str
-    final_answer: str
-    image_data:   str # Base64
-    location:     dict # {lat, lon, city}
+    messages:         List[dict]
+    farmer_id:        str
+    farmer_name:      str
+    language:         str
+    city:             str
+    district:         str
+    state_name:       str
+    intent:           str
+    tool_result:      str
+    final_answer:     str
+    image_data:       str   # Base64
+    location:         dict  # {lat, lon, city}
+    original_message: str   # Raw user message in their language (for follow-up detection)
 
 
 async def _call_groq(messages: list, max_tokens: int = 512) -> str:
@@ -216,28 +217,67 @@ def _system_prompt(state: AgentState) -> str:
 
 
 async def intent_router(state: AgentState) -> AgentState:
-    msg = state["messages"][-1]["content"].lower()
+    msg = state["messages"][-1]["content"].lower().strip()
 
     # 0. VISION PRIORITY: image present → always vision
     img = state.get("image_data")
     if img and len(str(img)) > 100:
         return {**state, "intent": "vision"}
 
-    # 1. Fast keyword match for tool-specific intents
+    # 1. FOLLOW-UP DETECTION — check BOTH English (msg) AND original language
+    # This handles: "firse batao" (Hindi), "explain again" (English), etc.
+    original = state.get("original_message", "").lower().strip()
+    check_in  = msg + " " + original  # combined — match in either language
+
+    FOLLOWUP_PHRASES = [
+        # Hindi follow-up phrases
+        "firse batao", "fir se batao", "samajh nahi aaya", "samajh nahi aya",
+        "dobara batao", "phir batao", "repeat karo", "wahi batao",
+        "aur detail", "thoda aur", "aur samjhao", "aur samjhaao",
+        "pehle wala", "jo bataya tha", "iska matlab", "matlab kya",
+        "clear nahi", "aur bata", "aur batao",
+        # English follow-up phrases
+        "explain again", "again please", "repeat that", "say again",
+        "didn't understand", "not understand", "not clear", "more detail",
+        "tell me more", "elaborate", "i don't understand", "can you explain",
+        "what do you mean", "what does that mean", "please repeat",
+    ]
+    if any(phrase in check_in for phrase in FOLLOWUP_PHRASES):
+        prev_intents = []
+        for m in state["messages"][:-1]:
+            content_lower = m.get("content", "").lower()
+            if m.get("role") == "user":
+                if any(w in content_lower for w in ["mausam", "baarish", "rain", "weather", "tapman", "forecast"]):
+                    prev_intents.append("weather")
+                elif any(w in content_lower for w in ["bhav", "mandi", "rate", "keemat", "price", "daam", "market"]):
+                    prev_intents.append("mandi")
+                elif any(w in content_lower for w in ["fasal", "crop", "ugao", "kheti", "beej", "khad",
+                                                       "fertilizer", "keet", "grow", "cultivate", "harvest",
+                                                       "soil", "mitti", "disease", "bimari"]):
+                    prev_intents.append("crop_advice")
+                elif any(w in content_lower for w in ["news", "yojana", "scheme", "subsidy", "samachar", "government"]):
+                    prev_intents.append("news")
+        if prev_intents:
+            inherited = prev_intents[-1]
+            logger.info(f"Follow-up detected — inheriting: {inherited}")
+            return {**state, "intent": inherited}
+
+
+    # 2. Fast keyword match for specific tool intents
     keywords = {
         "weather":        ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature", "tapman"],
         "mandi":          ["bhav", "mandi", "rate", "keemat", "price", "daam", "bikri", "sell"],
         "vision":         ["bimari kya hai", "photo", "image", "pesticide", "fungus"],
-        "crop_advice":    ["fasal", "crop", "ugao", "kheti", "kya lagao", "beej", "seed", "fertilizer", "khad"],
+        "crop_advice":    ["fasal", "crop", "ugao", "kheti", "kya lagao", "beej", "seed", "fertilizer", "khad", "keet"],
         "news":           ["news", "samachar", "khabar", "taza", "yojana", "scheme", "labh", "benefit", "subsidy", "latest"],
         "eligibility":    ["eligible", "patrata", "apply", "registration"],
         "trusted_vendor": ["vendor", "dealer", "shop", "doctor", "hospital", "clinic", "soil lab", "agri officer", "nearby"],
         "lang_switch":    ["punjabi mein", "hindi mein", "english mein", "tamil mein", "gujarati mein",
                            "bengali mein", "marathi mein", "bhasha badlo", "language change", "mein bolo", "mein jawab do"],
-        # General knowledge / geography / off-topic → LLM answers directly, no tool
+        # General: geography, greetings — NOTE: removed 'batao'/'bata do' (too broad, causes false positives)
         "general":        ["kahan hai", "kahan par hai", "kahaan h", "where is", "where are", "location of",
                            "kitni door", "distance", "kaun sa state", "which state", "capital of",
-                           "kya hota hai", "what is", "what are", "explain", "batao", "bata do",
+                           "kya hota hai", "what is", "what are",
                            "namaste", "hello", "hi ", "shukriya", "dhanyawad", "thanks",
                            "aap kaun", "who are you", "kisaanvaani kya"],
     }
@@ -246,29 +286,30 @@ async def intent_router(state: AgentState) -> AgentState:
         if any(w in msg for w in words):
             return {**state, "intent": intent}
 
-    # 2. LLM fallback — now includes 'general'
+    # 3. LLM fallback
     intent_prompt = (
         "You are an intent classifier for KisaanVaani, an AI assistant for Indian farmers.\n"
         "Classify the user message into EXACTLY ONE of these labels:\n"
-        "  weather       — asking about rain, temperature, forecast\n"
-        "  mandi         — asking about crop prices, market rates\n"
-        "  crop_advice   — asking about crop care, fertilizers, seeds, pests\n"
-        "  news          — asking about government schemes, subsidies, agri news\n"
+        "  weather        — asking about rain, temperature, forecast\n"
+        "  mandi          — asking about crop prices, market rates\n"
+        "  crop_advice    — asking about crop care, fertilizers, seeds, pests\n"
+        "  news           — asking about government schemes, subsidies, agri news\n"
         "  trusted_vendor — asking about nearby shops, doctors, agri offices\n"
-        "  general       — geography questions, greetings, off-topic, general knowledge\n\n"
+        "  general        — geography, greetings, off-topic, general knowledge\n\n"
         "Return ONLY the label. No punctuation, no explanation.\n"
         f"Message: {msg}"
     )
     try:
-        raw = await _call_groq([{"role": "system", "content": intent_prompt}], max_tokens=10)
+        raw    = await _call_groq([{"role": "system", "content": intent_prompt}], max_tokens=10)
         intent = raw.strip().lower().replace(".", "").replace("`", "").split()[0]
-        valid = {"weather", "mandi", "crop_advice", "news", "trusted_vendor", "general"}
+        valid  = {"weather", "mandi", "crop_advice", "news", "trusted_vendor", "general"}
         if intent not in valid:
-            intent = "general"   # safe default — LLM will answer directly
+            intent = "general"
     except Exception:
         intent = "general"
 
     return {**state, "intent": intent}
+
 
 
 async def weather_node(state: AgentState) -> AgentState:
@@ -314,10 +355,13 @@ async def weather_node(state: AgentState) -> AgentState:
             f"Weather Data: {weather_data}\n"
             f"Tell farmer clearly that this forecast is for '{location_label}'. "
             "Include: current condition, rain probability, risk level, and 2 concrete farm actions. "
-            "If rain probability > 70%, issue a strong crop protection alert."
+            "If rain probability > 70%, issue a strong crop protection alert. "
+            "If the user is asking a follow-up (e.g. 'aur batao', 'kal ka bhi'), use the conversation history."
         )},
-        {"role": "user", "content": state["messages"][-1]["content"]},
     ]
+    # Pass full conversation history for follow-up support
+    for m in state["messages"]:
+        messages.append({"role": m["role"], "content": m["content"]})
     result = await _call_groq(messages)
     return {**state, "tool_result": result}
 
@@ -485,16 +529,27 @@ async def lang_switch_node(state: AgentState) -> AgentState:
 
 async def crop_advice_node(state: AgentState) -> AgentState:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
+
+    has_history = len(state["messages"]) > 1
+    context_note = (
+        "\nIMPORTANT: The conversation history below contains earlier questions and answers. "
+        "If the user is asking for clarification, repetition, or a follow-up, use that history to give a contextual answer."
+        if has_history else ""
+    )
+
     messages = [
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
-            "Aap ek Agri-Scientist hain. Farmer ko fasal, mitti, keet-nashak (pesticide), ya khad ka expert advice chahiye. "
-            "Provide deep technical yet easy to understand tips. Mention specific fertilizer names like Urea, DAP, NPK if relevant. "
-            "Give answer in 4 compact parts: diagnosis/context, recommendation, dosage/timing, caution. "
-            "Keep it useful and field-ready."
+            "You are an expert Agri-Scientist. Give deep, practical advice on crops, soil, fertilizers, and pests. "
+            "Mention specific inputs (Urea, DAP, NPK, neem oil) with dosage when relevant. "
+            "Structure: context → recommendation → dosage/timing → caution."
+            f"{context_note}"
         )},
-        {"role": "user", "content": state["messages"][-1]["content"]},
     ]
+    # Pass full conversation history so follow-up questions retain context
+    for m in state["messages"]:
+        messages.append({"role": m["role"], "content": m["content"]})
+
     result = await _call_groq(messages)
     return {**state, "tool_result": result}
 
@@ -540,25 +595,30 @@ async def trusted_vendor_node(state: AgentState) -> AgentState:
 
 async def general_node(state: AgentState) -> AgentState:
     """Handles general knowledge, geography, greetings and off-topic questions.
-    Always answers the actual question, then gently bridges to farming if relevant."""
-    lang_name  = LANG_MAP.get(state["language"], "Hindi")
-    user_msg   = state["messages"][-1]["content"]
-    name       = state.get("farmer_name", "Kisaan") or "Kisaan"
+    Always answers the actual question; remembers conversation context for follow-ups."""
+    lang_name = LANG_MAP.get(state["language"], "Hindi")
+
+    has_history = len(state["messages"]) > 1
+    context_note = (
+        "\nIMPORTANT: Conversation history is provided below. If the user says things like "
+        "'firse batao', 'samajh nahi aaya', 'repeat karo', 'again', 'explain more' — "
+        "look at the previous answer and re-explain it clearly in simpler terms. Do NOT ask 'what did you want to know?'."
+        if has_history else ""
+    )
 
     messages = [
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
-            "TASK: The farmer asked a general/off-topic question (not directly about crops or mandi).\n"
-            "INSTRUCTIONS:\n"
-            "  a) FIRST answer the actual question clearly and correctly.\n"
-            "  b) THEN, in 1 short sentence, gently connect it to farming IF naturally relevant.\n"
-            "     e.g. if they asked about Saharanpur's location, mention it is a good agricultural region.\n"
-            "  c) If there is NO farming connection, just answer the question warmly and offer to help with crops/mandi/weather.\n"
-            "  d) Keep the total response to 4-5 lines maximum.\n"
-            f"  e) Language: {lang_name} only."
+            "TASK: Answer the farmer's question helpfully. "
+            "If it's off-topic, answer it correctly then gently offer farming help. "
+            "Keep response to 4-5 lines."
+            f"{context_note}"
         )},
-        {"role": "user", "content": user_msg},
     ]
+    # Pass full conversation so 'explain again' works correctly
+    for m in state["messages"]:
+        messages.append({"role": m["role"], "content": m["content"]})
+
     result = await _call_groq(messages)
     return {**state, "tool_result": result}
 
