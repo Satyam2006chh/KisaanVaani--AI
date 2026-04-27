@@ -77,18 +77,26 @@ export default function Hero() {
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=en`,
               { signal: AbortSignal.timeout(5000) }
             )
-            const d = await r.json()
+            const d    = await r.json()
+            const addr = d.address || {}
             const city =
-              d.address?.city ||
-              d.address?.town ||
-              d.address?.village ||
-              d.address?.county ||
+              addr.city ||
+              addr.town ||
+              addr.village ||
+              addr.county ||
               'Your Location'
-            setLocation({ lat: latitude, lon: longitude, city })
+            const district =
+              addr.county ||
+              addr.state_district ||
+              addr.city ||
+              addr.town ||
+              city
+            const state = addr.state || ''
+            setLocation({ lat: latitude, lon: longitude, city, district, state })
             setLocationState('granted')
           } catch {
             // Coords available but geocoding failed – still use coords
-            setLocation({ lat: latitude, lon: longitude, city: 'Your Location' })
+            setLocation({ lat: latitude, lon: longitude, city: 'Your Location', district: '', state: '' })
             setLocationState('granted')
           }
         },

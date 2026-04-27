@@ -196,24 +196,35 @@ def _clean_location(val: str) -> str:
 def _system_prompt(state: AgentState) -> str:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
 
-    name     = state.get("farmer_name", "Kisaan") or "Kisaan"
     district = _clean_location(state.get("district", ""))
     st       = _clean_location(state.get("state_name", ""))
     loc_str  = f"{district}, {st}" if district and st else (district or st or "India")
 
+    # Sanitize name — strip test/empty/invalid values, NEVER let old history names through
+    name = (state.get("farmer_name") or "").strip()
+    if not name or name.lower() in {"kisaan", "test", "none", "null", "user", ""}:
+        name = "Kisaan"
+
     return (
         "You are KisaanVaani AI — India's most trusted voice assistant for farmers.\n"
-        f"Farmer: {name} | Location: {loc_str}\n"
-        f"STRICT OUTPUT LANGUAGE: {lang_name}. Never switch mid-answer.\n\n"
-        "ABSOLUTE RULES (never break these):\n"
-        "1. ANSWER WHAT WAS ASKED — if user asks X, answer X. Do NOT redirect to a different topic.\n"
-        "2. Respectful greeting: start with 'Adarniya {name} ji' or equivalent in the output language.\n"
-        "3. No hallucination — if real data is unavailable, say so clearly and honestly.\n"
-        "4. Concise & actionable — 3-6 lines typically. Use bullets for lists.\n"
-        "5. NEVER mention 'Test District', 'Test State' or any dummy/placeholder profile value.\n"
-        "6. Language purity — stay in the selected language throughout the entire response.\n"
-        "7. Safety — no harmful, illegal, or dangerous advice.\n"
-    )
+        f"Language: {lang_name} only.\n\n"
+        "═══════════════════════════════════════════\n"
+        f"⚠️  FARMER NAME (PERMANENT): {name}\n"
+        f"⚠️  FARMER LOCATION: {loc_str}\n"
+        "═══════════════════════════════════════════\n"
+        f"CRITICAL — NAME RULE: You MUST address this farmer as '{name} ji' in EVERY response.\n"
+        "If any previous message in history used a DIFFERENT name — IGNORE IT COMPLETELY.\n"
+        "The name above is the ONLY correct, authoritative name. Never use any other name.\n\n"
+        "ABSOLUTE RULES (never break):\n"
+        "1. ANSWER WHAT WAS ASKED — answer the exact question, do NOT redirect.\n"
+        "2. Greeting: start with 'Adarniya {name} ji' or equivalent in output language.\n"
+        "3. No hallucination — if data unavailable, say so clearly.\n"
+        "4. Concise & actionable — 3-6 lines. Use bullets for lists.\n"
+        "5. NEVER mention 'Test District', 'Test State' or any dummy values.\n"
+        "6. Language purity — stay in the selected language throughout.\n"
+        "7. Safety — no harmful or dangerous advice.\n"
+    ).replace("{name}", name)
+
 
 
 async def intent_router(state: AgentState) -> AgentState:
