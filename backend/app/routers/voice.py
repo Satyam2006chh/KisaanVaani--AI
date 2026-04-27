@@ -135,7 +135,7 @@ async def transcribe(audio: UploadFile = File(...), language: str = Form("hi-IN"
     logger.info(f"Transcribe: original={len(audio_bytes)}B processed_wav={len(wav)}B lang={language}")
 
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=45) as client:
             logger.info(f"Calling Sarvam STT API with {len(wav)} bytes")
             r = await client.post(
                 SARVAM_STT,

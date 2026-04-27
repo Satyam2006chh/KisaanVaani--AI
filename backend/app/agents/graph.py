@@ -5,7 +5,6 @@ from typing import List, TypedDict
 import httpx
 from langgraph.graph import END, StateGraph
 
-import google.generativeai as genai
 from app.agents.tools import get_mandi_price, get_weather, scrape_agricultural_news, get_nearby_services
 from app.config import settings
 
@@ -60,32 +59,125 @@ async def _call_groq(messages: list, max_tokens: int = 512) -> str:
 
 
 async def _call_gemini_vision(prompt: str, image_base64: str) -> str:
-    """Specialized call for Multimodal vision using Gemini 1.5 Flash"""
-    import google.generativeai as genai
-    import base64
+    """Specialized call for Multimodal vision using Gemini 2.0 Flash.
+    Tries multiple models and falls back to Groq text-only on quota exhaustion."""
+    import base64 as b64
 
     if not settings.gemini_api_key or "your_" in settings.gemini_api_key:
-        return "[VISION MOCK] Adarniya Satyam ji, maine aapki fasal ki tasveer ko scan kar liya hai. Yeh 'Leaf Rust' jaisa lag raha hai. Kripya Neem oil ka chhidkaav karein."
-
-    try:
-        genai.configure(api_key=settings.gemini_api_key)
-        model = genai.GenerativeModel('gemini-flash-latest')
-        
-        # Strip potential data:image/png;base64, prefix
-        if "," in image_base64:
-            image_base64 = image_base64.split(",")[1]
-            
-        img_data = base64.b64decode(image_base64)
-        
-        # Using the standard SDK pattern for vision
-        response = model.generate_content(
-            [prompt, {"mime_type": "image/jpeg", "data": img_data}]
+        return (
+            "Adarniya ji, fasal ki tasveer analyze karne ke liye Gemini API key zaroori hai. "
+            "Kripya admin se sampark karein. Aap bina tasveer ke apna sawaal pooch sakte hain."
         )
-        return response.text
-    except Exception as e:
-        logger.error(f"Gemini Vision failed: {e}")
-        return "Tasveer analyze karne mein samasya ho rahi hai. Kripya dubara koshish karein."
 
+    # Decode image once
+    mime_type = "image/jpeg"
+    raw_b64   = image_base64
+    if raw_b64.startswith("data:"):
+        header, raw_b64 = raw_b64.split(",", 1)
+        if "png"  in header: mime_type = "image/png"
+        elif "webp" in header: mime_type = "image/webp"
+    try:
+        img_data = b64.b64decode(raw_b64)
+    except Exception as decode_err:
+        logger.error(f"Image base64 decode failed: {decode_err}")
+        return "Tasveer ka format galat hai. Kripya dobara upload karein."
+
+    # Models to try in order (lite is cheaper on quota)
+    MODELS_TO_TRY = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash"]
+
+    # ── Attempt with new google.genai SDK ───────────────────────────────────
+    try:
+        from google import genai as new_genai
+        from google.genai import types as gtypes
+
+        client = new_genai.Client(api_key=settings.gemini_api_key)
+        last_err = None
+
+        for model_name in MODELS_TO_TRY:
+            try:
+                logger.info(f"Trying Gemini model: {model_name}")
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[
+                        prompt,
+                        gtypes.Part.from_bytes(data=img_data, mime_type=mime_type),
+                    ],
+                )
+                logger.info(f"Gemini {model_name} succeeded")
+                return response.text
+            except Exception as model_err:
+                err_str = str(model_err)
+                last_err = err_str
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                    logger.warning(f"Gemini {model_name} quota exhausted — trying next model")
+                    continue
+                elif "404" in err_str or "NOT_FOUND" in err_str:
+                    logger.warning(f"Gemini {model_name} not found — trying next model")
+                    continue
+                else:
+                    logger.error(f"Gemini {model_name} unexpected error: {model_err}")
+                    break  # Non-quota error — don't retry other models
+
+        # All models exhausted — fall back to Groq text-only analysis
+        logger.warning(f"All Gemini models failed ({last_err[:80]}). Falling back to Groq text analysis.")
+        return await _groq_vision_fallback(prompt)
+
+    except ImportError:
+        # ── Fallback to old google.generativeai SDK ──────────────────────
+        try:
+            import google.generativeai as old_genai
+            old_genai.configure(api_key=settings.gemini_api_key)
+            last_err = None
+            for model_name in MODELS_TO_TRY:
+                try:
+                    model = old_genai.GenerativeModel(model_name)
+                    response = model.generate_content(
+                        [prompt, {"mime_type": mime_type, "data": img_data}]
+                    )
+                    return response.text
+                except Exception as model_err:
+                    err_str = str(model_err)
+                    last_err = err_str
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                        logger.warning(f"Gemini legacy {model_name} quota — trying next")
+                        continue
+                    elif "404" in err_str or "NOT_FOUND" in err_str:
+                        continue
+                    break
+            return await _groq_vision_fallback(prompt)
+        except Exception as legacy_err:
+            logger.error(f"Legacy Gemini SDK failed: {legacy_err}")
+            return await _groq_vision_fallback(prompt)
+
+    except Exception as e:
+        logger.error(f"Gemini Vision outer exception: {e}")
+        return await _groq_vision_fallback(prompt)
+
+
+async def _groq_vision_fallback(original_prompt: str) -> str:
+    """When all Gemini models fail (quota/error), use Groq to give a text-based crop advisory."""
+    logger.info("Using Groq text-only fallback for vision query")
+    fallback_prompt = (
+        "The farmer uploaded a photo of a diseased crop, but image-analysis is temporarily "
+        "unavailable (API quota exceeded). Based on the farmer query below, provide a VERY helpful "
+        "general crop disease advisory in the farmer's language. "
+        "List the 3 most common diseases for typical Indian crops, their visible symptoms, and treatment. "
+        "Be specific and actionable.\n\n"
+        f"Farmer context:\n{original_prompt[:600]}"
+    )
+    try:
+        result = await _call_groq(
+            [{"role": "system", "content": fallback_prompt}],
+            max_tokens=450,
+        )
+        return "[Image AI temporarily unavailable — general disease advice]\n\n" + result
+    except Exception as e:
+        logger.error(f"Groq vision fallback also failed: {e}")
+        return (
+            "Adarniya ji, abhi tasveer analyze karne ki suvidha temporarily band hai. "
+            "Kripya thodi der baad dobara koshish karein, ya bina tasveer ke apni fasal ki "
+            "bimari ka description bolkar poochein — main zaroor madad karunga!"
+        )
 
 
 def _system_prompt(state: AgentState) -> str:

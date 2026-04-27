@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
-import { Mic, Square, Loader, MapPin, AlertCircle, TrendingUp, Image as ImageIcon, X } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { Mic, Square, Loader, MapPin, MapPinOff, AlertCircle, TrendingUp, Image as ImageIcon, X, Volume2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { chatWithAgent, transcribeAudio, speakText } from '../../api'
 import './Hero.css'
 
+// All 11 languages supported by Sarvam TTS/STT
 const LANGUAGES = [
   { code: 'hi-IN', label: 'हिंदी (Hindi)' },
   { code: 'pa-IN', label: 'ਪੰਜਾਬੀ (Punjabi)' },
@@ -15,48 +16,113 @@ const LANGUAGES = [
   { code: 'mr-IN', label: 'मराठी (Marathi)' },
   { code: 'gu-IN', label: 'ગુજરાતી (Gujarati)' },
   { code: 'od-IN', label: 'ଓଡ଼ିଆ (Odia)' },
+  { code: 'as-IN', label: 'অসমীয়া (Assamese)' },
   { code: 'en-IN', label: 'English' },
 ]
 
+const LOCATION_FALLBACK_MSGS = {
+  'hi-IN': '📍 Location Access की अनुमति नहीं दी — Live Weather/Mandi सटीक नहीं होगा।',
+  'pa-IN': '📍 Location ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ — Live ਜਾਣਕਾਰੀ ਸਹੀ ਨਹੀਂ ਹੋਵੇਗੀ।',
+  'en-IN': '📍 Location access denied — Live weather & mandi data may be inaccurate.',
+}
+
 const S = { IDLE: 'IDLE', RECORDING: 'RECORDING', PROCESSING: 'PROCESSING', SPEAKING: 'SPEAKING' }
+
+// Chat history per session (in-memory for UI display)
+const MAX_DISPLAY_MSGS = 6
 
 export default function Hero() {
   const { user } = useAuth()
-  const [status, setStatus]           = useState(S.IDLE)
-  const [transcript, setTranscript]   = useState('')
-  const [reply, setReply]             = useState('')
-  const [error, setError]             = useState('')
-  const [location, setLocation]       = useState(null)
-  const [weatherAlert, setWeatherAlert] = useState(null)
-  const [image, setImg]               = useState(null)
-  const [imgPreview, setImgPreview]   = useState(null)
-  const [selectedLang, setSelectedLang] = useState(user?.language || 'hi-IN')
+  const [status, setStatus]               = useState(S.IDLE)
+  const [transcript, setTranscript]       = useState('')
+  const [reply, setReply]                 = useState('')
+  const [error, setError]                 = useState('')
+  const [location, setLocation]           = useState(null)
+  const [locationState, setLocationState] = useState('pending') // 'pending' | 'granted' | 'denied' | 'loading'
+  const [image, setImg]                   = useState(null)
+  const [imgPreview, setImgPreview]       = useState(null)
+  const [selectedLang, setSelectedLang]   = useState(user?.language || 'hi-IN')
+  const [chatHistory, setChatHistory]     = useState([]) // [{role, text}]
+  const [volume, setVolume]               = useState(0)
 
   const mediaRecorderRef = useRef(null)
   const mediaStreamRef   = useRef(null)
   const chunksRef        = useRef([])
   const isRecordingRef   = useRef(false)
-  
-  const audioCtxRef = useRef(null)
-  const analyzerRef = useRef(null)
-  const [volume, setVolume] = useState(0)
+  const audioCtxRef      = useRef(null)
+  const analyzerRef      = useRef(null)
+  const animFrameRef     = useRef(null)
+  const chatEndRef       = useRef(null)
 
-  // ─── EFFECTS ─────────────────────────────────────────────────────────────
+  // ─── Scroll chat to bottom ────────────────────────────────────────────────
   useEffect(() => {
-    // Location detection
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(async ({ coords: { latitude, longitude } }) => {
-        try {
-          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=en`)
-          const d = await r.json()
-          const city = d.address.city || d.address.town || d.address.village || 'Your Location'
-          setLocation({ lat: latitude, lon: longitude, city })
-        } catch (e) {}
-      })
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatHistory, reply, transcript])
+
+  // ─── LOCATION with proper permission flow ─────────────────────────────────
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationState('denied')
+      return
+    }
+
+    setLocationState('loading')
+
+    // First check permission state if API available
+    const doGeoRequest = () => {
+      navigator.geolocation.getCurrentPosition(
+        async ({ coords: { latitude, longitude } }) => {
+          try {
+            const r = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=en`,
+              { signal: AbortSignal.timeout(5000) }
+            )
+            const d = await r.json()
+            const city =
+              d.address?.city ||
+              d.address?.town ||
+              d.address?.village ||
+              d.address?.county ||
+              'Your Location'
+            setLocation({ lat: latitude, lon: longitude, city })
+            setLocationState('granted')
+          } catch {
+            // Coords available but geocoding failed – still use coords
+            setLocation({ lat: latitude, lon: longitude, city: 'Your Location' })
+            setLocationState('granted')
+          }
+        },
+        (err) => {
+          console.warn('[Location] Error:', err.code, err.message)
+          setLocationState('denied')
+        },
+        {
+          enableHighAccuracy: false,   // faster response
+          timeout: 10000,
+          maximumAge: 60000,           // accept 1-min cached position
+        }
+      )
+    }
+
+    // Use Permissions API when available to trigger the browser prompt
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then((perm) => {
+        if (perm.state === 'denied') {
+          setLocationState('denied')
+        } else {
+          doGeoRequest()
+        }
+        perm.onchange = () => {
+          if (perm.state === 'denied') setLocationState('denied')
+          else doGeoRequest()
+        }
+      }).catch(doGeoRequest)
+    } else {
+      doGeoRequest()
     }
   }, [])
 
-  // ─── ACTIONS ──────────────────────────────────────────────────────────────
+  // ─── Image handler ───────────────────────────────────────────────────────
   const handleImage = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -66,187 +132,303 @@ export default function Hero() {
     reader.readAsDataURL(file)
   }
 
-  function startVisualizer(stream) {
+  const clearImage = () => {
+    setImg(null)
+    setImgPreview(null)
+  }
+
+  // ─── Audio Visualizer ────────────────────────────────────────────────────
+  const startVisualizer = (stream) => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-      const source = audioCtx.createMediaStreamSource(stream)
+      const source   = audioCtx.createMediaStreamSource(stream)
       const analyzer = audioCtx.createAnalyser()
       analyzer.fftSize = 64
       source.connect(analyzer)
       audioCtxRef.current = audioCtx
       analyzerRef.current = analyzer
       const dataArray = new Uint8Array(analyzer.frequencyBinCount)
-      const updateVolume = () => {
-        if (!analyzerRef.current) return
+
+      const tick = () => {
+        if (!analyzerRef.current || !isRecordingRef.current) return
         analyzerRef.current.getByteFrequencyData(dataArray)
-        let sum = 0
-        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i]
-        setVolume(sum / dataArray.length)
-        if (isRecordingRef.current) requestAnimationFrame(updateVolume)
+        const avg = dataArray.reduce((s, v) => s + v, 0) / dataArray.length
+        setVolume(avg)
+        animFrameRef.current = requestAnimationFrame(tick)
       }
-      updateVolume()
-    } catch (e) {}
+      tick()
+    } catch {}
   }
 
-  async function startRecording() {
-    console.log('[MIC] Start Recording triggered')
-    setError(''); setTranscript(''); setReply(''); chunksRef.current = []
-    
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      mediaStreamRef.current = stream
-      isRecordingRef.current = true
-      setStatus(S.RECORDING)
-      startVisualizer(stream)
-
-      const recorder = new MediaRecorder(stream)
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
-      recorder.onstop = async () => {
-        console.log('[MIC] Recorder onstop fired')
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        if (!blob.size) {
-          setStatus(S.IDLE)
-          return
-        }
-
-        setStatus(S.PROCESSING)
-        try {
-          const res = await transcribeAudio(blob, selectedLang)
-          if (res.status === 'SUCCESS' && res.transcript) {
-            setTranscript(res.transcript)
-            const chatRes = await chatWithAgent(res.transcript, res.english_transcript, selectedLang, image, location)
-            setReply(chatRes.response)
-            setImg(null); setImgPreview(null)
-            const audioUrl = await speakText(chatRes.response, selectedLang)
-            playAudio(audioUrl)
-          } else {
-            setError(res.error || 'Samajh nahi aaya.')
-            setStatus(S.IDLE)
-          }
-        } catch (err) {
-          setError('Network issue ya API error. Phir se koshish karein.')
-          setStatus(S.IDLE)
-        }
-      }
-
-      mediaRecorderRef.current = recorder
-      recorder.start()
-    } catch (err) {
-      setError('Mic access denied.')
-      setStatus(S.IDLE)
+  const stopVisualizer = () => {
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {})
+      audioCtxRef.current = null
     }
+    analyzerRef.current = null
+    setVolume(0)
   }
 
-  function stopRecording() {
-    console.log('[MIC] Stop Recording triggered')
+  // ─── Core recording logic ─────────────────────────────────────────────────
+  const startRecording = async () => {
+    setError('')
+    chunksRef.current = []
+
+    let stream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      setError('🎙️ Mic ki permission nahi mili. Browser settings check karein.')
+      return
+    }
+
+    mediaStreamRef.current = stream
+    isRecordingRef.current = true
+    setStatus(S.RECORDING)
+    startVisualizer(stream)
+
+    // Use timeslice=250ms so data is buffered in small chunks, not all at end
+    const recorder = new MediaRecorder(stream, { mimeType: getSupportedMime() })
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
+    }
+
+    recorder.onstop = async () => {
+      const blobType = recorder.mimeType || 'audio/webm'
+      const blob = new Blob(chunksRef.current, { type: blobType })
+      chunksRef.current = []
+
+      if (!blob.size || blob.size < 500) {
+        setError('Awaaz record nahi hui. Phir se koshish karein.')
+        setStatus(S.IDLE)
+        return
+      }
+
+      setStatus(S.PROCESSING)
+      await processAudio(blob)
+    }
+
+    mediaRecorderRef.current = recorder
+    recorder.start(250) // chunk every 250ms
+  }
+
+  const stopRecording = useCallback(() => {
     isRecordingRef.current = false
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop()
+    stopVisualizer()
+
+    const rec = mediaRecorderRef.current
+    if (rec && rec.state === 'recording') {
+      try { rec.requestData() } catch {} // flush last chunk
+      rec.stop()
     }
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(t => t.stop())
       mediaStreamRef.current = null
     }
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(() => {})
-      audioCtxRef.current = null
+    mediaRecorderRef.current = null
+  }, [])
+
+  const getSupportedMime = () => {
+    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4']
+    return types.find(t => MediaRecorder.isTypeSupported(t)) || ''
+  }
+
+  // ─── Process audio pipeline ───────────────────────────────────────────────
+  const processAudio = async (blob) => {
+    try {
+      // Step 1: STT — send in selected language so Sarvam understands it
+      const sttRes = await transcribeAudio(blob, selectedLang)
+
+      if (sttRes.status === 'SILENCE_DETECTED' || !sttRes.transcript) {
+        const msg = sttRes.silence_reply || 'Kuch samajh nahi aaya. Phir se bolein.'
+        setError(msg)
+        setStatus(S.IDLE)
+        return
+      }
+
+      const userText = sttRes.transcript
+      setTranscript(userText)
+      // Add user bubble immediately
+      setChatHistory(h => [...h, { role: 'user', text: userText }].slice(-MAX_DISPLAY_MSGS))
+
+      // Step 2: Agent — pass english_transcript + selected language
+      const chatRes = await chatWithAgent(
+        userText,
+        sttRes.english_transcript || userText,
+        selectedLang,
+        image,
+        location
+      )
+
+      const aiText = chatRes.response
+      setReply(aiText)
+      // Add AI bubble
+      setChatHistory(h => [...h, { role: 'ai', text: aiText }].slice(-MAX_DISPLAY_MSGS))
+      setImg(null)
+      setImgPreview(null)
+
+      // Step 3: TTS — speak in selected language
+      try {
+        const audioUrl = await speakText(aiText, selectedLang)
+        playAudio(audioUrl)
+      } catch (ttsErr) {
+        console.warn('[TTS] failed:', ttsErr)
+        setStatus(S.IDLE)
+      }
+    } catch (err) {
+      console.error('[Pipeline] Error:', err)
+      setError('Network issue ya API error. Internet check karein aur phir se koshish karein.')
+      setStatus(S.IDLE)
     }
   }
 
-  function playAudio(url) {
+  // ─── Audio playback ───────────────────────────────────────────────────────
+  const playAudio = (url) => {
     if (!url) { setStatus(S.IDLE); return }
     const audio = new Audio(url)
     setStatus(S.SPEAKING)
-    audio.onended = () => setStatus(S.IDLE)
+    audio.onended = () => { setStatus(S.IDLE); URL.revokeObjectURL(url) }
+    audio.onerror = () => setStatus(S.IDLE)
     audio.play().catch(() => setStatus(S.IDLE))
   }
 
+  // ─── Single mic toggle ────────────────────────────────────────────────────
   const handleMicClick = () => {
     if (status === S.RECORDING) {
       stopRecording()
+      // status transitions to PROCESSING inside recorder.onstop
     } else if (status === S.IDLE) {
       startRecording()
     }
   }
 
+  const locationFallbackMsg =
+    LOCATION_FALLBACK_MSGS[selectedLang] || LOCATION_FALLBACK_MSGS['en-IN']
+
   return (
     <div className="hero-container">
-      <div className="location-status">
-        <MapPin size={14} />
-        <span>{location?.city || 'India'}</span>
+      {/* ── Location bar ── */}
+      <div className={`location-status ${locationState}`}>
+        {locationState === 'loading' && <><Loader size={13} className="spin" /> <span>Location detect ho rahi hai...</span></>}
+        {locationState === 'granted' && <><MapPin size={13} /> <span>{location?.city || 'India'}</span></>}
+        {locationState === 'denied'  && <><MapPinOff size={13} /> <span>Location off — Allow karein for live data</span></>}
+        {locationState === 'pending' && <><MapPin size={13} /> <span>India</span></>}
       </div>
 
+      {/* ── Location denied fallback message ── */}
+      {locationState === 'denied' && (
+        <div className="location-denied-banner">
+          <AlertCircle size={16} />
+          <p>{locationFallbackMsg}</p>
+        </div>
+      )}
+
+      {/* ── Welcome ── */}
       <div className="welcome-msg">
-        <h1>Namaste <span className="farmer-name">{user?.name || 'Kisaan'}</span> ji</h1>
-        <p className="hero-subtitle">Mausam aur Mandi ki sateek report.</p>
+        <h1>Namaste <span className="farmer-name">{user?.name || 'Kisaan'}</span> ji 🌾</h1>
+        <p className="hero-subtitle">Mausam, Mandi, aur Fasal ki AI-powered jankari — sirf aapke liye.</p>
       </div>
 
+      {/* ── Error banner ── */}
       {error && (
-        <div className="alert-card-premium">
+        <div className="alert-card-premium error-banner">
           <AlertCircle size={18} />
           <p>{error}</p>
+          <button className="dismiss-btn" onClick={() => setError('')}><X size={14} /></button>
         </div>
       )}
 
-      {(transcript || reply) && (
+      {/* ── Image preview ── */}
+      {imgPreview && (
+        <div className="img-preview-container">
+          <img src={imgPreview} alt="Fasal preview" />
+          <button className="img-remove-btn" onClick={clearImage}><X size={16} /></button>
+          <p className="img-hint">📸 Fasal ki photo AI analyze karegi</p>
+        </div>
+      )}
+
+      {/* ── Chat history ── */}
+      {chatHistory.length > 0 && (
         <div className="chat-area">
-          {transcript && (
-            <div className="chat-bubble user-bubble">
-              <div className="chat-bubble-label">🎤 AAPNE KAHA</div>
-              <p>{transcript}</p>
+          {chatHistory.map((msg, i) => (
+            <div key={i} className={`chat-bubble ${msg.role === 'user' ? 'user-bubble' : 'ai-bubble'}`}>
+              <div className="chat-bubble-label">
+                {msg.role === 'user' ? '🎤 AAPNE KAHA' : '🤖 AI JAWAB'}
+              </div>
+              <p>{msg.text}</p>
             </div>
-          )}
-          {reply && (
-            <div className="chat-bubble ai-bubble">
-              <div className="chat-bubble-label">🤖 AI JAWAB</div>
-              <p>{reply}</p>
-            </div>
-          )}
-          {status === S.PROCESSING && !reply && (
-            <div className="chat-bubble ai-bubble">
+          ))}
+          {/* Typing indicator */}
+          {status === S.PROCESSING && (
+            <div className="chat-bubble ai-bubble typing-bubble">
               <div className="chat-bubble-label">AI Soch raha hai...</div>
-              <Loader className="spin" size={18} />
+              <div className="typing-dots"><span /><span /><span /></div>
             </div>
           )}
+          <div ref={chatEndRef} />
         </div>
       )}
 
+      {/* ── Interaction Zone ── */}
       <div className="interaction-zone">
+        {/* Visualizer bars */}
         {status === S.RECORDING && (
           <div className="visualizer-container">
-            {[...Array(12)].map((_, i) => (
-              <div key={i} className="vis-bar" style={{ height: `${Math.max(4, volume * (0.4 + Math.random()))}px` }} />
+            {[...Array(16)].map((_, i) => (
+              <div
+                key={i}
+                className="vis-bar"
+                style={{
+                  height: `${Math.max(4, volume * (0.3 + (i % 3) * 0.2) * (Math.random() * 0.4 + 0.8))}px`,
+                  opacity: 0.6 + Math.random() * 0.4,
+                }}
+              />
             ))}
           </div>
         )}
 
+        {/* MIC BUTTON */}
         <button
-          className={`mic-button-premium ${status === S.RECORDING ? 'pulsing' : ''}`}
+          id="mic-toggle-btn"
+          className={`mic-button-premium ${status === S.RECORDING ? 'pulsing recording' : ''} ${status === S.SPEAKING ? 'speaking' : ''}`}
           onClick={handleMicClick}
           disabled={status === S.PROCESSING || status === S.SPEAKING}
+          aria-label={status === S.RECORDING ? 'Mic band karein' : 'Bolna shuru karein'}
         >
-          {status === S.RECORDING  ? <Square size={28} /> :
+          {status === S.RECORDING  ? <Square size={30} fill="white" /> :
            status === S.PROCESSING ? <Loader className="spin" size={28} /> :
-           status === S.SPEAKING   ? <TrendingUp size={28} /> :
+           status === S.SPEAKING   ? <Volume2 size={28} className="wave-icon" /> :
                                      <Mic size={32} />}
         </button>
 
         <p className="status-text">
-          {status === S.RECORDING  ? 'BOLNA BAND KAREIN' :
-           status === S.PROCESSING ? '⚙️ AI SOCH RAHA HAI...' :
-           status === S.SPEAKING   ? '🔊 JAWAB SUN RAHE HAIN...' :
-                                     'BOLNE KE LIYE DABAYEIN'}
+          {status === S.RECORDING  ? '🔴 RECORDING — DOBARA DABAYEIN BAND KARNE KE LIYE' :
+           status === S.PROCESSING ? '⚙️ AI JAWAB TAIYAAR KAR RAHA HAI...' :
+           status === S.SPEAKING   ? '🔊 AI BOL RAHA HAI...' :
+                                     '🎙️ BOLNE KE LIYE DABAYEIN'}
         </p>
 
+        {/* Controls row */}
         <div className="voice-controls-row">
-          <label className="image-upload-btn">
+          {/* Image upload */}
+          <label className="image-upload-btn" id="image-upload-label">
             <ImageIcon size={18} />
-            <span>Fasal ki Photo</span>
+            <span>{imgPreview ? 'Photo Badlein' : 'Fasal ki Photo'}</span>
             <input type="file" accept="image/*" onChange={handleImage} hidden />
           </label>
-          <div className="lang-selector-group">
-            <select value={selectedLang} onChange={(e) => setSelectedLang(e.target.value)} className="voice-lang-select">
-              {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+
+          {/* Language dropdown */}
+          <div className="lang-selector-wrapper">
+            <select
+              id="language-selector"
+              value={selectedLang}
+              onChange={(e) => setSelectedLang(e.target.value)}
+              className="voice-lang-select"
+            >
+              {LANGUAGES.map(l => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
             </select>
           </div>
         </div>
