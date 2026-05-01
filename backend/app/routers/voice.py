@@ -248,42 +248,46 @@ async def speak(req: TTSRequest):
     try:
         combined_audio = b""
         async with httpx.AsyncClient(timeout=60) as client:
-            logger.info(f"Processing TTS for {len(chunks)} chunks: {chunks}")
+            logger.info(f"Processing TTS for {len(chunks)} chunks in PARALLEL")
             
-            for i, chunk in enumerate(chunks):
-                if not chunk.strip(): continue
-                
+            async def get_chunk_audio(idx, text_chunk):
                 try:
-                    r = await client.post(
+                    res = await client.post(
                         SARVAM_TTS,
                         headers={"api-subscription-key": settings.sarvam_api_key},
                         json={
-                            "inputs": [chunk],
+                            "inputs": [text_chunk],
                             "target_language_code": req.language,
                             "speaker": req.speaker or SPEAKERS.get(req.language, "manisha"),
                             "enable_preprocessing": True,
                             "model": "bulbul:v2",
                         },
                     )
-                    
-                    if r.status_code == 200:
-                        res_data = r.json()
-                        audios = res_data.get("audios", [])
+                    if res.status_code == 200:
+                        audios = res.json().get("audios", [])
                         if audios and audios[0]:
-                            chunk_audio = base64.b64decode(audios[0])
-                            
-                            # Concatenate WAV chunks
-                            if i == 0:
-                                combined_audio += chunk_audio
-                            else:
-                                if chunk_audio.startswith(b'RIFF') and len(chunk_audio) > 44:
-                                    combined_audio += chunk_audio[44:]
-                                else:
-                                    combined_audio += chunk_audio
+                            return base64.b64decode(audios[0])
+                    logger.error(f"Chunk {idx} failed: {res.status_code} {res.text}")
+                    return None
+                except Exception as e:
+                    logger.error(f"Chunk {idx} error: {e}")
+                    return None
+
+            # Run all chunks in parallel for speed
+            tasks = [get_chunk_audio(i, c) for i, c in enumerate(chunks)]
+            audio_results = await asyncio.gather(*tasks)
+            
+            for i, chunk_audio in enumerate(audio_results):
+                if chunk_audio:
+                    if not combined_audio:
+                        # First valid chunk provides the WAV header
+                        combined_audio += chunk_audio
                     else:
-                        logger.error(f"Sarvam TTS Error on chunk {i}: {r.status_code} - {r.text}")
-                except Exception as chunk_err:
-                    logger.error(f"Failed chunk {i}: {chunk_err}")
+                        # Strip header for concatenation
+                        if chunk_audio.startswith(b'RIFF') and len(chunk_audio) > 44:
+                            combined_audio += chunk_audio[44:]
+                        else:
+                            combined_audio += chunk_audio
 
         if not combined_audio:
             logger.error("No audio generated for any chunk")

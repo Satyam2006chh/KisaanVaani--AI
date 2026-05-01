@@ -239,6 +239,7 @@ export default function Hero() {
         playAudio(audioUrl)
       } catch (ttsErr) {
         console.warn('[TTS] failed:', ttsErr)
+        setError('Awaaz nahi chal saki, lekin jawab upar likha hai.')
         setStatus(S.IDLE)
       }
     } catch (err) {
