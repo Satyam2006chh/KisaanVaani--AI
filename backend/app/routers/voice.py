@@ -201,104 +201,115 @@ async def speak(req: TTSRequest):
         raise HTTPException(status_code=400, detail="Text required for speech")
 
     if "your_sarvam_api_key" in settings.sarvam_api_key or not settings.sarvam_api_key:
-        print("WARNING: Using mock Sarvam TTS response because SARVAM_API_KEY is not configured.")
-        # Return a tiny silent WAV (1sec of silence, 16kHz, mono)
+        logger.warning("Using mock TTS — SARVAM_API_KEY not configured")
         silent_wav = b'RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80>\x00\x00\x00}\x00\x00\x02\x00\x10\x00data\x00\x00\x00\x00'
         return StreamingResponse(io.BytesIO(silent_wav), media_type="audio/wav")
 
-
-@router.post("/speak")
-async def speak(req: TTSRequest):
-    if not req.text or not req.text.strip():
-        raise HTTPException(status_code=400, detail="Text required for speech")
-
-    if "your_sarvam_api_key" in settings.sarvam_api_key or not settings.sarvam_api_key:
-        # Mock silence
-        silent_wav = b'RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80>\x00\x00\x00}\x00\x00\x02\x00\x10\x00data\x00\x00\x00\x00'
-        return StreamingResponse(io.BytesIO(silent_wav), media_type="audio/wav")
-
-    # 1. Clean text for natural speech
+    # 1. Clean text — strip markdown, emojis, and special chars
     text = req.text.strip()
-    # Remove all markdown and symbols that Sarvam might read aloud or trip on
-    text = re.sub(r"[\*\#\_\-\>\<]", " ", text)
-    # Remove emojis and special agricultural symbols that could trip TTS
-    text = re.sub(r"[🌾🤖🚨🔥❄️]", "", text)
+    text = re.sub(r"[\*\#\_\-\>\<\|\`]", " ", text)
+    text = re.sub(r"[^\w\s\.\,\!\?\;\:\'\"\(\)।°₹%/]", "", text)
     text = re.sub(r"\s+", " ", text).strip()
-    
-    # 2. Split into 350-character chunks (safe limit for Sarvam)
-    words = text.split(' ')
+
+    if not text:
+        raise HTTPException(status_code=400, detail="No speakable text after cleaning")
+
+    # 2. Split into safe chunks (max 300 chars each, split on sentence boundaries)
+    sentences = re.split(r'(?<=[।.!?])\s+', text)
     chunks = []
-    current_chunk = []
-    current_length = 0
-    
-    for word in words:
-        if current_length + len(word) + 1 > 350:
-            chunks.append(" ".join(current_chunk))
-            current_chunk = [word]
-            current_length = len(word)
+    current = ""
+    for sentence in sentences:
+        if len(current) + len(sentence) + 1 > 300:
+            if current:
+                chunks.append(current.strip())
+            current = sentence
         else:
-            current_chunk.append(word)
-            current_length += len(word) + 1
-    if current_chunk:
-        chunks.append(" ".join(current_chunk))
+            current = (current + " " + sentence).strip()
+    if current:
+        chunks.append(current.strip())
+
+    # If no sentence splits worked, force word-level splits
+    if not chunks:
+        words = text.split(' ')
+        current = ""
+        for word in words:
+            if len(current) + len(word) + 1 > 300:
+                chunks.append(current.strip())
+                current = word
+            else:
+                current = (current + " " + word).strip()
+        if current:
+            chunks.append(current.strip())
 
     if not chunks:
-        chunks = [text[:350]]
+        chunks = [text[:300]]
+
+    logger.info(f"TTS: {len(chunks)} chunks, lang={req.language}, total_text_len={len(text)}")
 
     try:
         combined_audio = b""
         async with httpx.AsyncClient(timeout=60) as client:
-            logger.info(f"Processing TTS for {len(chunks)} chunks in PARALLEL")
-            
-            async def get_chunk_audio(idx, text_chunk):
+
+            for i, chunk in enumerate(chunks):
+                if not chunk.strip():
+                    continue
+
+                logger.info(f"  TTS chunk {i}: '{chunk[:60]}...' ({len(chunk)} chars)")
+
                 try:
-                    res = await client.post(
+                    r = await client.post(
                         SARVAM_TTS,
                         headers={"api-subscription-key": settings.sarvam_api_key},
                         json={
-                            "inputs": [text_chunk],
+                            "inputs": [chunk],
                             "target_language_code": req.language,
                             "speaker": req.speaker or SPEAKERS.get(req.language, "manisha"),
                             "enable_preprocessing": True,
                             "model": "bulbul:v2",
                         },
                     )
-                    if res.status_code == 200:
-                        audios = res.json().get("audios", [])
-                        if audios and audios[0]:
-                            return base64.b64decode(audios[0])
-                    logger.error(f"Chunk {idx} failed: {res.status_code} {res.text}")
-                    return None
-                except Exception as e:
-                    logger.error(f"Chunk {idx} error: {e}")
-                    return None
 
-            # Run all chunks in parallel for speed
-            tasks = [get_chunk_audio(i, c) for i, c in enumerate(chunks)]
-            audio_results = await asyncio.gather(*tasks)
-            
-            for i, chunk_audio in enumerate(audio_results):
-                if chunk_audio:
-                    if not combined_audio:
-                        # First valid chunk provides the WAV header
-                        combined_audio += chunk_audio
-                    else:
-                        # Strip header for concatenation
-                        if chunk_audio.startswith(b'RIFF') and len(chunk_audio) > 44:
-                            combined_audio += chunk_audio[44:]
+                    if r.status_code == 200:
+                        audios = r.json().get("audios", [])
+                        if audios and audios[0]:
+                            chunk_audio = base64.b64decode(audios[0])
+                            if not combined_audio:
+                                combined_audio = chunk_audio
+                            else:
+                                # Strip WAV header (44 bytes) from subsequent chunks
+                                if chunk_audio[:4] == b'RIFF' and len(chunk_audio) > 44:
+                                    combined_audio += chunk_audio[44:]
+                                else:
+                                    combined_audio += chunk_audio
+                            logger.info(f"  Chunk {i} OK: {len(chunk_audio)} bytes")
                         else:
-                            combined_audio += chunk_audio
+                            logger.error(f"  Chunk {i}: empty audio in response")
+                    else:
+                        logger.error(f"  Chunk {i} FAILED: HTTP {r.status_code} — {r.text[:200]}")
+
+                except Exception as chunk_err:
+                    logger.error(f"  Chunk {i} EXCEPTION: {chunk_err}")
 
         if not combined_audio:
-            logger.error("No audio generated for any chunk")
-            raise HTTPException(status_code=502, detail="Sarvam TTS failed to generate audio")
+            logger.error("TTS: No audio generated for any chunk!")
+            raise HTTPException(status_code=502, detail="Sarvam TTS returned no audio")
 
-        logger.info(f"TTS complete: {len(combined_audio)} bytes generated")
+        # Update WAV header with correct total size
+        if combined_audio[:4] == b'RIFF' and len(combined_audio) > 44:
+            import struct
+            data_size = len(combined_audio) - 44
+            file_size = len(combined_audio) - 8
+            combined_audio = (
+                combined_audio[:4]
+                + struct.pack('<I', file_size)
+                + combined_audio[8:40]
+                + struct.pack('<I', data_size)
+                + combined_audio[44:]
+            )
+
+        logger.info(f"TTS COMPLETE: {len(combined_audio)} bytes total")
         return StreamingResponse(io.BytesIO(combined_audio), media_type="audio/wav")
 
-    except Exception as e:
-        logger.exception("TTS Fail")
-        raise HTTPException(status_code=502, detail=f"TTS failed: {str(e)}")
     except HTTPException:
         raise
     except Exception as e:
