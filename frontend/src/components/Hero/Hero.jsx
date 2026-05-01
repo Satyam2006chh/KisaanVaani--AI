@@ -120,8 +120,15 @@ export default function Hero() {
     let stream
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch {
-      setError('🎙️ Mic ki permission nahi mili. Browser settings check karein.')
+    } catch (micErr) {
+      console.error('[Mic] Permission error:', micErr.name, micErr.message)
+      if (micErr.name === 'NotAllowedError') {
+        setError('🎙️ Mic permission chahiye — Browser popup mein "Allow" dabayein, phir mic button dabayein.')
+      } else if (micErr.name === 'NotFoundError') {
+        setError('🎙️ Koi microphone nahi mila. Headset lagayein ya mic check karein.')
+      } else {
+        setError(`🎙️ Mic error: ${micErr.message}. Page reload karein (F5) aur phir se try karein.`)
+      }
       return
     }
 
