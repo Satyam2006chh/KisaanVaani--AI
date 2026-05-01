@@ -196,6 +196,13 @@ export default function Hero() {
     mediaStreamRef.current = stream
     isRecordingRef.current = true
     setStatus(S.RECORDING)
+    
+    // Reset conversation states for new question
+    setTranscript('')
+    setReply('')
+    setChatHistory([])
+    setError('')
+    
     startVisualizer(stream)
 
     // Use timeslice=250ms so data is buffered in small chunks, not all at end
@@ -389,25 +396,31 @@ export default function Hero() {
         </div>
       )}
 
-      {/* ── Chat history ── */}
-      {chatHistory.length > 0 && (
-        <div className="chat-area">
-          {chatHistory.map((msg, i) => (
-            <div key={i} className={`chat-bubble ${msg.role === 'user' ? 'user-bubble' : 'ai-bubble'}`}>
-              <div className="chat-bubble-label">
-                {msg.role === 'user' ? '🎤 AAPNE KAHA' : '🤖 AI JAWAB'}
-              </div>
-              <p>{msg.text}</p>
+      {/* ── Active Conversation Area ── */}
+      {(transcript || status === S.PROCESSING) && (
+        <div className="active-chat-container">
+          {/* User Side */}
+          {transcript && (
+            <div className="chat-bubble user-bubble active-bubble">
+              <div className="chat-bubble-label">🎤 AAPNE KAHA</div>
+              <p>{transcript}</p>
             </div>
-          ))}
-          {/* Typing indicator */}
+          )}
+
+          {/* AI Side */}
           {status === S.PROCESSING && (
-            <div className="chat-bubble ai-bubble typing-bubble">
+            <div className="chat-bubble ai-bubble typing-bubble active-bubble">
               <div className="chat-bubble-label">AI Soch raha hai...</div>
               <div className="typing-dots"><span /><span /><span /></div>
             </div>
           )}
-          <div ref={chatEndRef} />
+
+          {reply && status !== S.PROCESSING && (
+            <div className="chat-bubble ai-bubble active-bubble response-highlight">
+              <div className="chat-bubble-label">🤖 AI JAWAB</div>
+              <p>{reply}</p>
+            </div>
+          )}
         </div>
       )}
 

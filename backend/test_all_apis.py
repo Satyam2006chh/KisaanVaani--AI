@@ -1,6 +1,6 @@
 """
 ========================================================
-  KisaanVaani — Full API & Tool Manual Test Suite
+  KisaanVaani -- Full API & Tool Manual Test Suite
   Tests every external API + internal tool with real calls
 ========================================================
 """
@@ -25,10 +25,10 @@ CYAN   = "\033[96m"
 BOLD   = "\033[1m"
 RESET  = "\033[0m"
 
-def ok(msg):  print(f"  {GREEN}✔ {msg}{RESET}")
-def fail(msg):print(f"  {RED}✗ {msg}{RESET}")
-def info(msg):print(f"  {YELLOW}→ {msg}{RESET}")
-def hdr(msg): print(f"\n{BOLD}{CYAN}{'='*60}\n  {msg}\n{'='*60}{RESET}")
+def ok(msg):  print(f"  {GREEN}[OK] {str(msg).encode('ascii', 'ignore').decode()}{RESET}")
+def fail(msg):print(f"  {RED}[FAIL] {str(msg).encode('ascii', 'ignore').decode()}{RESET}")
+def info(msg):print(f"  {YELLOW}>> {str(msg).encode('ascii', 'ignore').decode()}{RESET}")
+def hdr(msg): print(f"\n{BOLD}{CYAN}{'='*60}\n  {str(msg).encode('ascii', 'ignore').decode()}\n{'='*60}{RESET}")
 
 # ── Keys ───────────────────────────────────────────────
 SARVAM_KEY      = os.getenv("SARVAM_API_KEY", "")
@@ -49,10 +49,10 @@ TEST_STATE    = "Punjab"
 results = {}  # tool -> (passed, latency_s)
 
 # ══════════════════════════════════════════════════════════
-# 1. SARVAM AI — Text-to-Speech (TTS)
+# 1. SARVAM AI -- Text-to-Speech (TTS)
 # ══════════════════════════════════════════════════════════
 async def test_sarvam_tts():
-    hdr("1. Sarvam TTS — 'Namaste Kisaan ji' in Hindi")
+    hdr("1. Sarvam TTS -- 'Namaste Kisaan ji' in Hindi")
     if not SARVAM_KEY:
         fail("SARVAM_API_KEY missing in .env"); results["sarvam_tts"] = (False, 0); return
     t0 = time.time()
@@ -69,7 +69,7 @@ async def test_sarvam_tts():
             audios = r.json().get("audios", [])
             size = len(base64.b64decode(audios[0])) if audios else 0
             ok(f"Status 200 | Audio size: {size} bytes | Time: {elapsed}s")
-            info(f"Audio decoded OK — would play as WAV in browser")
+            info(f"Audio decoded OK -- would play as WAV in browser")
             results["sarvam_tts"] = (True, elapsed)
         else:
             fail(f"Status {r.status_code} | {r.text[:120]}")
@@ -79,10 +79,10 @@ async def test_sarvam_tts():
 
 
 # ══════════════════════════════════════════════════════════
-# 2. SARVAM AI — Translate (hi-IN → en-IN)
+# 2. SARVAM AI -- Translate (hi-IN -> en-IN)
 # ══════════════════════════════════════════════════════════
 async def test_sarvam_translate():
-    hdr("2. Sarvam Translate — 'Gehun ka bhav kya hai' → English")
+    hdr("2. Sarvam Translate -- 'Gehun ka bhav kya hai' -> English")
     if not SARVAM_KEY:
         fail("SARVAM_API_KEY missing"); results["sarvam_translate"] = (False, 0); return
     t0 = time.time()
@@ -110,10 +110,10 @@ async def test_sarvam_translate():
 
 
 # ══════════════════════════════════════════════════════════
-# 3. GROQ LLM — Chat Completion (3 random farming questions)
+# 3. GROQ LLM -- Chat Completion (3 random farming questions)
 # ══════════════════════════════════════════════════════════
 async def test_groq():
-    hdr("3. Groq LLM — 3 Random Farming Questions")
+    hdr("3. Groq LLM -- 3 Random Farming Questions")
     if not GROQ_KEY:
         fail("GROQ_API_KEY missing"); results["groq"] = (False, 0); return
 
@@ -152,10 +152,10 @@ async def test_groq():
 
 
 # ══════════════════════════════════════════════════════════
-# 4. GEMINI VISION — Test with a tiny test image
+# 4. GEMINI VISION -- Test with a tiny test image
 # ══════════════════════════════════════════════════════════
 async def test_gemini_vision():
-    hdr("4. Gemini Vision — Crop disease analysis (test image)")
+    hdr("4. Gemini Vision -- Crop disease analysis (test image)")
     if not GEMINI_KEY:
         fail("GEMINI_API_KEY missing"); results["gemini_vision"] = (False, 0); return
     t0 = time.time()
@@ -200,10 +200,10 @@ async def test_gemini_vision():
 
 
 # ══════════════════════════════════════════════════════════
-# 5. WEATHER TOOL — Open-Meteo (free, no key needed)
+# 5. WEATHER TOOL -- Open-Meteo (free, no key needed)
 # ══════════════════════════════════════════════════════════
 async def test_weather():
-    hdr("5. Weather Tool — Open-Meteo for Patiala, Punjab")
+    hdr("5. Weather Tool -- Open-Meteo for Patiala, Punjab")
     t0 = time.time()
     try:
         sys.path.insert(0, ".")
@@ -222,10 +222,10 @@ async def test_weather():
 
 
 # ══════════════════════════════════════════════════════════
-# 6. MANDI PRICE TOOL — data.gov.in Agmarknet
+# 6. MANDI PRICE TOOL -- data.gov.in Agmarknet
 # ══════════════════════════════════════════════════════════
 async def test_mandi():
-    hdr("6. Mandi Price Tool — Wheat price in Patiala (Agmarknet)")
+    hdr("6. Mandi Price Tool -- Wheat price in Patiala (Agmarknet)")
     t0 = time.time()
     try:
         from app.agents.tools import get_mandi_price
@@ -239,10 +239,10 @@ async def test_mandi():
 
 
 # ══════════════════════════════════════════════════════════
-# 7. NEAREST MANDI TOOL — GPS-based (Rajpura coords)
+# 7. NEAREST MANDI TOOL -- GPS-based (Rajpura coords)
 # ══════════════════════════════════════════════════════════
 async def test_nearest_mandis():
-    hdr("7. Nearest Mandi Tool — GPS Rajpura (30.48, 76.59)")
+    hdr("7. Nearest Mandi Tool -- GPS Rajpura (30.48, 76.59)")
     t0 = time.time()
     try:
         from app.agents.tools import get_nearest_mandis
@@ -253,7 +253,7 @@ async def test_nearest_mandis():
             for m in mandis[:3]:
                 dist = m.get('distance') or m.get('distance_km', '?')
                 src  = m.get('source', '?')
-                info(f"  {m['name']} ({m.get('state','')}) — {dist} km [{src}]")
+                info(f"  {m['name']} ({m.get('state','')}) -- {dist} km [{src}]")
             results["nearest_mandis"] = (True, elapsed)
         else:
             fail("No mandis returned")
@@ -263,10 +263,10 @@ async def test_nearest_mandis():
 
 
 # ══════════════════════════════════════════════════════════
-# 8. FIRECRAWL — Agricultural news scraping
+# 8. FIRECRAWL -- Agricultural news scraping
 # ══════════════════════════════════════════════════════════
 async def test_firecrawl():
-    hdr("8. Firecrawl — Scrape latest PM-KISAN scheme news")
+    hdr("8. Firecrawl -- Scrape latest PM-KISAN scheme news")
     if not FIRECRAWL_KEY or "your_" in FIRECRAWL_KEY:
         fail("FIRECRAWL_API_KEY missing"); results["firecrawl"] = (False, 0); return
     t0 = time.time()
@@ -286,10 +286,10 @@ async def test_firecrawl():
 
 
 # ══════════════════════════════════════════════════════════
-# 9. NEARBY SERVICES TOOL — OSM Overpass
+# 9. NEARBY SERVICES TOOL -- OSM Overpass
 # ══════════════════════════════════════════════════════════
 async def test_nearby_services():
-    hdr("9. Nearby Services Tool — Hospitals/Agri shops near Rajpura")
+    hdr("9. Nearby Services Tool -- Hospitals/Agri shops near Rajpura")
     t0 = time.time()
     try:
         from app.agents.tools import get_nearby_services
@@ -298,21 +298,21 @@ async def test_nearby_services():
         if services and len(services) > 0:
             ok(f"Found {len(services)} services | Time: {elapsed}s")
             for s in services[:3]:
-                info(f"  [{s['type']}] {s['name']} — {s['distance_km']} km | ☎ {s.get('phone') or 'N/A'}")
+                info(f"  [{s['type']}] {s['name']} -- {s['distance_km']} km | TEL: {s.get('phone') or 'N/A'}")
             results["nearby_services"] = (True, elapsed)
         else:
-            ok(f"No OSM services found near Rajpura (this is OK — rural area) | Time: {elapsed}s")
-            info("Tool returned empty list — will show fallback message to farmer")
+            ok(f"No OSM services found near Rajpura (this is OK -- rural area) | Time: {elapsed}s")
+            info("Tool returned empty list -- will show fallback message to farmer")
             results["nearby_services"] = (True, elapsed)
     except Exception as e:
         fail(f"Exception: {e}"); results["nearby_services"] = (False, 0)
 
 
 # ══════════════════════════════════════════════════════════
-# 10. SUPABASE — DB connection check
+# 10. SUPABASE -- DB connection check
 # ══════════════════════════════════════════════════════════
 async def test_supabase():
-    hdr("10. Supabase — Database Connection Test")
+    hdr("10. Supabase -- Database Connection Test")
     if not SUPABASE_URL or not SUPABASE_KEY:
         fail("SUPABASE_URL or SUPABASE_SERVICE_KEY missing"); results["supabase"] = (False, 0); return
     t0 = time.time()
@@ -333,10 +333,10 @@ async def test_supabase():
 
 
 # ══════════════════════════════════════════════════════════
-# 11. FULL AGENT PIPELINE — Simulate a real chat request
+# 11. FULL AGENT PIPELINE -- Simulate a real chat request
 # ══════════════════════════════════════════════════════════
 async def test_agent_pipeline():
-    hdr("11. Full Agent Pipeline — 3 random farming questions via HTTP")
+    hdr("11. Full Agent Pipeline -- 3 random farming questions via HTTP")
     base = "http://localhost:8000"
 
     questions = [
@@ -380,7 +380,7 @@ async def test_agent_pipeline():
                 if r.status_code == 200:
                     resp = r.json().get("response", "")
                     tool = r.json().get("tool_used", "?")
-                    ok(f"Q{i} [{q['label']}] ({elapsed}s) — Tool: {tool}")
+                    ok(f"Q{i} [{q['label']}] ({elapsed}s) -- Tool: {tool}")
                     info(f"  Lang: {q['lang']} | Answer preview: {resp[:150]}...")
                 else:
                     fail(f"Q{i} HTTP {r.status_code}: {r.text[:100]}")
@@ -393,14 +393,14 @@ async def test_agent_pipeline():
 
 
 # ══════════════════════════════════════════════════════════
-# 12. SARVAM STT — Test with a pre-made WAV
+# 12. SARVAM STT -- Test with a pre-made WAV
 # ══════════════════════════════════════════════════════════
 async def test_sarvam_stt():
-    hdr("12. Sarvam STT — Transcribing a minimal WAV file")
+    hdr("12. Sarvam STT -- Transcribing a minimal WAV file")
     if not SARVAM_KEY:
         fail("SARVAM_API_KEY missing"); results["sarvam_stt"] = (False, 0); return
 
-    # Minimal valid 16kHz mono WAV (100ms silence) — always works with Sarvam
+    # Minimal valid 16kHz mono WAV (100ms silence) -- always works with Sarvam
     # 44 bytes header + 1600 bytes of silence (100ms @ 16kHz 16-bit mono)
     num_samples = 1600
     data_bytes = (num_samples * 2).to_bytes(4, 'little')
@@ -444,10 +444,10 @@ async def test_sarvam_stt():
 # SUMMARY
 # ══════════════════════════════════════════════════════════
 def print_summary():
-    hdr("FINAL SUMMARY — All API & Tool Results")
+    hdr("FINAL SUMMARY -- All API & Tool Results")
     labels = {
-        "sarvam_tts":       "Sarvam TTS (Text → Voice)",
-        "sarvam_stt":       "Sarvam STT (Voice → Text)",
+        "sarvam_tts":       "Sarvam TTS (Text -> Voice)",
+        "sarvam_stt":       "Sarvam STT (Voice -> Text)",
         "sarvam_translate": "Sarvam Translate",
         "groq":             "Groq LLM (3 Farming Qs)",
         "gemini_vision":    "Gemini 1.5 Flash Vision",
@@ -465,20 +465,20 @@ def print_summary():
     for key, label in labels.items():
         if key in results:
             ok_flag, latency = results[key]
-            status = f"{GREEN}✔ PASS{RESET}" if ok_flag else f"{RED}✗ FAIL{RESET}"
+            status = f"{GREEN}[OK] PASS{RESET}" if ok_flag else f"{RED}[FAIL] FAIL{RESET}"
             lat_str = f"({latency}s)" if latency else ""
             print(f"  {status}  {label:<38} {lat_str}")
             if ok_flag: passed += 1
         else:
-            print(f"  {YELLOW}⊘ SKIP{RESET}  {label}")
+            print(f"  {YELLOW}SKIP SKIP{RESET}  {label}")
     print()
     print(f"  {BOLD}Results: {passed}/{total} passed{RESET}")
     if passed == total:
         print(f"  {GREEN}{BOLD}🌾 All systems GO! App is fully ready.{RESET}")
     elif passed >= total * 0.7:
-        print(f"  {YELLOW}{BOLD}⚠ Most APIs working. Check failed ones above.{RESET}")
+        print(f"  {YELLOW}{BOLD}WARN: Most APIs working. Check failed ones above.{RESET}")
     else:
-        print(f"  {RED}{BOLD}✗ Multiple failures. Fix API keys in .env.{RESET}")
+        print(f"  {RED}{BOLD}[FAIL] Multiple failures. Fix API keys in .env.{RESET}")
     print()
 
 
@@ -486,7 +486,7 @@ def print_summary():
 # MAIN
 # ══════════════════════════════════════════════════════════
 async def main():
-    print(f"\n{BOLD}{CYAN}KisaanVaani — API & Tool Verification Suite{RESET}")
+    print(f"\n{BOLD}{CYAN}KisaanVaani -- API & Tool Verification Suite{RESET}")
     print(f"Testing from: Rajpura, Punjab (lat={TEST_LAT}, lon={TEST_LON})\n")
 
     await test_sarvam_tts()
