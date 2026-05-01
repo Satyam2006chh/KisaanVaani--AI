@@ -53,7 +53,7 @@ export default function Hero() {
   const analyzerRef      = useRef(null)
   const animFrameRef     = useRef(null)
   const chatEndRef       = useRef(null)
-  const audioRef         = useRef(null) // Persistent audio element
+  const audioRef         = useRef(new Audio()) // Initialize with Audio object immediately
 
 
   // ─── Scroll chat to bottom ────────────────────────────────────────────────
@@ -204,9 +204,12 @@ export default function Hero() {
     setError('')
     
     // Stop any currently playing audio immediately
-    if (audioRef.current) {
+    try {
       audioRef.current.pause()
-      audioRef.current.src = ""
+      audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
+      audioRef.current.load()
+    } catch (e) {
+      console.warn('[Audio] Stop failed:', e)
     }
 
     startVisualizer(stream)
@@ -252,12 +255,13 @@ export default function Hero() {
     mediaRecorderRef.current = null
 
     // Pre-unlock audio context for later AI speech with SILENCE, not the old audio
-    if (!audioRef.current) {
-      audioRef.current = new Audio()
+    try {
+      // Set to a tiny silent WAV to unlock the context without replaying the old answer
+      audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
+      audioRef.current.play().catch(() => {})
+    } catch (e) {
+      console.warn('[Audio] Unlock failed:', e)
     }
-    // Set to a tiny silent WAV to unlock the context without replaying the old answer
-    audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
-    audioRef.current.play().catch(() => {})
   }, [])
 
   const getSupportedMime = () => {
@@ -284,12 +288,19 @@ export default function Hero() {
       setChatHistory(h => [...h, { role: 'user', text: userText }].slice(-MAX_DISPLAY_MSGS))
 
       // Step 2: Agent — pass english_transcript + selected language
+      // Fallback to user profile location if GPS is not available
+      const finalLocation = location || (user ? { 
+        city: user.city, 
+        district: user.district, 
+        state: user.state 
+      } : null)
+
       const chatRes = await chatWithAgent(
         userText,
         sttRes.english_transcript || userText,
         selectedLang,
         image,
-        location
+        finalLocation
       )
 
       const aiText = chatRes.response
