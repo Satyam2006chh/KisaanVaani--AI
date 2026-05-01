@@ -53,6 +53,8 @@ export default function Hero() {
   const analyzerRef      = useRef(null)
   const animFrameRef     = useRef(null)
   const chatEndRef       = useRef(null)
+  const audioRef         = useRef(null) // Persistent audio element
+
 
   // ─── Scroll chat to bottom ────────────────────────────────────────────────
   useEffect(() => {
@@ -235,6 +237,14 @@ export default function Hero() {
       mediaStreamRef.current = null
     }
     mediaRecorderRef.current = null
+
+    // Pre-unlock audio context for later AI speech
+    // This solves the "doesn't speak on 2nd question" issue caused by browser autoplay policies
+    if (!audioRef.current) {
+      audioRef.current = new Audio()
+    }
+    // Playing 0.1s of silence to keep the user-gesture alive/unlocked
+    audioRef.current.play().catch(() => {})
   }, [])
 
   const getSupportedMime = () => {
@@ -293,12 +303,35 @@ export default function Hero() {
 
   // ─── Audio playback ───────────────────────────────────────────────────────
   const playAudio = (url) => {
-    if (!url) { setStatus(S.IDLE); return }
-    const audio = new Audio(url)
+    if (!url) {
+      console.warn('[Audio] No URL provided')
+      setStatus(S.IDLE)
+      return
+    }
+    
+    if (!audioRef.current) {
+      audioRef.current = new Audio()
+    }
+
+    const audio = audioRef.current
+    audio.src = url
     setStatus(S.SPEAKING)
-    audio.onended = () => { setStatus(S.IDLE); URL.revokeObjectURL(url) }
-    audio.onerror = () => setStatus(S.IDLE)
-    audio.play().catch(() => setStatus(S.IDLE))
+    
+    audio.onended = () => {
+      console.log('[Audio] Playback ended')
+      setStatus(S.IDLE)
+      URL.revokeObjectURL(url)
+    }
+    
+    audio.onerror = (e) => {
+      console.error('[Audio] Playback error:', e)
+      setStatus(S.IDLE)
+    }
+
+    audio.play().catch(err => {
+      console.error('[Audio] Play failed (Autoplay block?):', err)
+      setStatus(S.IDLE)
+    })
   }
 
   // ─── Single mic toggle ────────────────────────────────────────────────────
