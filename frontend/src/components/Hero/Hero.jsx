@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Mic, Square, Loader, MapPin, MapPinOff, AlertCircle, TrendingUp, Image as ImageIcon, X, Volume2 } from 'lucide-react'
+import { Mic, Square, Loader, AlertCircle, TrendingUp, Image as ImageIcon, X, Volume2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { chatWithAgent, transcribeAudio, speakText } from '../../api'
 import './Hero.css'
@@ -20,11 +20,6 @@ const LANGUAGES = [
   { code: 'en-IN', label: 'English' },
 ]
 
-const LOCATION_FALLBACK_MSGS = {
-  'hi-IN': '📍 Location Access की अनुमति नहीं दी — Live Weather/Mandi सटीक नहीं होगा।',
-  'pa-IN': '📍 Location ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ — Live ਜਾਣਕਾਰੀ ਸਹੀ ਨਹੀਂ ਹੋਵੇਗੀ।',
-  'en-IN': '📍 Location access denied — Live weather & mandi data may be inaccurate.',
-}
 
 const S = { IDLE: 'IDLE', RECORDING: 'RECORDING', PROCESSING: 'PROCESSING', SPEAKING: 'SPEAKING' }
 
@@ -37,8 +32,7 @@ export default function Hero() {
   const [transcript, setTranscript]       = useState('')
   const [reply, setReply]                 = useState('')
   const [error, setError]                 = useState('')
-  const [location, setLocation]           = useState(null)
-  const [locationState, setLocationState] = useState('pending') // 'pending' | 'granted' | 'denied' | 'loading'
+  const [image, setImg]                   = useState(null)
   const [image, setImg]                   = useState(null)
   const [imgPreview, setImgPreview]       = useState(null)
   const [selectedLang, setSelectedLang]   = useState(user?.language || 'hi-IN')
@@ -61,76 +55,6 @@ export default function Hero() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory, reply, transcript])
 
-  // ─── LOCATION with proper permission flow ─────────────────────────────────
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationState('denied')
-      return
-    }
-
-    setLocationState('loading')
-
-    // First check permission state if API available
-    const doGeoRequest = () => {
-      navigator.geolocation.getCurrentPosition(
-        async ({ coords: { latitude, longitude } }) => {
-          try {
-            const r = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=en`,
-              { signal: AbortSignal.timeout(5000) }
-            )
-            const d    = await r.json()
-            const addr = d.address || {}
-            const city =
-              addr.city ||
-              addr.town ||
-              addr.village ||
-              addr.county ||
-              'Your Location'
-            const district =
-              addr.county ||
-              addr.state_district ||
-              addr.city ||
-              addr.town ||
-              city
-            const state = addr.state || ''
-            setLocation({ lat: latitude, lon: longitude, city, district, state })
-            setLocationState('granted')
-          } catch {
-            // Coords available but geocoding failed – still use coords
-            setLocation({ lat: latitude, lon: longitude, city: 'Your Location', district: '', state: '' })
-            setLocationState('granted')
-          }
-        },
-        (err) => {
-          console.warn('[Location] Error:', err.code, err.message)
-          setLocationState('denied')
-        },
-        {
-          enableHighAccuracy: false,   // faster response
-          timeout: 10000,
-          maximumAge: 60000,           // accept 1-min cached position
-        }
-      )
-    }
-
-    // Use Permissions API when available to trigger the browser prompt
-    if (navigator.permissions) {
-      navigator.permissions.query({ name: 'geolocation' }).then((perm) => {
-        if (perm.state === 'denied') {
-          setLocationState('denied')
-        } else {
-          doGeoRequest()
-        }
-        perm.onchange = () => {
-          if (perm.state === 'denied') setLocationState('denied')
-          else doGeoRequest()
-        }
-      }).catch(doGeoRequest)
-    } else {
-      doGeoRequest()
-    }
-  }, [])
 
   // ─── Image handler ───────────────────────────────────────────────────────
   const handleImage = (e) => {
@@ -287,20 +211,11 @@ export default function Hero() {
       // Add user bubble immediately
       setChatHistory(h => [...h, { role: 'user', text: userText }].slice(-MAX_DISPLAY_MSGS))
 
-      // Step 2: Agent — pass english_transcript + selected language
-      // Fallback to user profile location if GPS is not available
-      const finalLocation = location || (user ? { 
-        city: user.city, 
-        district: user.district, 
-        state: user.state 
-      } : null)
-
       const chatRes = await chatWithAgent(
         userText,
         sttRes.english_transcript || userText,
         selectedLang,
-        image,
-        finalLocation
+        image
       )
 
       const aiText = chatRes.response
@@ -368,26 +283,9 @@ export default function Hero() {
     }
   }
 
-  const locationFallbackMsg =
-    LOCATION_FALLBACK_MSGS[selectedLang] || LOCATION_FALLBACK_MSGS['en-IN']
 
   return (
     <div className="hero-container">
-      {/* ── Location bar ── */}
-      <div className={`location-status ${locationState}`}>
-        {locationState === 'loading' && <><Loader size={13} className="spin" /> <span>Location detect ho rahi hai...</span></>}
-        {locationState === 'granted' && <><MapPin size={13} /> <span>{location?.city || 'India'}</span></>}
-        {locationState === 'denied'  && <><MapPinOff size={13} /> <span>Location off — Allow karein for live data</span></>}
-        {locationState === 'pending' && <><MapPin size={13} /> <span>India</span></>}
-      </div>
-
-      {/* ── Location denied fallback message ── */}
-      {locationState === 'denied' && (
-        <div className="location-denied-banner">
-          <AlertCircle size={16} />
-          <p>{locationFallbackMsg}</p>
-        </div>
-      )}
 
       {/* ── Welcome ── */}
       <div className="welcome-msg">

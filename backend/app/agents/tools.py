@@ -34,25 +34,20 @@ MSP = {
 }
 
 
-async def get_weather(district: str, state: str, lat: float = None, lon: float = None) -> str:
+async def get_weather(district: str, state: str) -> str:
     try:
-        # Check if coordinates are provided directly from user GPS
-        if lat is not None and lon is not None:
-            actual_lat, actual_lon = lat, lon
-            loc_label = f"Aapke khet (Lat: {lat}, Lon: {lon})"
-        else:
-            # Fallback to district geocoding
-            async with httpx.AsyncClient(timeout=10) as client:
-                geo = await client.get(
-                    "https://geocoding-api.open-meteo.com/v1/search",
-                    params={"name": district, "count": 1, "language": "en", "format": "json"}
-                )
-            if geo.status_code != 200 or not geo.json().get("results"):
-                return f"{district} ka mausam abhi uplabdh nahi hai."
+        # Geocode using district name
+        async with httpx.AsyncClient(timeout=10) as client:
+            geo = await client.get(
+                "https://geocoding-api.open-meteo.com/v1/search",
+                params={"name": district, "count": 1, "language": "en", "format": "json"}
+            )
+        if geo.status_code != 200 or not geo.json().get("results"):
+            return f"{district} ka mausam abhi uplabdh nahi hai."
 
-            loc = geo.json()["results"][0]
-            actual_lat, actual_lon = loc["latitude"], loc["longitude"]
-            loc_label = f"{district}, {state}"
+        loc = geo.json()["results"][0]
+        actual_lat, actual_lon = loc["latitude"], loc["longitude"]
+        loc_label = f"{district}, {state}"
 
         # Fetch High-Precision Forecast
         async with httpx.AsyncClient(timeout=10) as client:
@@ -66,19 +61,6 @@ async def get_weather(district: str, state: str, lat: float = None, lon: float =
                 }
             )
         
-        # Fallback: if specific coordinates returned nothing (rare), try geocoding just the district
-        if w.status_code != 200 and lat is None:
-             async with httpx.AsyncClient(timeout=10) as client:
-                geo = await client.get(
-                    "https://geocoding-api.open-meteo.com/v1/search",
-                    params={"name": district, "count": 1, "language": "en", "format": "json"}
-                )
-             if geo.status_code == 200 and geo.json().get("results"):
-                loc = geo.json()["results"][0]
-                actual_lat, actual_lon = loc["latitude"], loc["longitude"]
-                # Recursive call with district coordinates
-                return await get_weather(district, state, actual_lat, actual_lon)
-
         if w.status_code != 200:
             return f"{loc_label} ka mausam abhi uplabdh nahi hai."
 
@@ -290,33 +272,13 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-async def get_nearest_mandis(lat: float, lon: float):
+async def get_nearest_mandis(district: str, state: str):
     """
-    LIVE DATA PIPELINE:
-    Step 1: Reverse geocode GPS coords -> get real district & state
+    Step 1: Use district/state from profile
     Step 2: Query Agmarknet (data.gov.in) for real mandis + prices in that area
-    Step 3: Fallback to MANDI_HUBS haversine only if API fails
+    Step 3: Fallback to MANDI_HUBS only if API fails
     """
     from app.config import settings
-
-    # --- STEP 1: Get district/state from GPS coordinates ---
-    district = None
-    state = None
-    try:
-        async with httpx.AsyncClient(timeout=8) as client:
-            geo = await client.get(
-                "https://nominatim.openstreetmap.org/reverse",
-                params={"format": "json", "lat": lat, "lon": lon, "accept-language": "en"},
-                headers={"User-Agent": "KisaanVaani/2.0"}
-            )
-        if geo.status_code == 200:
-            addr = geo.json().get("address", {})
-            # For Agmarknet, we need the administrative District (e.g., Patiala, not Jansla)
-            district = addr.get("county") or addr.get("state_district") or addr.get("city") or addr.get("town")
-            state = addr.get("state")
-            print(f"DEBUG: Geocoded to District={district}, State={state}")
-    except Exception as e:
-        print(f"DEBUG: Geocoding failed: {e}")
 
     # --- STEP 2: Fetch LIVE mandis from Agmarknet API ---
     if district and state and settings.datagov_api_key and "your_" not in settings.datagov_api_key:
@@ -338,25 +300,8 @@ async def get_nearest_mandis(lat: float, lon: float):
             if r.status_code == 200:
                 records = r.json().get("records", [])
 
-                # If no records for district, try nearby state-level data
-                if not records:
-                    print(f"DEBUG: No records for district {district}, trying state {state}")
-                    async with httpx.AsyncClient(timeout=10) as client:
-                        r2 = await client.get(
-                            "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070",
-                            params={
-                                "api-key": settings.datagov_api_key,
-                                "format": "json",
-                                "limit": 10,
-                                "filters[state]": state,
-                            }
-                        )
-                    if r2.status_code == 200:
-                        records = r2.json().get("records", [])
-
                 if records:
                     print(f"DEBUG: Found {len(records)} live records")
-                    # De-duplicate by market name and build response
                     seen = set()
                     live_mandis = []
                     for rec in records:
@@ -368,7 +313,6 @@ async def get_nearest_mandis(lat: float, lon: float):
                             live_mandis.append({
                                 "name": market,
                                 "state": state,
-                                "distance": None,  # Real API doesn't provide distance
                                 "price": f"{commodity}: ₹{modal_price}/qtl" if commodity else None,
                                 "source": "live"
                             })
@@ -377,17 +321,15 @@ async def get_nearest_mandis(lat: float, lon: float):
         except Exception as e:
             print(f"DEBUG: Agmarknet API error: {e}")
 
-    # --- STEP 3: FALLBACK — Always return at least 5 closest hubs from database ---
-    print(f"DEBUG: Falling back to MANDI_HUBS list for lat={lat}, lon={lon}")
+    # --- STEP 3: FALLBACK ---
+    print(f"DEBUG: Falling back to MANDI_HUBS list for {district}, {state}")
     nearby = []
     for m in MANDI_HUBS:
-        dist = calculate_distance(lat, lon, m["lat"], m["lon"])
-        m_copy = m.copy()
-        m_copy["distance"] = round(dist, 1)
-        m_copy["source"] = "hub"
-        nearby.append(m_copy)
+        if m["state"].lower() == state.lower():
+            m_copy = m.copy()
+            m_copy["source"] = "hub"
+            nearby.append(m_copy)
     
-    nearby.sort(key=lambda x: x["distance"])
     return nearby[:5]
 
 
@@ -433,117 +375,12 @@ async def scrape_agricultural_news(query: str) -> str:
         return "Firecrawl se news fetch karne mein samasya aa rahi hai."
 
 
-async def get_nearby_services(lat: float, lon: float, radius_m: int = 12000):
+async def get_nearby_services(district: str, state: str):
     """
-    Fetch nearby services from OpenStreetMap Overpass API for:
-    - agri shops / agricultural offices
-    - clinics / hospitals / doctors
-    - soil/agri labs (best-effort from OSM tags)
+    Search for services near the district center.
     """
-    query = f"""
-    [out:json][timeout:25];
-    (
-      node(around:{radius_m},{lat},{lon})["shop"="agricultural"];
-      way(around:{radius_m},{lat},{lon})["shop"="agricultural"];
-      node(around:{radius_m},{lat},{lon})["office"="agricultural"];
-      way(around:{radius_m},{lat},{lon})["office"="agricultural"];
-      node(around:{radius_m},{lat},{lon})["government"="agriculture"];
-      way(around:{radius_m},{lat},{lon})["government"="agriculture"];
-      node(around:{radius_m},{lat},{lon})["amenity"="clinic"];
-      node(around:{radius_m},{lat},{lon})["amenity"="hospital"];
-      node(around:{radius_m},{lat},{lon})["amenity"="doctors"];
-      way(around:{radius_m},{lat},{lon})["amenity"="clinic"];
-      way(around:{radius_m},{lat},{lon})["amenity"="hospital"];
-      way(around:{radius_m},{lat},{lon})["amenity"="doctors"];
-      node(around:{radius_m},{lat},{lon})["laboratory"="yes"];
-      way(around:{radius_m},{lat},{lon})["laboratory"="yes"];
-    );
-    out center tags;
-    """
-
-    try:
-        r = None
-        endpoints = [
-            "https://overpass-api.de/api/interpreter",
-            "https://lz4.overpass-api.de/api/interpreter",
-            "https://overpass.kumi.systems/api/interpreter",
-        ]
-        async with httpx.AsyncClient(timeout=30) as client:
-            for ep in endpoints:
-                try:
-                    candidate = await client.post(
-                        ep,
-                        data={"data": query},
-                        headers={"Content-Type": "application/x-www-form-urlencoded"},
-                    )
-                    if candidate.status_code == 200:
-                        r = candidate
-                        break
-                    logger.warning(f"Overpass API non-200 from {ep}: {candidate.status_code}")
-                except Exception as e:
-                    logger.warning(f"Overpass request failed for {ep}: {repr(e)}")
-        if r is None:
-            return []
-
-        data = r.json()
-        elements = data.get("elements", [])
-        results = []
-        seen = set()
-
-        for el in elements:
-            tags = el.get("tags", {})
-            name = tags.get("name") or tags.get("operator") or tags.get("brand")
-            if not name:
-                continue
-
-            lat2 = el.get("lat") or (el.get("center") or {}).get("lat")
-            lon2 = el.get("lon") or (el.get("center") or {}).get("lon")
-            if lat2 is None or lon2 is None:
-                continue
-
-            key = f"{name}|{lat2}|{lon2}"
-            if key in seen:
-                continue
-            seen.add(key)
-
-            service_type = "service"
-            amenity = tags.get("amenity", "")
-            shop = tags.get("shop", "")
-            office = tags.get("office", "")
-            government = tags.get("government", "")
-            if amenity in {"clinic", "hospital", "doctors"}:
-                service_type = "doctor/health"
-            elif shop == "agricultural":
-                service_type = "agri-shop"
-            elif office == "agricultural" or government == "agriculture":
-                service_type = "agri-office"
-            elif tags.get("laboratory") == "yes":
-                service_type = "lab"
-
-            address = ", ".join(
-                filter(
-                    None,
-                    [
-                        tags.get("addr:street"),
-                        tags.get("addr:city"),
-                        tags.get("addr:state"),
-                    ],
-                )
-            )
-            phone = tags.get("phone") or tags.get("contact:phone") or ""
-            distance = round(calculate_distance(lat, lon, float(lat2), float(lon2)), 2)
-
-            results.append({
-                "name": name,
-                "type": service_type,
-                "distance_km": distance,
-                "phone": phone,
-                "address": address,
-                "source": "osm_overpass",
-            })
-
-        results.sort(key=lambda x: x["distance_km"])
-        return results[:12]
-    except Exception as e:
-        logger.warning(f"Nearby services fetch failed: {repr(e)}")
-        return []
+    # Simplified for no-location mode: just mention checking in the district
+    return [
+        {"name": f"Krishi Vigyan Kendra, {district}", "type": "agri-office", "distance_km": 0, "phone": "N/A", "address": district, "source": "profile"},
+        {"name": f"District Hospital, {district}", "type": "doctor/health", "distance_km": 0, "phone": "N/A", "address": district, "source": "profile"},
+    ]

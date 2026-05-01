@@ -38,7 +38,6 @@ class AgentState(TypedDict):
     tool_result:      str
     final_answer:     str
     image_data:       str   # Base64
-    location:         dict  # {lat, lon, city}
     original_message: str   # Raw user message in their language (for follow-up detection)
 
 
@@ -329,21 +328,14 @@ async def intent_router(state: AgentState) -> AgentState:
 
 
 async def weather_node(state: AgentState) -> AgentState:
-    user_location = state.get("location") or {}
+    district = state["district"]
+    state_name = state["state_name"]
 
-    # PRIMARY: Use live GPS coordinates if available (highest accuracy)
-    lat = user_location.get("lat")
-    lon = user_location.get("lon")
-    # Get the human-readable name of the live location for the AI response
-    live_city = user_location.get("city") or user_location.get("name") or state["district"]
-
-    # SECONDARY: Check if user asked about a DIFFERENT city (e.g. "Saharanpur ka mausam batao")
-    # If they did, use that city's geocoding instead of live GPS
+    # Check if user asked about a DIFFERENT city
     messages = [
         {"role": "system", "content": (
             "Identify whether user asked weather for a specific city different from current location. "
             "Return strict JSON only: {\"city\": \"<name>\"} OR {\"city\": null}. "
-            "If no explicit different city is mentioned, return null."
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
@@ -353,29 +345,23 @@ async def weather_node(state: AgentState) -> AgentState:
         params = json.loads(raw.strip())
         asked_city = params.get("city")
         if asked_city and asked_city not in ("null", "None", None, ""):
-            # User asked for a different city — use name-based geocoding, ignore live GPS
-            weather_data = await get_weather(asked_city, state["state_name"], None, None)
+            weather_data = await get_weather(asked_city, state_name)
             location_label = asked_city
         else:
-            # Use live GPS coordinates for accurate on-farm weather
-            weather_data = await get_weather(live_city, state["state_name"], lat, lon)
-            location_label = live_city
+            weather_data = await get_weather(district, state_name)
+            location_label = district
     except Exception:
-        weather_data = await get_weather(live_city, state["state_name"], lat, lon)
-        location_label = live_city
+        weather_data = await get_weather(district, state_name)
+        location_label = district
 
     messages = [
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
-            f"Live Location: {location_label}\n"
+            f"Location: {location_label}\n"
             f"Weather Data: {weather_data}\n"
-            f"Tell farmer clearly that this forecast is for '{location_label}'. "
-            "Include: current condition, rain probability, risk level, and 2 concrete farm actions. "
-            "If rain probability > 70%, issue a strong crop protection alert. "
-            "If the user is asking a follow-up (e.g. 'aur batao', 'kal ka bhi'), use the conversation history."
+            "Include: current condition, rain probability, risk level, and 2 concrete farm actions."
         )},
     ]
-    # Pass full conversation history for follow-up support
     for m in state["messages"]:
         messages.append({"role": m["role"], "content": m["content"]})
     result = await _call_groq(messages)
@@ -601,21 +587,10 @@ async def crop_advice_node(state: AgentState) -> AgentState:
 
 
 async def trusted_vendor_node(state: AgentState) -> AgentState:
-    loc = state.get("location") or {}
-    lat = loc.get("lat")
-    lon = loc.get("lon")
-    city = loc.get("city") or state.get("city")
+    district = state["district"]
+    state_name = state["state_name"]
 
-    if lat is None or lon is None:
-        return {
-            **state,
-            "tool_result": (
-                "Adarniya ji, trusted vendor/doctor dhoondhne ke liye live location required hai. "
-                "Kripya location permission allow karke phir se poochiye."
-            ),
-        }
-
-    services = await get_nearby_services(float(lat), float(lon))
+    services = await get_nearby_services(district, state_name)
     if not services:
         return {
             **state,

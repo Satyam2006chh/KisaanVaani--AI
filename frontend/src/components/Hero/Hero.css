@@ -14,62 +14,6 @@
   text-align: center;
 }
 
-/* ── Location Pill ──────────────────────────────────────── */
-.location-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 18px;
-  border-radius: 100px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  backdrop-filter: blur(12px);
-  transition: all 0.4s ease;
-}
-
-.location-status.granted {
-  background: rgba(74, 222, 128, 0.08);
-  border: 1px solid rgba(74, 222, 128, 0.25);
-  color: #4ade80;
-}
-
-.location-status.denied {
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #f87171;
-}
-
-.location-status.loading,
-.location-status.pending {
-  background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  color: #a78bfa;
-}
-
-/* ── Location Denied Banner ─────────────────────────────── */
-.location-denied-banner {
-  width: 100%;
-  max-width: 560px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 18px;
-  background: rgba(239, 68, 68, 0.07);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 14px;
-  color: #fca5a5;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  text-align: left;
-  animation: slideDown 0.4s ease;
-}
-
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
 /* ── Welcome ─────────────────────────────────────────────── */
 .welcome-msg h1 {
   font-family: var(--font-heading, 'Outfit', sans-serif);
