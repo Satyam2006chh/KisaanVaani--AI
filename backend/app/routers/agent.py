@@ -42,16 +42,9 @@ def _is_name_recall_question(message: str) -> bool:
 
 @router.post("/mandis/nearby")
 async def mandis_nearby(payload: dict):
-    lat = payload.get("lat")
-    lon = payload.get("lon")
-    if lat is None or lon is None:
-        raise HTTPException(status_code=400, detail="lat and lon are required")
-    try:
-        lat_f = float(lat)
-        lon_f = float(lon)
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="lat and lon must be numbers")
-    return await get_nearest_mandis(lat_f, lon_f)
+    district = payload.get("district", "Delhi")
+    state = payload.get("state", "Delhi")
+    return await get_nearest_mandis(district, state)
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -133,7 +126,20 @@ async def chat(req: ChatRequest):
         result = await agent.ainvoke(initial_state)
         answer = result.get("final_answer", "Kuch galat ho gaya, phir se koshish karein.")
         intent = result.get("intent", "general")
-        # NOTE: System prompt already forces output language — no extra translation needed
+
+        # SAFETY NET: If AI responded in English but user wants Hindi/Punjabi/etc,
+        # translate the answer back to the user's selected language
+        if language != "en-IN" and answer:
+            # Quick check: if answer is mostly ASCII (English), translate it
+            ascii_chars = sum(1 for c in answer if ord(c) < 128)
+            total_chars = len(answer)
+            if total_chars > 0 and (ascii_chars / total_chars) > 0.8:
+                logger.info(f"Response appears English, translating to {language}")
+                try:
+                    answer = await translate_text(answer, "en-IN", language)
+                except Exception as tr_err:
+                    logger.warning(f"Translation back failed: {tr_err}")
+
     except Exception as e:
         logger.exception("Agent error")
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
