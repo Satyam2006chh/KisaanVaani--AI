@@ -215,6 +215,20 @@ async def speak(req: TTSRequest):
     if not text:
         raise HTTPException(status_code=400, detail="No speakable text after cleaning")
 
+    # 1b. FORCE TRANSLATE: If text is English but user wants Hindi/Punjabi/etc,
+    # translate it BEFORE sending to TTS so Sarvam speaks the right language
+    if req.language and req.language != "en-IN":
+        ascii_count = sum(1 for c in text if ord(c) < 128)
+        if len(text) > 0 and (ascii_count / len(text)) > 0.7:
+            logger.info(f"TTS text appears English, translating to {req.language} before speaking")
+            try:
+                translated = await translate_text(text, "en-IN", req.language)
+                if translated and translated != text:
+                    text = translated
+                    logger.info(f"TTS translation done: {len(text)} chars in {req.language}")
+            except Exception as tr_err:
+                logger.warning(f"TTS pre-translation failed: {tr_err}, using original text")
+
     # 2. Split into safe chunks (max 300 chars each, split on sentence boundaries)
     sentences = re.split(r'(?<=[।.!?])\s+', text)
     chunks = []
