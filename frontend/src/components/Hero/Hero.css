@@ -173,28 +173,30 @@
 
 /* ── Chat Bubble Base ───────────────────────────────────── */
 .chat-bubble {
-  padding: 16px 22px;
-  border-radius: 24px;
+  padding: 20px 28px;
+  border-radius: 28px;
   text-align: left;
   position: relative;
   word-break: break-word;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .user-bubble {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  color: white;
-  border-bottom-right-radius: 6px;
-  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.25);
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #ffffff;
+  border-bottom-right-radius: 8px;
+  box-shadow: 0 12px 35px rgba(139, 92, 246, 0.3);
   align-self: flex-end;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .ai-bubble {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
-  border-bottom-left-radius: 6px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  background: rgba(15, 15, 25, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  border-bottom-left-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
   align-self: flex-start;
 }
 

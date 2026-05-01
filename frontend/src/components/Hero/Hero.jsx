@@ -203,6 +203,12 @@ export default function Hero() {
     setChatHistory([])
     setError('')
     
+    // Stop any currently playing audio immediately
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = ""
+    }
+
     startVisualizer(stream)
 
     // Use timeslice=250ms so data is buffered in small chunks, not all at end
@@ -245,12 +251,12 @@ export default function Hero() {
     }
     mediaRecorderRef.current = null
 
-    // Pre-unlock audio context for later AI speech
-    // This solves the "doesn't speak on 2nd question" issue caused by browser autoplay policies
+    // Pre-unlock audio context for later AI speech with SILENCE, not the old audio
     if (!audioRef.current) {
       audioRef.current = new Audio()
     }
-    // Playing 0.1s of silence to keep the user-gesture alive/unlocked
+    // Set to a tiny silent WAV to unlock the context without replaying the old answer
+    audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
     audioRef.current.play().catch(() => {})
   }, [])
 
