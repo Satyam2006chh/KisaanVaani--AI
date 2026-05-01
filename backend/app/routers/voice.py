@@ -4,6 +4,7 @@ import io
 import logging
 import os
 import re
+import struct
 import subprocess
 import tempfile
 
@@ -296,7 +297,6 @@ async def speak(req: TTSRequest):
 
         # Update WAV header with correct total size
         if combined_audio[:4] == b'RIFF' and len(combined_audio) > 44:
-            import struct
             data_size = len(combined_audio) - 44
             file_size = len(combined_audio) - 8
             combined_audio = (
