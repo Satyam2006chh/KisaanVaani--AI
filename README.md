@@ -330,9 +330,54 @@ graph TD
 
 ---
 
+## 🚀 Future Roadmap
+
+We are continuously working to make KisaanVaani the **most powerful agricultural assistant in India**. Here's what's coming next:
+
+### Phase 1 — Authentication & Security (Q3 2026)
+| Feature | Description | Status |
+|---------|-------------|--------|
+| 📱 **Real SMS OTP** | Integrate MSG91/Twilio for actual SMS delivery | 🔜 Planned |
+| 🔒 **Firebase Phone Auth** | Google's enterprise-grade phone authentication | 🔜 Planned |
+| 🛡️ **Rate Limiting** | Prevent API abuse with request throttling | 🔜 Planned |
+
+### Phase 2 — Platform Expansion (Q4 2026)
+| Feature | Description | Status |
+|---------|-------------|--------|
+| 💬 **WhatsApp Bot** | Farmers can chat via WhatsApp — no app needed | 🔜 Planned |
+| 📞 **IVR (Phone Call)** | Dial a number → talk to AI — works on basic phones | 🔜 Planned |
+| 📲 **Android App** | Native mobile app with offline voice support | 🔜 Planned |
+| 🌍 **GPS Live Location** | Auto-detect farmer's exact location for hyperlocal data | 🔜 Planned |
+
+### Phase 3 — AI Intelligence (Q1 2027)
+| Feature | Description | Status |
+|---------|-------------|--------|
+| 🧠 **Conversation Memory** | AI remembers past questions for contextual follow-ups | 🔜 Planned |
+| 🛰️ **Satellite Crop Monitoring** | NDVI-based crop health from satellite imagery | 🔜 Planned |
+| 📊 **Price Prediction** | ML model to forecast mandi prices 7 days ahead | 🔜 Planned |
+| 🤝 **Farmer-to-Farmer Network** | Connect farmers growing similar crops for peer advice | 🔜 Planned |
+
+### Phase 4 — Scale & Impact (Q2 2027)
+| Feature | Description | Status |
+|---------|-------------|--------|
+| 🏛️ **Government Integration** | Direct PM-KISAN status check & scheme enrollment | 🔜 Planned |
+| 🏪 **Marketplace** | Buy seeds, fertilizers directly from verified vendors | 🔜 Planned |
+| 📈 **Analytics Dashboard** | District-wise crop trends & disease outbreak alerts | 🔜 Planned |
+| 🌐 **Multi-Country** | Expand to Bangladesh, Nepal, Sri Lanka | 🔜 Planned |
+
+> 💡 **Our Vision**: By 2027, KisaanVaani aims to be accessible to every farmer in India — whether they have a smartphone, a feature phone, or just a landline. **Technology should serve those who feed the nation.**
+
+---
+
 ## 👥 Team
 
 Built with ❤️ for Indian farmers by **Team KisaanVaani**
+
+---
+
+## 📜 License
+
+This project is built for educational and social impact purposes.
 
 ---
 
