@@ -205,43 +205,66 @@ async def speak(req: TTSRequest):
         return StreamingResponse(io.BytesIO(silent_wav), media_type="audio/wav")
 
 
-    # Use a larger chunk size to avoid fragmentation for most responses
-    # Sarvam bulbul:v2 handles up to 500 chars well. Let's stick to 500 but JOIN the results.
+    # 1. Clean Markdown and special characters for natural speech
     text = req.text.strip()
-    chunks = [text[i:i+500] for i in range(0, len(text), 500)]
+    # Remove Bold (**), Italics (*), list markers (-), and header symbols (#)
+    text = re.sub(r"[\*\#\_]", "", text)
+    # Remove double spaces
+    text = re.sub(r"\s+", " ", text)
+    
+    # 2. Split into logical sentences/phrases for natural flow and to respect Sarvam's limit
+    # We split by periods, exclamation marks, or question marks, ensuring chunks aren't too large.
+    raw_chunks = re.split(r"([.!?|।])", text)
+    chunks = []
+    current = ""
+    for i in range(0, len(raw_chunks), 2):
+        sentence = raw_chunks[i]
+        punct = raw_chunks[i+1] if i+1 < len(raw_chunks) else ""
+        combined = (current + " " + sentence + punct).strip()
+        
+        if len(combined) > 450:
+            if current: chunks.append(current)
+            current = (sentence + punct).strip()
+        else:
+            current = combined
+            
+    if current: chunks.append(current)
+    if not chunks: chunks = [text[:500]]
 
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             logger.info(f"Calling Sarvam TTS: lang={req.language}, chunks={len(chunks)}")
-            r = await client.post(
-                SARVAM_TTS,
-                headers={"api-subscription-key": settings.sarvam_api_key, "Content-Type": "application/json"},
-                json={
-                    "inputs": chunks,
-                    "target_language_code": req.language,
-                    "speaker": req.speaker or SPEAKERS.get(req.language, "manisha"),
-                    "enable_preprocessing": True,
-                    "model": "bulbul:v2",
-                },
-            )
             
-            if r.status_code != 200:
-                logger.error(f"Sarvam TTS Error: {r.status_code} - {r.text}")
-                raise HTTPException(status_code=502, detail=f"Sarvam TTS error: {r.text}")
+            # Use parallel requests for multiple chunks to speed up processing
+            tasks = []
+            for chunk in chunks:
+                tasks.append(client.post(
+                    SARVAM_TTS,
+                    headers={"api-subscription-key": settings.sarvam_api_key, "Content-Type": "application/json"},
+                    json={
+                        "inputs": [chunk],
+                        "target_language_code": req.language,
+                        "speaker": req.speaker or SPEAKERS.get(req.language, "manisha"),
+                        "enable_preprocessing": True,
+                        "model": "bulbul:v2",
+                    },
+                ))
             
-            res_data = r.json()
-            audios = res_data.get("audios", [])
-            if not audios:
-                logger.warning("Sarvam returned no audios in response")
-                raise HTTPException(status_code=500, detail="Sarvam returned no audio")
+            responses = await asyncio.gather(*tasks)
             
-            # Combine all chunks. 
-            # Note: Decoded base64 chunks from Sarvam are full WAVs. 
-            # Concatenating them directly works in most modern browsers as they just see multiple RIFF chunks.
             combined_audio = b""
-            for a in audios:
-                if a:
-                    combined_audio += base64.b64decode(a)
+            for r in responses:
+                if r.status_code != 200:
+                    logger.error(f"Sarvam TTS Chunk Error: {r.status_code} - {r.text}")
+                    continue
+                
+                res_data = r.json()
+                audios = res_data.get("audios", [])
+                if audios and audios[0]:
+                    combined_audio += base64.b64decode(audios[0])
+            
+            if not combined_audio:
+                raise HTTPException(status_code=502, detail="Sarvam TTS failed to generate any audio")
             
             logger.info(f"TTS Success: combined size {len(combined_audio)} bytes")
             return StreamingResponse(io.BytesIO(combined_audio), media_type="audio/wav")

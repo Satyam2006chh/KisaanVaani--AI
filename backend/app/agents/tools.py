@@ -65,6 +65,20 @@ async def get_weather(district: str, state: str, lat: float = None, lon: float =
                     "timezone": "Asia/Kolkata", "forecast_days": 1,
                 }
             )
+        
+        # Fallback: if specific coordinates returned nothing (rare), try geocoding just the district
+        if w.status_code != 200 and lat is None:
+             async with httpx.AsyncClient(timeout=10) as client:
+                geo = await client.get(
+                    "https://geocoding-api.open-meteo.com/v1/search",
+                    params={"name": district, "count": 1, "language": "en", "format": "json"}
+                )
+             if geo.status_code == 200 and geo.json().get("results"):
+                loc = geo.json()["results"][0]
+                actual_lat, actual_lon = loc["latitude"], loc["longitude"]
+                # Recursive call with district coordinates
+                return await get_weather(district, state, actual_lat, actual_lon)
+
         if w.status_code != 200:
             return f"{loc_label} ka mausam abhi uplabdh nahi hai."
 
