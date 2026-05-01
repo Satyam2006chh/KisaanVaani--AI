@@ -33,7 +33,6 @@ export default function Hero() {
   const [reply, setReply]                 = useState('')
   const [error, setError]                 = useState('')
   const [image, setImg]                   = useState(null)
-  const [image, setImg]                   = useState(null)
   const [imgPreview, setImgPreview]       = useState(null)
   const [selectedLang, setSelectedLang]   = useState(user?.language || 'hi-IN')
   const [chatHistory, setChatHistory]     = useState([]) // [{role, text}]
@@ -47,8 +46,17 @@ export default function Hero() {
   const analyzerRef      = useRef(null)
   const animFrameRef     = useRef(null)
   const chatEndRef       = useRef(null)
-  const audioRef         = useRef(new Audio()) // Initialize with Audio object immediately
+  const audioRef         = useRef(new Audio()) 
 
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.src = ""
+      }
+    }
+  }, [])
 
   // ─── Scroll chat to bottom ────────────────────────────────────────────────
   useEffect(() => {
@@ -248,12 +256,14 @@ export default function Hero() {
       return
     }
     
-    if (!audioRef.current) {
-      audioRef.current = new Audio()
-    }
-
+    // Always create a fresh Audio if needed, but the ref is usually fine
     const audio = audioRef.current
+    
+    // Reset state before playing
+    audio.pause()
     audio.src = url
+    audio.load()
+    
     setStatus(S.SPEAKING)
     
     audio.onended = () => {
@@ -267,10 +277,13 @@ export default function Hero() {
       setStatus(S.IDLE)
     }
 
-    audio.play().catch(err => {
-      console.error('[Audio] Play failed (Autoplay block?):', err)
-      setStatus(S.IDLE)
-    })
+    const playPromise = audio.play()
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.error('[Audio] Play failed (Autoplay?):', err)
+        setStatus(S.IDLE)
+      })
+    }
   }
 
   // ─── Single mic toggle ────────────────────────────────────────────────────

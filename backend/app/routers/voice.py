@@ -221,17 +221,18 @@ async def speak(req: TTSRequest):
     text = req.text.strip()
     # Remove all markdown and symbols that Sarvam might read aloud or trip on
     text = re.sub(r"[\*\#\_\-\>\<]", " ", text)
+    # Remove emojis and special agricultural symbols that could trip TTS
+    text = re.sub(r"[🌾🤖🚨🔥❄️]", "", text)
     text = re.sub(r"\s+", " ", text).strip()
     
-    # 2. Split into 400-character chunks (safe limit for Sarvam)
-    # We try to split at spaces or punctuation to keep it natural
+    # 2. Split into 350-character chunks (safe limit for Sarvam)
     words = text.split(' ')
     chunks = []
     current_chunk = []
     current_length = 0
     
     for word in words:
-        if current_length + len(word) + 1 > 400:
+        if current_length + len(word) + 1 > 350:
             chunks.append(" ".join(current_chunk))
             current_chunk = [word]
             current_length = len(word)
@@ -242,47 +243,47 @@ async def speak(req: TTSRequest):
         chunks.append(" ".join(current_chunk))
 
     if not chunks:
-        chunks = [text[:400]]
+        chunks = [text[:350]]
 
     try:
         combined_audio = b""
         async with httpx.AsyncClient(timeout=60) as client:
-            logger.info(f"Processing TTS for {len(chunks)} chunks")
+            logger.info(f"Processing TTS for {len(chunks)} chunks: {chunks}")
             
             for i, chunk in enumerate(chunks):
                 if not chunk.strip(): continue
                 
-                r = await client.post(
-                    SARVAM_TTS,
-                    headers={"api-subscription-key": settings.sarvam_api_key},
-                    json={
-                        "inputs": [chunk],
-                        "target_language_code": req.language,
-                        "speaker": req.speaker or SPEAKERS.get(req.language, "manisha"),
-                        "enable_preprocessing": True,
-                        "model": "bulbul:v2",
-                    },
-                )
-                
-                if r.status_code == 200:
-                    res_data = r.json()
-                    audios = res_data.get("audios", [])
-                    if audios and audios[0]:
-                        chunk_audio = base64.b64decode(audios[0])
-                        
-                        # Concatenate WAV chunks:
-                        # For the first chunk, keep the header.
-                        # For subsequent chunks, strip the 44-byte WAV header to avoid playback issues.
-                        if i == 0:
-                            combined_audio += chunk_audio
-                        else:
-                            # Strip header if it looks like a WAV
-                            if chunk_audio.startswith(b'RIFF') and len(chunk_audio) > 44:
-                                combined_audio += chunk_audio[44:]
-                            else:
+                try:
+                    r = await client.post(
+                        SARVAM_TTS,
+                        headers={"api-subscription-key": settings.sarvam_api_key},
+                        json={
+                            "inputs": [chunk],
+                            "target_language_code": req.language,
+                            "speaker": req.speaker or SPEAKERS.get(req.language, "manisha"),
+                            "enable_preprocessing": True,
+                            "model": "bulbul:v2",
+                        },
+                    )
+                    
+                    if r.status_code == 200:
+                        res_data = r.json()
+                        audios = res_data.get("audios", [])
+                        if audios and audios[0]:
+                            chunk_audio = base64.b64decode(audios[0])
+                            
+                            # Concatenate WAV chunks
+                            if i == 0:
                                 combined_audio += chunk_audio
-                else:
-                    logger.error(f"Sarvam TTS Error on chunk {i}: {r.status_code} - {r.text}")
+                            else:
+                                if chunk_audio.startswith(b'RIFF') and len(chunk_audio) > 44:
+                                    combined_audio += chunk_audio[44:]
+                                else:
+                                    combined_audio += chunk_audio
+                    else:
+                        logger.error(f"Sarvam TTS Error on chunk {i}: {r.status_code} - {r.text}")
+                except Exception as chunk_err:
+                    logger.error(f"Failed chunk {i}: {chunk_err}")
 
         if not combined_audio:
             logger.error("No audio generated for any chunk")
