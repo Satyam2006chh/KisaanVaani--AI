@@ -47,6 +47,7 @@ export default function Hero() {
   const animFrameRef     = useRef(null)
   const chatEndRef       = useRef(null)
   const audioRef         = useRef(new Audio()) 
+  const queueActiveRef   = useRef(false) 
 
   // Clean up audio on unmount
   useEffect(() => {
@@ -240,10 +241,15 @@ export default function Hero() {
       setImg(null)
       setImgPreview(null)
 
-      // Step 3: TTS — speak in selected language
+      // Step 3: TTS — speak in selected language (split into sequential audio chunks to speak long responses flawlessly)
       try {
-        const audioUrl = await speakText(aiText, selectedLang)
-        playAudio(audioUrl)
+        const chunks = splitTextIntoChunks(aiText, selectedLang)
+        if (chunks.length > 0) {
+          queueActiveRef.current = true
+          playAudioQueue(chunks, 0)
+        } else {
+          setStatus(S.IDLE)
+        }
       } catch (ttsErr) {
         console.warn('[TTS] failed:', ttsErr)
         setError('Awaaz nahi chal saki, lekin jawab upar likha hai.')
@@ -256,41 +262,55 @@ export default function Hero() {
     }
   }
 
-  // ─── Audio playback ───────────────────────────────────────────────────────
-  const playAudio = (url) => {
-    if (!url) {
-      console.warn('[Audio] No URL provided')
+  // ─── Audio Queue Playback (Handles speaking long text continuously without lags/timeouts) ───────────────────
+  const playAudioQueue = async (chunks, index = 0) => {
+    if (!queueActiveRef.current || index >= chunks.length) {
       setStatus(S.IDLE)
+      queueActiveRef.current = false
       return
     }
     
-    // Always create a fresh Audio if needed, but the ref is usually fine
-    const audio = audioRef.current
-    
-    // Reset state before playing
-    audio.pause()
-    audio.src = url
-    audio.load()
-    
-    setStatus(S.SPEAKING)
-    
-    audio.onended = () => {
-      console.log('[Audio] Playback ended')
-      setStatus(S.IDLE)
-      URL.revokeObjectURL(url)
-    }
-    
-    audio.onerror = (e) => {
-      console.error('[Audio] Playback error:', e)
-      setStatus(S.IDLE)
-    }
-
-    const playPromise = audio.play()
-    if (playPromise !== undefined) {
-      playPromise.catch(err => {
-        console.error('[Audio] Play failed (Autoplay?):', err)
+    try {
+      setStatus(S.SPEAKING)
+      const chunkText = chunks[index]
+      console.log(`[Audio Queue] Speaking chunk ${index + 1}/${chunks.length}: "${chunkText.substring(0, 40)}..."`)
+      
+      const audioUrl = await speakText(chunkText, selectedLang)
+      
+      // Make sure user didn't hit STOP while we were fetching the audio
+      if (!queueActiveRef.current) {
+        URL.revokeObjectURL(audioUrl)
         setStatus(S.IDLE)
-      })
+        return
+      }
+      
+      const audio = audioRef.current
+      audio.pause()
+      audio.src = audioUrl
+      audio.load()
+      
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl)
+        playAudioQueue(chunks, index + 1) // Play next chunk
+      }
+      
+      audio.onerror = (e) => {
+        console.error('[Audio Queue] Playback error, skipping chunk:', e)
+        URL.revokeObjectURL(audioUrl)
+        playAudioQueue(chunks, index + 1)
+      }
+      
+      const playPromise = audio.play()
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.error('[Audio Queue] Play failed, skipping chunk:', err)
+          URL.revokeObjectURL(audioUrl)
+          playAudioQueue(chunks, index + 1)
+        })
+      }
+    } catch (err) {
+      console.warn('[Audio Queue] Fetch/Play failed, skipping chunk:', err)
+      playAudioQueue(chunks, index + 1)
     }
   }
 
@@ -298,7 +318,13 @@ export default function Hero() {
   const handleMicClick = () => {
     if (status === S.RECORDING) {
       stopRecording()
-      // status transitions to PROCESSING inside recorder.onstop
+    } else if (status === S.SPEAKING) {
+      queueActiveRef.current = false // Stop the audio queue
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+      }
+      setStatus(S.IDLE)
     } else if (status === S.IDLE) {
       startRecording()
     }
@@ -383,7 +409,7 @@ export default function Hero() {
           id="mic-toggle-btn"
           className={`mic-button-premium ${status === S.RECORDING ? 'pulsing recording' : ''} ${status === S.SPEAKING ? 'speaking' : ''}`}
           onClick={handleMicClick}
-          disabled={status === S.PROCESSING || status === S.SPEAKING}
+          disabled={status === S.PROCESSING}
           aria-label={status === S.RECORDING ? 'Mic band karein' : 'Bolna shuru karein'}
         >
           {status === S.RECORDING  ? <Square size={30} fill="white" /> :
@@ -459,4 +485,69 @@ export default function Hero() {
 
     </div>
   )
+}
+
+// Helper to extract a warm, concise voice summary from a long response
+function getVoiceSummary(text, lang) {
+  if (!text) return "";
+  if (text.length <= 250) return text;
+  
+  // If it has multiple paragraphs, let's take the first paragraph!
+  const paragraphs = text.split(/\n+/);
+  if (paragraphs.length > 0) {
+    const firstPara = paragraphs[0].trim();
+    if (firstPara.length >= 40 && firstPara.length <= 400) {
+      return firstPara;
+    }
+  }
+  
+  // Otherwise, split by sentence delimiters: '।' (Hindi/Punjabi/Odia/etc) or '.' (English/others)
+  const delimiter = (lang === 'hi-IN' || lang === 'pa-IN' || lang === 'bn-IN') ? '।' : '.';
+  const sentences = text.split(delimiter);
+  
+  let summary = "";
+  for (let s of sentences) {
+    const cleaned = s.trim();
+    if (!cleaned) continue;
+    if ((summary + cleaned).length <= 250) {
+      summary += (summary ? " " : "") + cleaned + delimiter;
+    } else {
+      break;
+    }
+  }
+  
+  return summary.trim() || text.substring(0, 200) + "...";
+}
+
+// Helper to split a long text into clean sentence chunks under 250 characters for sequential TTS playback
+function splitTextIntoChunks(text, lang) {
+  if (!text) return [];
+  
+  // Clean markdown syntax (*, #, _, -) so TTS reads it perfectly smoothly without speaking punctuation
+  const cleanText = text.replace(/[\*\#\-\_]/g, " ").replace(/\s+/g, " ").trim();
+  
+  // Split by sentence delimiters: '।' (Hindi/Punjabi/Odia/Assamese) or '.' (English/others)
+  const delimiter = (lang === 'hi-IN' || lang === 'pa-IN' || lang === 'bn-IN') ? '।' : '.';
+  const sentences = cleanText.split(delimiter);
+  
+  const chunks = [];
+  let currentChunk = "";
+  
+  for (let s of sentences) {
+    const cleaned = s.trim();
+    if (!cleaned) continue;
+    
+    if ((currentChunk + cleaned).length < 200) {
+      currentChunk += (currentChunk ? " " : "") + cleaned + delimiter;
+    } else {
+      if (currentChunk) chunks.push(currentChunk.trim());
+      currentChunk = cleaned + delimiter;
+    }
+  }
+  
+  if (currentChunk) {
+    chunks.push(currentChunk.trim());
+  }
+  
+  return chunks;
 }
