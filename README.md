@@ -330,42 +330,18 @@ graph TD
 
 ---
 
-## 🚀 Future Roadmap
+## 🚀 Production Roadmap & Next Steps
 
-We are continuously working to make KisaanVaani the **most powerful agricultural assistant in India**. Here's what's coming next:
+To transition KisaanVaani from a successful prototype to a national production-grade platform for farmers, our next step is to integrate official government endpoints and real-time spot price services.
 
-### Phase 1 — Authentication & Security (Q3 2026)
-| Feature | Description | Status |
-|---------|-------------|--------|
-| 📱 **Real SMS OTP** | Integrate MSG91/Twilio for actual SMS delivery | 🔜 Planned |
-| 🔒 **Firebase Phone Auth** | Google's enterprise-grade phone authentication | 🔜 Planned |
-| 🛡️ **Rate Limiting** | Prevent API abuse with request throttling | 🔜 Planned |
+### 🏛️ 1. Official Government Scheme Integration (myScheme API Setu)
+Currently, our schemes engine uses a hybrid search (verified knowledge base + AI web scraping) which is 100% active and free. For a formal production release:
+* **API Setu Subscription**: We will register on MeitY's official **API Setu (apisetu.gov.in)** platform using verified agricultural cooperative/organization details.
+* **myScheme Eligibility API**: We will integrate the official **myScheme Eligibility API** to dynamically match farmers' exact profile attributes (State, District, landholding size, caste, category) directly against the national schemes database, returning official application deep-links and verified checklists instantly.
 
-### Phase 2 — Platform Expansion (Q4 2026)
-| Feature | Description | Status |
-|---------|-------------|--------|
-| 💬 **WhatsApp Bot** | Farmers can chat via WhatsApp — no app needed | 🔜 Planned |
-| 📞 **IVR (Phone Call)** | Dial a number → talk to AI — works on basic phones | 🔜 Planned |
-| 📲 **Android App** | Native mobile app with offline voice support | 🔜 Planned |
-| 🌍 **GPS Live Location** | Auto-detect farmer's exact location for hyperlocal data | 🔜 Planned |
-
-### Phase 3 — AI Intelligence (Q1 2027)
-| Feature | Description | Status |
-|---------|-------------|--------|
-| 🧠 **Conversation Memory** | AI remembers past questions for contextual follow-ups | 🔜 Planned |
-| 🛰️ **Satellite Crop Monitoring** | NDVI-based crop health from satellite imagery | 🔜 Planned |
-| 📊 **Price Prediction** | ML model to forecast mandi prices 7 days ahead | 🔜 Planned |
-| 🤝 **Farmer-to-Farmer Network** | Connect farmers growing similar crops for peer advice | 🔜 Planned |
-
-### Phase 4 — Scale & Impact (Q2 2027)
-| Feature | Description | Status |
-|---------|-------------|--------|
-| 🏛️ **Government Integration** | Direct PM-KISAN status check & scheme enrollment | 🔜 Planned |
-| 🏪 **Marketplace** | Buy seeds, fertilizers directly from verified vendors | 🔜 Planned |
-| 📈 **Analytics Dashboard** | District-wise crop trends & disease outbreak alerts | 🔜 Planned |
-| 🌐 **Multi-Country** | Expand to Bangladesh, Nepal, Sri Lanka | 🔜 Planned |
-
-> 💡 **Our Vision**: By 2027, KisaanVaani aims to be accessible to every farmer in India — whether they have a smartphone, a feature phone, or just a landline. **Technology should serve those who feed the nation.**
+### 📊 2. Real-Time Spot Price APIs (Agriwatch / NCDEX)
+To provide hourly, high-precision vegetable and commodity spot rates across local wholesale mandis:
+* **B2B Agri APIs**: We will subscribe to premium B2B spot market APIs (like **Agriwatch** or **NCDEX**) that maintain physical agents on-ground to record real transactions as they happen.
 
 ---
 
