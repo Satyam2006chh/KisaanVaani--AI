@@ -20,7 +20,7 @@
 }
 
 .quotes__card:hover {
-  border-color: rgba(139, 92, 246, 0.25);
+  border-color: rgba(var(--primary-rgb), 0.25);
   transform: translateY(-4px);
 }
 

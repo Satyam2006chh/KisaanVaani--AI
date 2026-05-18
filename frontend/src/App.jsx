@@ -15,7 +15,7 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="app loading" style={{ background: '#07070a', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
+      <div className="app loading" style={{ background: 'var(--bg-primary)', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
         <div className="loading-spinner" style={{ fontSize: '2rem' }}>🌾 Loading KisaanVaani...</div>
       </div>
     )

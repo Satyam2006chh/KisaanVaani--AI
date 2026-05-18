@@ -41,138 +41,146 @@ class AgentState(TypedDict):
     original_message: str   # Raw user message in their language (for follow-up detection)
 
 
-async def _call_groq(messages: list, max_tokens: int = 900) -> str:
-    if "your_groq_api_key" in settings.groq_api_key or not settings.groq_api_key:
-        print("WARNING: Using mock Groq response because GROQ_API_KEY is not configured.")
-        return "[MOCK RESPONSE] Namaste! Main aapka KisaanVaani AI assistant hoon. Main abhi demo mode mein hoon kyunki API keys set nahi hain, lekin main aapki madad karne ke liye taiyaar hoon."
+# ── Fallback Pipelines ────────────────────────────────────────────────────────
+TEXT_MODELS = [
+    "deepseek/deepseek-r1",                # 1. Reasoning Model
+    "anthropic/claude-3.5-sonnet",         # 2. Conversational Model
+    "openai/gpt-4o"                        # 3. High-Stability Speed Model
+]
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
-            json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": 0.4, "max_tokens": max_tokens},
-        )
-    if r.status_code != 200:
-        logger.error(f"Groq error {r.status_code}: {r.text[:200]}")
-        return "Maaf kijiye, jawab dene mein samasya ho gayi. Dobara koshish karein."
-    return r.json()["choices"][0]["message"]["content"]
+VISION_MODELS = [
+    "anthropic/claude-3.5-sonnet",         # 1. Surgical Precision Vision
+    "openai/gpt-4o",                       # 2. Ultra-Fast Multimodal Vision
+    "google/gemini-2.5-pro"                # 3. Native Multimodal Vision
+]
 
 
-async def _call_gemini_vision(prompt: str, image_base64: str) -> str:
-    """Specialized call for Multimodal vision using Gemini 2.0 Flash.
-    Tries multiple models and falls back to Groq text-only on quota exhaustion."""
+async def _call_openrouter_text(messages: list, max_tokens: int = 900) -> str:
+    """Sends text queries to OpenRouter, cascading through the 3 most powerful models in the world."""
+    if not settings.openrouter_api_key or "your_" in settings.openrouter_api_key:
+        print("WARNING: OpenRouter key not configured in .env.")
+        return "[MOCK RESPONSE] Namaste! Main aapka KisaanVaani AI assistant hoon. Kripya admin se `.env` mein `OPENROUTER_API_KEY` set karne ke liye boleing."
+
+    last_err = None
+    for model in TEXT_MODELS:
+        try:
+            logger.info(f"Attempting OpenRouter text query with: {model}")
+            async with httpx.AsyncClient(timeout=60) as client:
+                r = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://kisaanvaani.in",
+                        "X-Title": "KisaanVaani"
+                    },
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "temperature": 0.4,
+                        "max_tokens": max_tokens
+                    },
+                )
+            if r.status_code == 200:
+                logger.info(f"OpenRouter text model {model} succeeded")
+                return r.json()["choices"][0]["message"]["content"]
+            else:
+                err_text = r.text[:200]
+                logger.error(f"OpenRouter model {model} failed ({r.status_code}): {err_text}")
+                last_err = f"HTTP {r.status_code}: {err_text}"
+        except Exception as e:
+            logger.error(f"OpenRouter model {model} exception: {e}")
+            last_err = str(e)
+            continue
+
+    logger.error(f"All 3 powerful OpenRouter text models failed! Last error: {last_err}")
+    return "Maaf kijiye, humare sabhi premium AI models abhi vyast (busy) hain. Kripya 2 minute baad dobara koshish karein."
+
+
+async def _call_openrouter_vision(prompt: str, image_base64: str) -> str:
+    """Diagnoses crop disease from pictures cascading across the 3 most powerful vision models in the world."""
+    if not settings.openrouter_api_key or "your_" in settings.openrouter_api_key:
+        return "Adarniya ji, fasal ki photo analyze karne ke liye `OPENROUTER_API_KEY` set hona zaroori hai. Kripya admin se sampark karein."
+
     import base64 as b64
+    logger.info("Attempting OpenRouter Multimodal Vision cascade")
 
-    if not settings.gemini_api_key or "your_" in settings.gemini_api_key:
-        return (
-            "Adarniya ji, fasal ki tasveer analyze karne ke liye Gemini API key zaroori hai. "
-            "Kripya admin se sampark karein. Aap bina tasveer ke apna sawaal pooch sakte hain."
-        )
-
-    # Decode image once
     mime_type = "image/jpeg"
     raw_b64   = image_base64
     if raw_b64.startswith("data:"):
         header, raw_b64 = raw_b64.split(",", 1)
         if "png"  in header: mime_type = "image/png"
         elif "webp" in header: mime_type = "image/webp"
-    try:
-        img_data = b64.b64decode(raw_b64)
-    except Exception as decode_err:
-        logger.error(f"Image base64 decode failed: {decode_err}")
-        return "Tasveer ka format galat hai. Kripya dobara upload karein."
 
-    # Models to try in order (lite is cheaper on quota)
-    MODELS_TO_TRY = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash"]
-
-    # ── Attempt with new google.genai SDK ───────────────────────────────────
-    try:
-        from google import genai as new_genai
-        from google.genai import types as gtypes
-
-        client = new_genai.Client(api_key=settings.gemini_api_key)
-        last_err = None
-
-        for model_name in MODELS_TO_TRY:
-            try:
-                logger.info(f"Trying Gemini model: {model_name}")
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=[
-                        prompt,
-                        gtypes.Part.from_bytes(data=img_data, mime_type=mime_type),
-                    ],
-                )
-                logger.info(f"Gemini {model_name} succeeded")
-                return response.text
-            except Exception as model_err:
-                err_str = str(model_err)
-                last_err = err_str
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
-                    logger.warning(f"Gemini {model_name} quota exhausted — trying next model")
-                    continue
-                elif "404" in err_str or "NOT_FOUND" in err_str:
-                    logger.warning(f"Gemini {model_name} not found — trying next model")
-                    continue
-                else:
-                    logger.error(f"Gemini {model_name} unexpected error: {model_err}")
-                    break  # Non-quota error — don't retry other models
-
-        # All models exhausted — fall back to Groq text-only analysis
-        logger.warning(f"All Gemini models failed ({last_err[:80]}). Falling back to Groq text analysis.")
-        return await _groq_vision_fallback(prompt)
-
-    except ImportError:
-        # ── Fallback to old google.generativeai SDK ──────────────────────
+    last_err = None
+    for model in VISION_MODELS:
         try:
-            import google.generativeai as old_genai
-            old_genai.configure(api_key=settings.gemini_api_key)
-            last_err = None
-            for model_name in MODELS_TO_TRY:
-                try:
-                    model = old_genai.GenerativeModel(model_name)
-                    response = model.generate_content(
-                        [prompt, {"mime_type": mime_type, "data": img_data}]
-                    )
-                    return response.text
-                except Exception as model_err:
-                    err_str = str(model_err)
-                    last_err = err_str
-                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
-                        logger.warning(f"Gemini legacy {model_name} quota — trying next")
-                        continue
-                    elif "404" in err_str or "NOT_FOUND" in err_str:
-                        continue
-                    break
-            return await _groq_vision_fallback(prompt)
-        except Exception as legacy_err:
-            logger.error(f"Legacy Gemini SDK failed: {legacy_err}")
-            return await _groq_vision_fallback(prompt)
+            logger.info(f"Attempting OpenRouter Vision Model: {model}")
+            async with httpx.AsyncClient(timeout=60) as client:
+                r = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://kisaanvaani.in",
+                        "X-Title": "KisaanVaani"
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": prompt},
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:{mime_type};base64,{raw_b64}"
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 800
+                    }
+                )
+            if r.status_code == 200:
+                logger.info(f"OpenRouter Vision model {model} succeeded")
+                return r.json()["choices"][0]["message"]["content"]
+            else:
+                err_text = r.text[:200]
+                logger.error(f"OpenRouter Vision model {model} failed: {r.status_code} - {err_text}")
+                last_err = f"HTTP {r.status_code}: {err_text}"
+        except Exception as e:
+            logger.error(f"OpenRouter Vision model {model} exception: {e}")
+            last_err = str(e)
+            continue
 
-    except Exception as e:
-        logger.error(f"Gemini Vision outer exception: {e}")
-        return await _groq_vision_fallback(prompt)
+    logger.error(f"All 3 powerful OpenRouter vision models failed! Last error: {last_err}")
+    return await _openrouter_vision_fallback(prompt)
 
 
-async def _groq_vision_fallback(original_prompt: str) -> str:
-    """When all Gemini models fail (quota/error), use Groq to give a text-based crop advisory."""
-    logger.info("Using Groq text-only fallback for vision query")
+
+async def _openrouter_vision_fallback(original_prompt: str) -> str:
+    """When vision fails, use OpenRouter text to give a text-based crop advisory."""
+    logger.info("Using OpenRouter text-only fallback for vision query")
     fallback_prompt = (
         "The farmer uploaded a photo of a diseased crop, but image-analysis is temporarily "
-        "unavailable (API quota exceeded). Based on the farmer query below, provide a VERY helpful "
+        "unavailable. Based on the farmer query below, provide a VERY helpful "
         "general crop disease advisory in the farmer's language. "
         "List the 3 most common diseases for typical Indian crops, their visible symptoms, and treatment. "
         "Be specific and actionable.\n\n"
         f"Farmer context:\n{original_prompt[:600]}"
     )
     try:
-        result = await _call_groq(
+        result = await _call_openrouter_text(
             [{"role": "system", "content": fallback_prompt}],
             max_tokens=450,
         )
-        return "[Image AI temporarily unavailable — general disease advice]\n\n" + result
+        return "[Photo AI temporarily unavailable — general disease advice]\n\n" + result
     except Exception as e:
-        logger.error(f"Groq vision fallback also failed: {e}")
+        logger.error(f"OpenRouter vision fallback also failed: {e}")
         return (
             "Adarniya ji, abhi tasveer analyze karne ki suvidha temporarily band hai. "
             "Kripya thodi der baad dobara koshish karein, ya bina tasveer ke apni fasal ki "
@@ -315,7 +323,7 @@ async def intent_router(state: AgentState) -> AgentState:
         f"Message: {msg}"
     )
     try:
-        raw    = await _call_groq([{"role": "system", "content": intent_prompt}], max_tokens=10)
+        raw    = await _call_openrouter_text([{"role": "system", "content": intent_prompt}], max_tokens=10)
         intent = raw.strip().lower().replace(".", "").replace("`", "").split()[0]
         valid  = {"weather", "mandi", "crop_advice", "news", "trusted_vendor", "general"}
         if intent not in valid:
@@ -340,7 +348,7 @@ async def weather_node(state: AgentState) -> AgentState:
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
     try:
-        raw = await _call_groq(messages, max_tokens=30)
+        raw = await _call_openrouter_text(messages, max_tokens=30)
         import json
         params = json.loads(raw.strip())
         asked_city = params.get("city")
@@ -364,7 +372,7 @@ async def weather_node(state: AgentState) -> AgentState:
     ]
     for m in state["messages"]:
         messages.append({"role": m["role"], "content": m["content"]})
-    result = await _call_groq(messages)
+    result = await _call_openrouter_text(messages)
     return {**state, "tool_result": result}
 
 
@@ -395,7 +403,7 @@ async def mandi_node(state: AgentState) -> AgentState:
     st   = profile_state
     crop = "wheat"
     try:
-        raw  = await _call_groq([{"role": "system", "content": extract_prompt}], max_tokens=60)
+        raw  = await _call_openrouter_text([{"role": "system", "content": extract_prompt}], max_tokens=60)
         # Strip any markdown code fences if present
         clean = raw.strip().strip("```json").strip("```").strip()
         params = json.loads(clean)
@@ -421,7 +429,7 @@ async def mandi_node(state: AgentState) -> AgentState:
         {"role": "user", "content": user_msg},
     ]
     try:
-        result = await _call_groq(advice_msg)
+        result = await _call_openrouter_text(advice_msg)
     except Exception:
         result = f"Maaf kijiye, {dist} ki mandi mein {crop} ka data abhi nahi mil raha. Kripya thodi der baad dobara poochein."
 
@@ -473,7 +481,7 @@ async def news_node(state: AgentState) -> AgentState:
         )},
         {"role": "user", "content": user_question},
     ]
-    formatted_result = await _call_groq(messages, max_tokens=1000)
+    formatted_result = await _call_openrouter_text(messages, max_tokens=1000)
     return {**state, "tool_result": formatted_result}
 
 
@@ -499,7 +507,7 @@ async def llm_node(state: AgentState) -> AgentState:
             f"Tone: Authoritative, Professional, and Caring. Final output language must be only {lang_name}."
         )
         # Call vision with specific prompt
-        result = await _call_gemini_vision(prompt, state["image_data"])
+        result = await _call_openrouter_vision(prompt, state["image_data"])
     else:
         # Standard Path - CONTEXT AWARE MODE
         # Check if history contains a previous diagnosis to maintain context
@@ -520,7 +528,7 @@ async def llm_node(state: AgentState) -> AgentState:
         for m in state["messages"]:
              messages.append({"role": m["role"], "content": m["content"]})
              
-        result = await _call_groq(messages)
+        result = await _call_openrouter_text(messages)
         
     return {**state, "tool_result": result}
 
@@ -544,7 +552,7 @@ async def lang_switch_node(state: AgentState) -> AgentState:
             "Query: " + msg
         )
         try:
-            detected = await _call_groq([{"role": "system", "content": prompt}], max_tokens=10)
+            detected = await _call_openrouter_text([{"role": "system", "content": prompt}], max_tokens=10)
             detected = detected.strip()
             if detected in LANG_MAP:
                 new_lang = detected
@@ -582,7 +590,7 @@ async def crop_advice_node(state: AgentState) -> AgentState:
     for m in state["messages"]:
         messages.append({"role": m["role"], "content": m["content"]})
 
-    result = await _call_groq(messages)
+    result = await _call_openrouter_text(messages)
     return {**state, "tool_result": result}
 
 
@@ -610,7 +618,7 @@ async def trusted_vendor_node(state: AgentState) -> AgentState:
         )},
         {"role": "user", "content": state["messages"][-1]["content"]},
     ]
-    result = await _call_groq(messages)
+    result = await _call_openrouter_text(messages)
     return {**state, "tool_result": result}
 
 
@@ -640,7 +648,7 @@ async def general_node(state: AgentState) -> AgentState:
     for m in state["messages"]:
         messages.append({"role": m["role"], "content": m["content"]})
 
-    result = await _call_groq(messages)
+    result = await _call_openrouter_text(messages)
     return {**state, "tool_result": result}
 
 

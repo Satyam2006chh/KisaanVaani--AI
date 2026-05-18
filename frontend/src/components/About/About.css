@@ -14,7 +14,7 @@
   gap: 16px;
   padding: 24px;
   background: var(--primary-glow);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
   border-radius: var(--radius-md);
 }
 
@@ -22,46 +22,75 @@
 .about__solution p { font-size: 1rem; color: var(--text-dim); line-height: 1.7; }
 .about__solution strong { color: var(--text-main); }
 
-.about__cards { display: flex; flex-direction: column; gap: 14px; }
-
-.about__card {
+.about__image-container {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 20px;
-  padding: 24px 28px;
-  background: var(--bg-card);
-  backdrop-filter: var(--glass);
-  border: var(--border-glass);
+  position: relative;
+}
+
+.about__image-glow-wrapper {
+  position: relative;
   border-radius: var(--radius-lg);
-  transition: var(--transition);
+  padding: 8px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
   box-shadow: var(--shadow-premium);
+  display: flex;
+  overflow: hidden;
+  max-width: 440px;
+  transition: var(--transition);
 }
 
-.about__card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(139, 92, 246, 0.25);
+.about__image-glow-wrapper:hover {
+  transform: scale(1.02);
+  box-shadow: 0 30px 60px rgba(var(--primary-rgb), 0.25);
 }
 
-.about__card-icon {
-  flex-shrink: 0;
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  background: var(--primary-glow);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  border-radius: 12px;
+.about__premium-img {
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--radius-lg) - 8px);
+  object-fit: cover;
+  display: block;
+}
+
+.about__image-overlay-card {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  right: 24px;
+  padding: 20px;
+  background: rgba(4, 6, 20, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.about__overlay-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 800;
   color: var(--primary);
+  background: var(--primary-glow);
+  padding: 4px 10px;
+  border-radius: 50px;
+  border: 1px solid rgba(var(--primary-rgb), 0.3);
+  margin-bottom: 8px;
 }
 
-.about__card-title {
+.about__image-overlay-card h4 {
   font-family: var(--font-heading);
-  font-size: 0.95rem;
-  font-weight: 700;
-  margin-bottom: 3px;
+  font-size: 1rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+  color: white;
 }
 
-.about__card-desc { font-size: 0.85rem; color: var(--text-dim); }
+.about__image-overlay-card p {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
 
 @media (max-width: 900px) {
   .about__layout { grid-template-columns: 1fr; gap: 40px; }

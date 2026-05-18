@@ -14,24 +14,6 @@ WMO_CODES = {
     95: "Aandhi toofan", 99: "Toofan aur ole",
 }
 
-# Govt of India MSP 2024-25 (Rs per quintal)
-MSP = {
-    "wheat": ("Gehun", 2275), "gehun": ("Gehun", 2275),
-    "rice": ("Dhan", 2300), "dhan": ("Dhan", 2300), "paddy": ("Dhan", 2300),
-    "mustard": ("Sarson", 5950), "sarson": ("Sarson", 5950),
-    "maize": ("Makka", 2225), "makka": ("Makka", 2225),
-    "soybean": ("Soyabean", 4892), "soya": ("Soyabean", 4892),
-    "cotton": ("Kapas", 7521), "kapas": ("Kapas", 7521),
-    "bajra": ("Bajra", 2625),
-    "jowar": ("Jowar", 3371),
-    "groundnut": ("Moongfali", 6783), "moongfali": ("Moongfali", 6783),
-    "gram": ("Chana", 5440), "chana": ("Chana", 5440),
-    "lentil": ("Masoor", 6425), "masoor": ("Masoor", 6425),
-    "moong": ("Moong", 8682),
-    "urad": ("Urad", 7400),
-    "sugarcane": ("Ganna", 340), "ganna": ("Ganna", 340),
-    "sunflower": ("Surajmukhi", 7280),
-}
 
 
 async def get_weather(district: str, state: str) -> str:
@@ -107,29 +89,10 @@ from app.config import settings
 async def get_mandi_price(crop: str, district: str, state: str) -> str:
     """Gets real-time mandi prices from data.gov.in (Agmarknet)"""
     if not settings.datagov_api_key or "your_" in settings.datagov_api_key:
-        # Fallback to MSP logic if no API key
-        key = crop.lower().strip()
-        info = MSP.get(key)
-        if not info:
-            for k, v in MSP.items():
-                if k in key or key in k:
-                    info = v
-                    break
-        if not info:
-            return (
-                f"Kshama karein, {crop} ka bhav abhi mere paas nahi mil pa raha hai. "
-                "Par fikar na karein! Aap mujhse kisi aur fasal ke baare mein pooch sakte hain "
-                "ya thodi der baad phir se koshish kar sakte hain. Main aapki madad hamesha karunga!"
-            )
-        
-        name, msp_price = info
-        market_low = int(msp_price * 1.02)
-        market_high = int(msp_price * 1.12)
         return (
-            f"[OFFLINE DATA] {district} mein {name} ke bhav:\n"
-            f"  MSP: Rs {msp_price}/quintal\n"
-            f"  Anumaanit Mandi bhav: Rs {market_low} - {market_high}/quintal\n"
-            f"  (Kripya data.gov.in API key set karein real-time rates ke liye)"
+            f"Adarniya kisaan bhaai, sarkaari data portal (data.gov.in) ki integration settings abhi poori nahi hui hain, "
+            f"jiski wajah se main {district} mandi mein {crop} ke live rates turant nahi dekh paa raha hoon. "
+            f"Main jald hi ise theek karne ki koshish kar raha hoon. Tab tak kripya apne nikattam APMC board par rates check karein."
         )
 
     try:
@@ -146,14 +109,18 @@ async def get_mandi_price(crop: str, district: str, state: str) -> str:
             r = await client.get(url, params=params)
         
         if r.status_code != 200:
-            return f"Mandi rates fetch karne mein error. Agmarknet par check karein."
+            return (
+                f"Adarniya kisaan bhaai, sarkaari Agmarknet server abhi thoda dheema chal raha hai, "
+                f"jiski wajah se {district} ke live rates fetch nahi ho paaye. "
+                "Main koshish kar raha hoon, kripya thodi der baad dobara poochhein. Aapke sahyog ke liye dhanyawaad!"
+            )
         
         data = r.json().get("records", [])
         if not data:
             return (
-                f"Namaste! {district} ki mandi mein abhi {crop} ka naya rate update nahi hua hai. "
-                "Aksar bazaar band hone pe ya seasonal badlav ki wajah se aisa hota hai. "
-                "Aap mujhse kisi aur mandi ya fasal ke baare mein pooch sakte hain, main turant check karunga!"
+                f"Adarniya bhaai, {district} ki mandi mein abhi aaj {crop} ke naye bhav update nahi hue hain. "
+                "Bazaar band hone par ya seasonal badlav ke chalte kabhi-kabhi data der se aata hai. "
+                "Main lagaatar koshish kar raha hoon, kripya thodi der baad phir se poochhein ya kisi aur fasal ka rate poochhein."
             )
         
         # Filter for the specific crop
@@ -171,7 +138,11 @@ async def get_mandi_price(crop: str, district: str, state: str) -> str:
         )
         return res
     except Exception as e:
-        return f"Mandi rate error: {str(e)}"
+        logger.error(f"Mandi Price Error: {e}")
+        return (
+            f"Adarniya kisaan bhaai, network samasya ke kaaran {district} ke rates dekhne mein asuvidha ho rahi hai. "
+            "Kripya thodi der baad dobara koshish karein. Hum jald hi ise theek kar rahe hain."
+        )
 
 
 import math

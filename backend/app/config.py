@@ -1,14 +1,15 @@
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    groq_api_key: str = ""
-    gemini_api_key: str = ""
     sarvam_api_key: str = ""
     openweather_api_key: str = ""
     supabase_url: str = ""
     supabase_service_key: str = ""
     app_env: str = "development"
     secret_key: str = "changeme"
+
+    # ─── OpenRouter ─────────────────────────────
+    openrouter_api_key: str = ""
 
     # ─── Tools ──────────────────────────────────
     firecrawl_api_key: str = ""

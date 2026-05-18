@@ -25,7 +25,7 @@ export default function Languages() {
           </h2>
           <div className="divider" />
           <p className="section-sub">
-            Sarvam AI ki taakat se — India ki har major language mein bolein aur sunein.
+            India ki har major bhasha mein bina kisi rukavat ke bolein aur sunein.
           </p>
         </div>
 
@@ -40,13 +40,6 @@ export default function Languages() {
               <span className="langs__speakers">{l.speakers}</span>
             </div>
           ))}
-        </div>
-
-        {/* Powered by badge */}
-        <div className="langs__powered">
-          <span className="langs__powered-text">Powered by</span>
-          <span className="langs__powered-badge">Sarvam AI</span>
-          <span className="langs__powered-text">— India's leading multilingual voice AI</span>
         </div>
       </div>
     </section>

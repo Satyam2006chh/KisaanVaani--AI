@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black"/>
   <img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
   <img src="https://img.shields.io/badge/Sarvam_AI-Voice-ff6b6b?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Groq-LLM-orange?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/OpenRouter-LLM-orange?style=for-the-badge"/>
 </p>
 
 ---
@@ -97,7 +97,7 @@ A **single voice command** gives farmers instant access to:
 │  ┌─────────────┐    ┌──────────────┐    ┌────────────────┐     │
 │  │  Sarvam STT │    │  LangGraph   │    │   Sarvam TTS   │     │
 │  │ (Speech →   │ →  │  AI Agent    │ →  │  (Text →       │     │
-│  │  Text)      │    │  (Groq LLM)  │    │   Speech)      │     │
+│  │  Text)      │    │  (OpenRouter)│    │   Speech)      │     │
 │  └─────────────┘    └──────┬───────┘    └────────────────┘     │
 │                            │                                     │
 │              ┌─────────────┼─────────────┐                      │
@@ -131,7 +131,7 @@ A **single voice command** gives farmers instant access to:
 |-----------|---------|
 | **FastAPI** | REST API Server |
 | **LangGraph** | AI Agent Orchestration |
-| **Groq (Llama 3)** | Large Language Model |
+| **OpenRouter (Cascade)** | Premium Text & Vision Models |
 | **Sarvam AI** | Speech-to-Text & Text-to-Speech |
 | **Open-Meteo** | Weather Forecasts |
 | **data.gov.in** | Mandi Price Data |
@@ -216,7 +216,7 @@ pip install -r requirements.txt
 ### 3️⃣ Configure Environment Variables
 Create `backend/.env`:
 ```env
-GROQ_API_KEY=your_groq_key
+OPENROUTER_API_KEY=your_openrouter_key
 SARVAM_API_KEY=your_sarvam_key
 OPENWEATHER_API_KEY=your_openweather_key
 SUPABASE_URL=your_supabase_url
@@ -269,9 +269,9 @@ graph TD
     
     E -->|Weather| F[🌤️ Open-Meteo API]
     E -->|Mandi Prices| G[📊 data.gov.in API]
-    E -->|Crop Disease| H[📸 Gemini Vision AI]
+    E -->|Crop Disease| H[📸 OpenRouter Vision Cascade]
     E -->|Govt Scheme| I[📜 Firecrawl Scraper]
-    E -->|General| J[💬 Groq LLM]
+    E -->|General| J[💬 OpenRouter Text Cascade]
     
     F --> K[AI Formats Answer]
     G --> K

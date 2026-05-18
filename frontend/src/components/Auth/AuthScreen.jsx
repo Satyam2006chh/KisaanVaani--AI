@@ -235,7 +235,7 @@ export default function AuthScreen() {
                 ) : (
                   <MapPin size={16} />
                 )}
-                <span>{detectingLoc ? 'Location detect ho raha hai...' : '📍 Auto-Detect Location (Google/OSM Maps)'}</span>
+                <span>{detectingLoc ? 'Location detect ho raha hai...' : '🎯 Auto-Detect Location'}</span>
               </button>
 
               <div className="profile-grid">

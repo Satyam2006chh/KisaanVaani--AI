@@ -4,7 +4,7 @@ const stack = [
   { name: 'React',        role: 'Frontend UI',         color: '#61dafb', icon: '⚛️' },
   { name: 'FastAPI',      role: 'Backend Server',       color: '#009688', icon: '⚡' },
   { name: 'LangGraph',    role: 'AI Agent Orchestration',color: '#ff6b35',icon: '🧠' },
-  { name: 'Groq AI',      role: 'LLM (Ultra Fast)',      color: '#f76707', icon: '🚀' },
+  { name: 'OpenRouter AI',  role: 'Premium LLM Cascade',   color: '#f76707', icon: '🚀' },
   { name: 'Sarvam AI',    role: 'Hindi Voice STT + TTS', color: '#22c55e', icon: '🎙️' },
   { name: 'Supabase',     role: 'PostgreSQL Database',   color: '#3ecf8e', icon: '�' },
   { name: 'Open-Meteo',   role: 'Weather API (Free)',    color: '#74c0fc', icon: '🌦️' },

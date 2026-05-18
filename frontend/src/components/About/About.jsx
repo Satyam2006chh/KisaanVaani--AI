@@ -32,37 +32,36 @@ export default function About() {
 
           {/* Left — Text */}
           <div className="about__text">
-            <span className="section-label">The Problem</span>
+            <span className="section-label">Swadeshi AI Vision</span>
             <h2 className="section-title">
-              India ke <span className="highlight">600 Crore Kisaan</span> peeche kyun hain?
+              India ke <span className="highlight">15 Crore Kisaan</span> peeche kyun hain?
             </h2>
             <div className="divider" />
             <p className="section-sub">
-              Sarkaar ne kai yojanaein banaayi hain, lekin jankari tak pahunchna mushkil hai.
-              KisaanVaani is gap ko bharta hai — sirf awaaz se.
+              Sarkaar ne hazaron yojanaein aur resources banaaye hain, lekin digital complexity aur bhasha ki wajah se jankari kisaan tak nahi pahunch paati.
+              KisaanVaani is gap ko khatam karta hai — sirf ek button dabakar, apni bhasha mein baat karke.
             </p>
 
             <div className="about__solution">
               <div className="about__solution-icon">🌾</div>
               <p>
-                <strong>Hamaara solution:</strong> Farmer bolega, AI samjhega, aur bolke jawab dega.
-                Koi typing nahi. Koi English nahi. Pure voice mein.
+                <strong>Tiranga AI Revolution:</strong> Farmer apni boli mein bolega, DeepSeek-R1 aur Claude 3.5 Sonnet use samajhkar sateek live sarkaari data ke saath jawaab denge. Koi mushkil form nahi, koi English seekhne ki zaroorat nahi.
               </p>
             </div>
           </div>
 
-          {/* Right — Problem cards */}
-          <div className="about__cards">
-            {problems.map((p, i) => (
-              <div key={i} className="glass-card about__card">
-                <span className="about__card-icon">{p.icon}</span>
-                <div>
-                  <h3 className="about__card-title">{p.title}</h3>
-                  <p  className="about__card-desc">{p.desc}</p>
-                </div>
+          {/* Right — Premium Illustrated Image Card */}
+          <div className="about__image-container">
+            <div className="about__image-glow-wrapper">
+              <img src={new URL('../../assets/farmer_ai.png', import.meta.url).href} alt="KisaanVaani AI Indian Farmer" className="about__premium-img" />
+              <div className="about__image-overlay-card glass-card">
+                <span className="about__overlay-badge">🇮🇳 Swadeshi AI</span>
+                <h4>Hindustan Ki Boli, AI Ki Shakti</h4>
+                <p>Designed specially to empower the hands that feed India.</p>
               </div>
-            ))}
+            </div>
           </div>
+
         </div>
       </div>
     </section>

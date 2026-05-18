@@ -423,6 +423,40 @@ export default function Hero() {
           </div>
         </div>
       </div>
+
+      {/* Floating Decorative Badges (Desktop Only) */}
+      <div className="floating-badge badge-left-top glass-card">
+        <span className="badge-icon">🌦️</span>
+        <div className="badge-text">
+          <span className="badge-title">Mausam Alert</span>
+          <span className="badge-status">Delhi NCR • Safe</span>
+        </div>
+      </div>
+
+      <div className="floating-badge badge-left-bottom glass-card">
+        <span className="badge-icon">🌾</span>
+        <div className="badge-text">
+          <span className="badge-title">Live Mandi Bhav</span>
+          <span className="badge-status">Gehu: ₹2,400/Q</span>
+        </div>
+      </div>
+
+      <div className="floating-badge badge-right-top glass-card">
+        <span className="badge-icon">🛡️</span>
+        <div className="badge-text">
+          <span className="badge-title">Crop Diagnosis</span>
+          <span className="badge-status">100% Secure</span>
+        </div>
+      </div>
+
+      <div className="floating-badge badge-right-bottom glass-card">
+        <span className="badge-icon">🤖</span>
+        <div className="badge-text">
+          <span className="badge-title">Sarvam Voice AI</span>
+          <span className="badge-status">250ms Response</span>
+        </div>
+      </div>
+
     </div>
   )
 }

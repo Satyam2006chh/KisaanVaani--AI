@@ -1,4 +1,4 @@
-/* Auth Screen Premium Aesthetics - Premium Harvest Theme */
+/* Auth Screen Premium Aesthetics - Royal Tiranga Dark Ashok Navy Theme */
 
 .auth-screen {
   min-height: 100vh;
@@ -8,12 +8,11 @@
   justify-content: center;
   padding: 60px 20px;
   position: relative;
-  background-color: var(--bg-deep);
-  /* Nature-Driven immersive gradients */
+  background-color: var(--bg-primary);
+  /* Gentle Tiranga Ambient Corner Glows */
   background-image: 
-    radial-gradient(circle at 10% 10%, hsla(160, 84%, 15%, 0.4) 0%, transparent 40%),
-    radial-gradient(circle at 90% 90%, hsla(38, 92%, 10%, 0.3) 0%, transparent 40%),
-    linear-gradient(to bottom, rgba(0,0,0,0.4), transparent);
+    radial-gradient(circle at 10% 10%, rgba(255, 103, 31, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 90% 90%, rgba(4, 106, 56, 0.15) 0%, transparent 45%);
 }
 
 .auth-container {
@@ -24,7 +23,7 @@
 
 .auth-header {
   text-align: center;
-  margin-bottom: 60px;
+  margin-bottom: 50px;
   animation: slideDown 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -33,6 +32,7 @@
   margin-bottom: 12px;
   font-weight: 800;
   letter-spacing: -0.05em;
+  color: var(--text-main);
 }
 
 .auth-tagline {
@@ -74,9 +74,9 @@
 }
 
 .auth-step.done {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: hsla(160, 84%, 39%, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.15);
 }
 
 .auth-step-line {
@@ -90,6 +90,9 @@
 .auth-card {
   padding: 40px 40px 48px 40px;
   border: var(--border-glass);
+  background: rgba(9, 12, 36, 0.8);
+  backdrop-filter: blur(30px);
+  border-radius: var(--radius-lg);
   box-shadow: 0 50px 100px -20px rgba(0,0,0,0.7);
   overflow: hidden;
 }
@@ -100,6 +103,7 @@
   text-align: center;
   font-weight: 700;
   letter-spacing: -0.03em;
+  color: var(--text-main);
 }
 
 .auth-subtitle {
@@ -135,7 +139,7 @@ input[type="tel"], input[type="text"], select {
   border-radius: 18px;
   color: white;
   font-size: 1.15rem;
-  font-family: var(--font-main);
+  font-family: var(--font-body);
   transition: var(--transition);
 }
 
@@ -195,34 +199,36 @@ input:focus {
 
 .lang-chip.active {
   border-color: var(--primary);
-  background: hsla(160, 84%, 39%, 0.15);
+  background: rgba(255, 103, 31, 0.15);
   color: var(--primary);
-  box-shadow: inset 0 0 12px hsla(160, 84%, 39%, 0.1);
+  box-shadow: inset 0 0 12px rgba(255, 103, 31, 0.1);
 }
 
 /* Location Detect Button styling */
 .btn-location-detect {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 100%;
-  padding: 12px 18px;
-  background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 14px;
-  color: #a78bfa;
+  width: auto;
+  margin: 0 auto 24px;
+  padding: 8px 20px;
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border-radius: var(--radius-full);
+  color: var(--accent);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   cursor: pointer;
   transition: var(--transition);
-  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.1);
 }
 
 .btn-location-detect:hover:not(:disabled) {
-  background: rgba(139, 92, 246, 0.16);
-  border-color: var(--primary);
-  transform: translateY(-1px);
+  background: rgba(var(--accent-rgb), 0.16);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(var(--accent-rgb), 0.2);
 }
 
 .btn-location-detect:disabled {
@@ -238,15 +244,15 @@ input:focus {
   text-align: center;
   margin-top: 32px;
   padding: 10px 24px;
-  background: hsla(38, 92%, 50%, 0.1);
+  background: rgba(255, 103, 31, 0.1);
   border-radius: 50px;
-  color: var(--accent);
+  color: var(--primary);
   display: inline-block;
   margin-left: 50%;
   transform: translateX(-50%);
   font-weight: 700;
   font-size: 0.9rem;
-  border: 1px solid hsla(38, 92%, 50%, 0.2);
+  border: 1px solid rgba(255, 103, 31, 0.2);
 }
 
 .btn-link {

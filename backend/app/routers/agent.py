@@ -49,8 +49,8 @@ async def mandis_nearby(payload: dict):
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    if not settings.groq_api_key:
-        raise HTTPException(status_code=500, detail="Groq API key not configured")
+    if not settings.openrouter_api_key:
+        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
 
     sb = get_supabase()
     res = sb.table("users").select("*").eq("phone", req.farmer_id).execute()
