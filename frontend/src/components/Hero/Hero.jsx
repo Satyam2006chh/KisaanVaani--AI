@@ -542,32 +542,83 @@ function getVoiceSummary(text, lang) {
   return summary.trim() || text.substring(0, 200) + "...";
 }
 
-// Helper to split a long text into clean sentence chunks under 250 characters for sequential TTS playback
+// Helper to split a long text into clean sentence & clause chunks under 120 characters for sequential TTS playback
 function splitTextIntoChunks(text, lang) {
   if (!text) return [];
   
   // Clean markdown syntax (*, #, _, -) so TTS reads it perfectly smoothly without speaking punctuation
-  const cleanText = text.replace(/[\*\#\-\_]/g, " ").replace(/\s+/g, " ").trim();
+  const cleanText = text.replace(/[\*\#\-\_\:]/g, " ").replace(/\s+/g, " ").trim();
   
-  // Split by sentence delimiters: '।' (Hindi/Punjabi/Odia/Assamese) or '.' (English/others)
-  const delimiter = (lang === 'hi-IN' || lang === 'pa-IN' || lang === 'bn-IN') ? '।' : '.';
-  const sentences = cleanText.split(delimiter);
+  // Split by primary sentence delimiters: '।' (Hindi/Punjabi/Odia/Assamese/Bengali) or '.' or '?' or '!'
+  const sentences = cleanText.split(/([।\.\?\!])/g);
   
-  const chunks = [];
-  let currentChunk = "";
-  
-  for (let s of sentences) {
-    const cleaned = s.trim();
-    if (!cleaned) continue;
-    
-    if ((currentChunk + cleaned).length < 200) {
-      currentChunk += (currentChunk ? " " : "") + cleaned + delimiter;
-    } else {
-      if (currentChunk) chunks.push(currentChunk.trim());
-      currentChunk = cleaned + delimiter;
+  const rawSentences = [];
+  for (let i = 0; i < sentences.length; i += 2) {
+    const s = sentences[i]?.trim();
+    const delim = sentences[i+1] || "";
+    if (s) {
+      rawSentences.push(s + delim);
     }
   }
   
+  const finalSegments = [];
+  
+  // Further split any raw sentence that is too long (>= 120 chars) to prevent TTS latency spikes
+  for (let sentence of rawSentences) {
+    if (sentence.length < 120) {
+      finalSegments.push(sentence);
+    } else {
+      // Split by clause punctuation (commas, semicolons, dashes)
+      const clauses = sentence.split(/([\,\;\，\、])/g);
+      let currentSubChunk = "";
+      
+      for (let j = 0; j < clauses.length; j += 2) {
+        const clause = clauses[j]?.trim();
+        const punct = clauses[j+1] || "";
+        if (!clause) continue;
+        
+        const fullClause = clause + punct;
+        if ((currentSubChunk + fullClause).length < 120) {
+          currentSubChunk += (currentSubChunk ? " " : "") + fullClause;
+        } else {
+          if (currentSubChunk) finalSegments.push(currentSubChunk.trim());
+          
+          // If a single clause is still too long, split by spaces
+          if (fullClause.length >= 120) {
+            const words = fullClause.split(/\s+/);
+            let wordChunk = "";
+            for (let word of words) {
+              if ((wordChunk + word).length < 100) {
+                wordChunk += (wordChunk ? " " : "") + word;
+              } else {
+                if (wordChunk) finalSegments.push(wordChunk.trim());
+                wordChunk = word;
+              }
+            }
+            currentSubChunk = wordChunk;
+          } else {
+            currentSubChunk = fullClause;
+          }
+        }
+      }
+      if (currentSubChunk) {
+        finalSegments.push(currentSubChunk.trim());
+      }
+    }
+  }
+  
+  // Group small segments together so they aren't TOO short (keep chunks between 40 and 120 chars)
+  const chunks = [];
+  let currentChunk = "";
+  
+  for (let segment of finalSegments) {
+    if ((currentChunk + segment).length < 120) {
+      currentChunk += (currentChunk ? " " : "") + segment;
+    } else {
+      if (currentChunk) chunks.push(currentChunk.trim());
+      currentChunk = segment;
+    }
+  }
   if (currentChunk) {
     chunks.push(currentChunk.trim());
   }
