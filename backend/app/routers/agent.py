@@ -64,9 +64,13 @@ async def chat(req: ChatRequest):
             
         return ChatResponse(response=fallback_msg, session_id=req.session_id, tool_used="fallback")
 
-    sb = get_supabase()
-    res = sb.table("users").select("*").eq("phone", req.farmer_id).execute()
-    user = res.data[0] if res.data else None
+    user = None
+    try:
+        sb = get_supabase()
+        res = sb.table("users").select("*").eq("phone", req.farmer_id).execute()
+        user = res.data[0] if res.data else None
+    except Exception as db_err:
+        logger.warning(f"Supabase connection/fetch failed (falling back to guest defaults): {db_err}")
 
     district   = user.get("district", "") if user else ""
     state_name = user.get("state", "")    if user else ""
