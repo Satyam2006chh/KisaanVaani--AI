@@ -24,13 +24,16 @@ function AppContent() {
     )
   }
 
+  if (showSplash) {
+    return <WelcomeSplash onEnter={() => setShowSplash(false)} />
+  }
+
   if (!isAuthenticated) {
     return <AuthScreen />
   }
 
   return (
     <div className="app">
-      {showSplash && <WelcomeSplash onEnter={() => setShowSplash(false)} />}
       <Navbar />
       <main>
         <Hero />

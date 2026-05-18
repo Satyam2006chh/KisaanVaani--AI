@@ -10,14 +10,8 @@
   justify-content: center;
   z-index: 99999;
   opacity: 1;
-  transition: opacity 1.2s cubic-bezier(0.25, 1, 0.5, 1), transform 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: opacity 1.2s cubic-bezier(0.25, 1, 0.5, 1);
   overflow: hidden;
-}
-
-.welcome-splash-overlay.fade-out {
-  opacity: 0;
-  transform: scale(1.05);
-  pointer-events: none;
 }
 
 .welcome-splash-container {
@@ -121,10 +115,8 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 1.5rem 2rem;
   border-radius: 16px;
-  margin-bottom: 3rem;
+  margin-bottom: 2.5rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  transform: translateY(0);
-  transition: transform 0.4s ease;
 }
 
 .dedication-text {
@@ -135,43 +127,29 @@
   margin: 0;
 }
 
-/* 🚜 Pulsing Button */
-.enter-btn {
-  background: linear-gradient(135deg, #e3a834 0%, #b87b14 100%);
-  border: none;
-  padding: 1.2rem 3rem;
-  border-radius: 50px;
-  color: #070c06;
-  font-size: 1.25rem;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 0 30px rgba(227, 168, 52, 0.4), 0 5px 15px rgba(0,0,0,0.3);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  position: relative;
-  overflow: hidden;
-}
-
-.enter-btn:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 0 45px rgba(227, 168, 52, 0.7);
-}
-
-.enter-btn:active {
-  transform: translateY(1px);
-}
-
-.enter-btn.entering {
-  background: #111e0e;
-  border: 1px solid rgba(227, 168, 52, 0.3);
-  color: #e3a834;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.btn-spinner {
+/* 🌾 Elegant Loading/Connecting Indicator */
+.splash-loading-indicator {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding: 0.5rem 1.5rem;
+  border-radius: 30px;
+  background: rgba(227, 168, 52, 0.05);
+  border: 1px solid rgba(227, 168, 52, 0.15);
+}
+
+.sparkle-grain {
+  font-size: 1.25rem;
+  animation: rotate-grain 2s infinite ease-in-out;
+}
+
+.indicator-label {
+  font-size: 0.95rem;
+  color: #e3a834;
+  font-weight: 600;
+  letter-spacing: 1px;
   animation: pulse-glow 1.5s infinite alternate;
 }
 
@@ -189,4 +167,9 @@
 @keyframes pulse-glow {
   0% { opacity: 0.6; }
   100% { opacity: 1; text-shadow: 0 0 10px rgba(227, 168, 52, 0.6); }
+}
+
+@keyframes rotate-grain {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.2) rotate(180deg); }
 }

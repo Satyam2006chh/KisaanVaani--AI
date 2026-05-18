@@ -1,51 +1,62 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { speakText } from '../../api'
 import './WelcomeSplash.css'
 
 export default function WelcomeSplash({ onEnter }) {
-  const [isEntering, setIsEntering] = useState(false)
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false)
+  const [welcomeAudio, setWelcomeAudio] = useState(null)
 
-  const handleStart = async () => {
-    if (isEntering) return
-    setIsEntering(true)
-    setIsPlayingAudio(true)
-
-    // A beautiful, highly emotional welcoming line for Indian farmers
+  useEffect(() => {
+    // 1. A beautiful, highly emotional welcoming line for Indian farmers
     const welcomeText = "नमस्ते किसान भाई! किसानवाणी में आपका स्वागत है। देश के अन्नदाता, हमारी शान, आपके हर सवाल का जवाब अब आपकी अपनी आवाज़ में। चलिए मिलकर कृषि का नया अध्याय लिखते हैं!"
+    let activeAudio = null
+    let audioUrl = ""
 
-    try {
-      // Dynamically generate the welcome audio via our Sarvam AI TTS endpoint!
-      const audioUrl = await speakText(welcomeText, 'hi-IN')
-      const audio = new Audio(audioUrl)
-      
-      audio.onended = () => {
-        setIsPlayingAudio(false)
-        URL.revokeObjectURL(audioUrl)
-        onEnter() // Fade out splash screen after audio finishes or is well into play
+    // 2. We request the welcoming audio and attempt to play it automatically
+    speakText(welcomeText, 'hi-IN').then(url => {
+      audioUrl = url
+      activeAudio = new Audio(url)
+      setWelcomeAudio(activeAudio)
+
+      // Try autoplaying the welcome voice.
+      // If the browser blocks autoplay without click, it will fail silently in catch()
+      // but the logo animation will still play beautifully for the duration of the splash!
+      activeAudio.play()
+        .then(() => {
+          console.log('[Splash] Welcome voice playing successfully')
+        })
+        .catch(err => {
+          console.warn('[Splash] Autoplay blocked by browser policy, continuing visually:', err)
+        })
+    }).catch(err => {
+      console.warn('[Splash] Voice generation failed:', err)
+    })
+
+    // 3. Automatic transition after 4.2 seconds (allowing the stunning logo animation to shine)
+    const transitionTimer = setTimeout(() => {
+      // Clean up audio references
+      if (activeAudio) {
+        try { activeAudio.pause() } catch (e) {}
       }
-
-      audio.onerror = () => {
-        console.warn('[Splash] Audio play failed, transitioning immediately')
-        URL.revokeObjectURL(audioUrl)
-        onEnter()
+      if (audioUrl) {
+        try { URL.revokeObjectURL(audioUrl) } catch (e) {}
       }
-
-      await audio.play()
-      
-      // We start fading out the overlay 2 seconds into the gorgeous voice to make the transition super slick!
-      setTimeout(() => {
-        onEnter()
-      }, 3500)
-
-    } catch (err) {
-      console.warn('[Splash] Voice generation failed, skipping audio:', err)
       onEnter()
+    }, 4200)
+
+    // Cleanup on unmount
+    return () => {
+      clearTimeout(transitionTimer)
+      if (activeAudio) {
+        try { activeAudio.pause() } catch (e) {}
+      }
+      if (audioUrl) {
+        try { URL.revokeObjectURL(audioUrl) } catch (e) {}
+      }
     }
-  }
+  }, [onEnter])
 
   return (
-    <div className={`welcome-splash-overlay ${isEntering ? 'fade-out' : ''}`}>
+    <div className="welcome-splash-overlay">
       <div className="welcome-splash-container">
         {/* Animated glowing video-style golden logo */}
         <div className="logo-animation-wrapper">
@@ -66,17 +77,10 @@ export default function WelcomeSplash({ onEnter }) {
           </p>
         </div>
 
-        <button 
-          className={`enter-btn ${isEntering ? 'entering' : ''}`}
-          onClick={handleStart}
-          disabled={isEntering}
-        >
-          {isEntering ? (
-            <span className="btn-spinner">🌽 स्वागत हो रहा है...</span>
-          ) : (
-            <span className="btn-content">🚜 प्रवेश करें / Enter Portal</span>
-          )}
-        </button>
+        <div className="splash-loading-indicator">
+          <span className="sparkle-grain">🌾</span>
+          <span className="indicator-label">लोड हो रहा है... / Connecting...</span>
+        </div>
       </div>
     </div>
   )
