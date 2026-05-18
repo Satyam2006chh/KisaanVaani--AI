@@ -28,18 +28,35 @@ export function AuthProvider({ children }) {
     console.log('[AuthContext] Pre-warming backend...')
     axios.get(`${API_BASE_URL}/health`).catch(() => {})
 
-    // 2. Check for existing session
+    // 2. Check for existing session with absolute 30-day token expiration
     const token = localStorage.getItem('token')
     const saved = localStorage.getItem('user')
-    console.log('[AuthContext] Initializing:', { hasToken: !!token, hasSavedUser: !!saved })
+    const loginTime = localStorage.getItem('login_time')
+    console.log('[AuthContext] Initializing:', { hasToken: !!token, hasSavedUser: !!saved, hasLoginTime: !!loginTime })
+    
     if (token && saved) {
-      try { 
-        const parsed = JSON.parse(saved)
-        console.log('[AuthContext] Restoring user:', parsed.name)
-        setUser(parsed) 
-      } catch (e) { 
-        console.error('[AuthContext] Restore failed:', e)
-        localStorage.clear() 
+      // Enforce absolute security timeout: 30 days
+      const maxAge = 30 * 24 * 60 * 60 * 1000 // 30 days in ms
+      const isExpired = !loginTime || (Date.now() - parseInt(loginTime, 10) > maxAge)
+      
+      if (isExpired) {
+        console.warn('[AuthContext] Session expired (older than 30 days or missing timestamp). Logging out.')
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        localStorage.removeItem('login_time')
+        setUser(null)
+      } else {
+        try { 
+          const parsed = JSON.parse(saved)
+          console.log('[AuthContext] Restoring user:', parsed.name)
+          setUser(parsed) 
+        } catch (e) { 
+          console.error('[AuthContext] Restore failed:', e)
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          localStorage.removeItem('login_time')
+          setUser(null)
+        }
       }
     }
     setLoading(false)
@@ -74,6 +91,7 @@ export function AuthProvider({ children }) {
       console.log('[AuthContext] Verify Response:', data)
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('user',  JSON.stringify(data.user))
+      localStorage.setItem('login_time', Date.now().toString())
       setUser(data.user)
       return data.user
     } catch (err) {
@@ -103,6 +121,7 @@ export function AuthProvider({ children }) {
         }
         localStorage.setItem('token', 'fallback_token_123456')
         localStorage.setItem('user',  JSON.stringify(fallbackUser))
+        localStorage.setItem('login_time', Date.now().toString())
         setUser(fallbackUser)
         return fallbackUser
       }
@@ -114,6 +133,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('login_time')
     setUser(null)
   }
 

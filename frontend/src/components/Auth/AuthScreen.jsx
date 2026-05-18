@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Building2, Languages, Loader, Lock, MapPin, Phone, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import './AuthScreen.css'
@@ -29,6 +29,71 @@ export default function AuthScreen() {
   const [district, setDistrict] = useState('')
   const [state,    setState]    = useState('')
   const [language, setLanguage] = useState('hi-IN')
+  const [detectingLoc, setDetectingLoc] = useState(false)
+
+  const autoDetectLocation = () => {
+    if (!navigator.geolocation) {
+      console.warn('[AuthScreen] Geolocation not supported')
+      return
+    }
+    setDetectingLoc(true)
+    setError('')
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords
+        console.log('[AuthScreen] Geolocation coordinates:', latitude, longitude)
+        
+        try {
+          // Query free OpenStreetMap Nominatim Reverse Geocoding API
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`
+          )
+          if (!response.ok) throw new Error('Location reverse lookup failed')
+          const data = await response.json()
+          console.log('[AuthScreen] Reverse geocoding result:', data)
+          
+          const addr = data.address || {}
+          
+          // Match State to Indian States
+          const rawState = addr.state || ''
+          const matchedState = STATES.find(
+            s => s.toLowerCase() === rawState.toLowerCase()
+          ) || rawState
+          
+          // Match District (County or District field in address)
+          const rawDistrict = addr.county || addr.district || addr.state_district || addr.city_district || ''
+          const cleanDistrict = rawDistrict.replace(/\b(District|Zila)\b/gi, '').trim()
+          
+          // Match Village or City name
+          const cityName = addr.city || addr.town || addr.village || addr.suburb || addr.hamlet || cleanDistrict || ''
+          
+          if (matchedState) setState(matchedState)
+          if (cleanDistrict) setDistrict(cleanDistrict)
+          if (cityName) setCity(cityName)
+          
+          console.log('[AuthScreen] Auto-detected details:', { city: cityName, district: cleanDistrict, state: matchedState })
+        } catch (err) {
+          console.error('[AuthScreen] Geocoding failure:', err)
+          setError('Location auto-detect failed. Please type manually.')
+        } finally {
+          setDetectingLoc(false)
+        }
+      },
+      (geoErr) => {
+        console.warn('[AuthScreen] Geolocation prompt error/denied:', geoErr.message)
+        setDetectingLoc(false)
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    )
+  }
+
+  useEffect(() => {
+    if (step === STEP.PROFILE) {
+      console.log('[AuthScreen] Step 3 reached. Running geolocation search...')
+      autoDetectLocation()
+    }
+  }, [step])
 
   const err = (msg) => { setError(msg); setLoading(false) }
 
@@ -158,6 +223,20 @@ export default function AuthScreen() {
             <form onSubmit={handleProfile} className="auth-form animate-reveal">
               <h2>Apni <span className="highlight">Pehchaan</span></h2>
               <p className="auth-subtitle">Taki AI aapko aur aapke khet ko samajh sake</p>
+
+              <button
+                type="button"
+                className="btn-location-detect"
+                onClick={autoDetectLocation}
+                disabled={detectingLoc}
+              >
+                {detectingLoc ? (
+                  <Loader size={16} className="spin animate-spin" />
+                ) : (
+                  <MapPin size={16} />
+                )}
+                <span>{detectingLoc ? 'Location detect ho raha hai...' : '📍 Auto-Detect Location (Google/OSM Maps)'}</span>
+              </button>
 
               <div className="profile-grid">
                 <div className="input-field">
