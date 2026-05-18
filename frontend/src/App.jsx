@@ -1,3 +1,4 @@
+import React, { useState } from 'react'
 import './App.css'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Navbar from './components/Navbar/Navbar'
@@ -9,9 +10,11 @@ import Languages from './components/Languages/Languages'
 import Quotes from './components/Quotes/Quotes'
 import Footer from './components/Footer/Footer'
 import AuthScreen from './components/Auth/AuthScreen'
+import WelcomeSplash from './components/Splash/WelcomeSplash'
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth()
+  const [showSplash, setShowSplash] = useState(true)
 
   if (loading) {
     return (
@@ -27,6 +30,7 @@ function AppContent() {
 
   return (
     <div className="app">
+      {showSplash && <WelcomeSplash onEnter={() => setShowSplash(false)} />}
       <Navbar />
       <main>
         <Hero />

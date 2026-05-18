@@ -1,0 +1,192 @@
+.welcome-splash-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at center, #111e0e 0%, #070c06 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  opacity: 1;
+  transition: opacity 1.2s cubic-bezier(0.25, 1, 0.5, 1), transform 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+  overflow: hidden;
+}
+
+.welcome-splash-overlay.fade-out {
+  opacity: 0;
+  transform: scale(1.05);
+  pointer-events: none;
+}
+
+.welcome-splash-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2.5rem;
+  max-width: 520px;
+  width: 90%;
+  position: relative;
+}
+
+/* 🌀 Premium Glowing & Orbiting Ring Logo Wrapper */
+.logo-animation-wrapper {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.glowing-logo-core {
+  width: 80px;
+  height: 80px;
+  background: radial-gradient(circle, #e3a834 0%, #b87b14 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 40px rgba(227, 168, 52, 0.6), inset 0 0 15px rgba(255, 255, 255, 0.4);
+  z-index: 10;
+  animation: pulse-core 3s infinite ease-in-out;
+}
+
+.logo-emoji {
+  font-size: 3.2rem;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.3));
+}
+
+.logo-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(227, 168, 52, 0.25);
+  animation: spin-ring 12s linear infinite;
+}
+
+.ring-1 {
+  width: 110px;
+  height: 110px;
+  border-top: 2px solid #e3a834;
+  animation-duration: 6s;
+}
+
+.ring-2 {
+  width: 135px;
+  height: 135px;
+  border-bottom: 2px solid #e3a834;
+  animation-duration: 9s;
+  animation-direction: reverse;
+}
+
+.ring-3 {
+  width: 160px;
+  height: 160px;
+  border-left: 2px dashed rgba(227, 168, 52, 0.6);
+  animation-duration: 15s;
+}
+
+/* 🏷️ Typography */
+.splash-title {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 3.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff 30%, #e3a834 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+  letter-spacing: 2px;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+}
+
+.splash-subtitle {
+  font-size: 1.15rem;
+  color: #a8bfa5;
+  margin-top: 0.5rem;
+  margin-bottom: 2.5rem;
+  font-weight: 500;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+/* 📜 Dedication Card */
+.dedication-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.5rem 2rem;
+  border-radius: 16px;
+  margin-bottom: 3rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  transform: translateY(0);
+  transition: transform 0.4s ease;
+}
+
+.dedication-text {
+  font-size: 1.05rem;
+  color: #d1dfd0;
+  line-height: 1.6;
+  font-style: italic;
+  margin: 0;
+}
+
+/* 🚜 Pulsing Button */
+.enter-btn {
+  background: linear-gradient(135deg, #e3a834 0%, #b87b14 100%);
+  border: none;
+  padding: 1.2rem 3rem;
+  border-radius: 50px;
+  color: #070c06;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(227, 168, 52, 0.4), 0 5px 15px rgba(0,0,0,0.3);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+}
+
+.enter-btn:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 0 45px rgba(227, 168, 52, 0.7);
+}
+
+.enter-btn:active {
+  transform: translateY(1px);
+}
+
+.enter-btn.entering {
+  background: #111e0e;
+  border: 1px solid rgba(227, 168, 52, 0.3);
+  color: #e3a834;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-spinner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: pulse-glow 1.5s infinite alternate;
+}
+
+/* 🔄 Animations */
+@keyframes spin-ring {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse-core {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(227, 168, 52, 0.6); }
+  50% { transform: scale(1.05); box-shadow: 0 0 60px rgba(227, 168, 52, 0.9); }
+}
+
+@keyframes pulse-glow {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; text-shadow: 0 0 10px rgba(227, 168, 52, 0.6); }
+}
