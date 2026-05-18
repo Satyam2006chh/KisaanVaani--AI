@@ -41,11 +41,10 @@ class AgentState(TypedDict):
     original_message: str   # Raw user message in their language (for follow-up detection)
 
 
-# ── Fallback Pipelines ────────────────────────────────────────────────────────
 TEXT_MODELS = [
-    "deepseek/deepseek-r1",                # 1. Reasoning Model (extremely powerful & cheap)
-    "google/gemini-2.5-flash",             # 2. Fast and stable conversational model
-    "google/gemini-2.5-flash:free",        # 3. 100% Free Gemini text model
+    "google/gemini-2.5-flash",             # 1. Fast and stable conversational model (extremely fast)
+    "google/gemini-2.5-flash:free",        # 2. 100% Free Gemini text model
+    "deepseek/deepseek-r1",                # 3. Reasoning Model (fallback when Gemini is busy)
     "anthropic/claude-3.5-sonnet",         # 4. Premium precision
     "meta-llama/llama-3.3-70b-instruct:free" # 5. 100% Free high-end conversational model
 ]
