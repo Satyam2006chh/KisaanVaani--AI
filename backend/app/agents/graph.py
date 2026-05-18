@@ -43,15 +43,19 @@ class AgentState(TypedDict):
 
 # ── Fallback Pipelines ────────────────────────────────────────────────────────
 TEXT_MODELS = [
-    "deepseek/deepseek-r1",                # 1. Reasoning Model
-    "anthropic/claude-3.5-sonnet",         # 2. Conversational Model
-    "openai/gpt-4o"                        # 3. High-Stability Speed Model
+    "deepseek/deepseek-r1",                # 1. Reasoning Model (extremely powerful & cheap)
+    "google/gemini-2.5-flash",             # 2. Fast and stable conversational model
+    "google/gemini-2.5-flash:free",        # 3. 100% Free Gemini text model
+    "anthropic/claude-3.5-sonnet",         # 4. Premium precision
+    "meta-llama/llama-3.3-70b-instruct:free" # 5. 100% Free high-end conversational model
 ]
 
 VISION_MODELS = [
-    "anthropic/claude-3.5-sonnet",         # 1. Surgical Precision Vision
-    "openai/gpt-4o",                       # 2. Ultra-Fast Multimodal Vision
-    "google/gemini-2.5-pro"                # 3. Native Multimodal Vision
+    "google/gemini-2.5-flash",             # Extremely fast, highly accurate, and very cost-effective
+    "google/gemini-2.5-flash:free",        # 100% Free Gemini fallback vision
+    "anthropic/claude-3.5-sonnet",         # Premium high precision
+    "openai/gpt-4o",                       # Premium high stability
+    "meta-llama/llama-3.2-11b-vision-instruct:free" # 100% Free Llama fallback vision
 ]
 
 
