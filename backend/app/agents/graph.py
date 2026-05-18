@@ -495,21 +495,49 @@ async def llm_node(state: AgentState) -> AgentState:
     
     if state["image_data"]:
         # Vision Path - ULTRA EXPERT SCIENTIST MODE
-        prompt = (
-            f"SYSTEM ROLE: You are a world-renowned Senior Agri-Scientist and Expert Plant Pathologist. "
-            f"The farmer ({state['farmer_name']}) has sent a photo and asked: '{user_msg}'.\n\n"
-            "TASK: Analyze this image and generate a professional, high-precision 'SCIENTIFIC CROP HEALTH REPORT'.\n"
-            "IMPORTANT: Your identification must be 100% accurate. Do not be generic. Use scientific names.\n\n"
-            f"REPORT CONTENT (Strictly follow this structure in {lang_name}):\n"
-            "1. IDENTIFICATION: Common Name & *Scientific Name* (Italicized).\n"
-            "2. THE CAUSE (WHY IT HAPPENED): Explain the root cause. Did it come from soil? High humidity? Poor ventilation? Nutrient deficiency? Explain scientifically but clearly.\n"
-            "3. THE SPREAD (LIFECYCLE): How does this disease spread? (e.g., wind-borne spores, water-splash, or pests like Thrips/Aphids).\n"
-            "4. KEY SYMPTOMS: List 3 specific indicators visible in the photo that confirm your diagnosis.\n"
-            "5. TREATMENT (IMMEDIATE): Recommend 2 effective chemical treatments with exact dosages (e.g., grams per liter).\n"
-            "6. ORGANIC CURE: Provide 1-2 reliable organic or home-made solutions (e.g., Neem, Trichoderma).\n"
-            "7. LONG-TERM PREVENTION: 3 practical steps to ensure this never happens again (e.g., Crop rotation, Soil solarization).\n\n"
-            f"Tone: Authoritative, Professional, and Caring. Final output language must be only {lang_name}."
+        
+        # Smart detection: Did the farmer explicitly ask to EXCLUDE solutions/treatments?
+        msg_lower = (user_msg + " " + state.get("original_message", "")).lower()
+        exclude_solutions = any(
+            w in msg_lower 
+            for w in [
+                "solution na", "solution mat", "solution nahi", "solution nahi chahiye",
+                "ilaaj mat", "ilaaj na", "ilaaj nahi", "treatment mat", "treatment na", 
+                "only problem", "problem kya hai", "only disease", "no treatment", "no solution",
+                "sirf bimari", "sirf problem"
+            ]
         )
+        
+        if exclude_solutions:
+            prompt = (
+                f"SYSTEM ROLE: You are a world-renowned Senior Agri-Scientist and Expert Plant Pathologist. "
+                f"The farmer ({state['farmer_name']}) has sent a photo and asked: '{user_msg}'.\n"
+                f"CRITICAL REQUIREMENT: The farmer has explicitly requested to ONLY identify the disease/problem and NOT include any treatment, solutions, chemical or organic cures, or prevention steps. Respect this completely.\n\n"
+                "TASK: Analyze this image and generate a professional, high-precision 'SCIENTIFIC CROP HEALTH REPORT'.\n"
+                "IMPORTANT: Your identification must be 100% accurate. Do not be generic. Use scientific names.\n\n"
+                f"REPORT CONTENT (Strictly follow this structure in {lang_name}):\n"
+                "1. IDENTIFICATION: Common Name & *Scientific Name* (Italicized).\n"
+                "2. THE CAUSE (WHY IT HAPPENED): Explain the root cause. Did it come from soil? High humidity? Poor ventilation? Nutrient deficiency?\n"
+                "3. THE SPREAD (LIFECYCLE): How does this disease spread?\n"
+                "4. KEY SYMPTOMS: List 3 specific indicators visible in the photo that confirm your diagnosis.\n\n"
+                f"Tone: Authoritative, Professional, and Caring. Final output language must be only {lang_name}."
+            )
+        else:
+            prompt = (
+                f"SYSTEM ROLE: You are a world-renowned Senior Agri-Scientist and Expert Plant Pathologist. "
+                f"The farmer ({state['farmer_name']}) has sent a photo and asked: '{user_msg}'.\n\n"
+                "TASK: Analyze this image and generate a professional, high-precision 'SCIENTIFIC CROP HEALTH REPORT'.\n"
+                "IMPORTANT: Your identification must be 100% accurate. Do not be generic. Use scientific names.\n\n"
+                f"REPORT CONTENT (Strictly follow this structure in {lang_name}):\n"
+                "1. IDENTIFICATION: Common Name & *Scientific Name* (Italicized).\n"
+                "2. THE CAUSE (WHY IT HAPPENED): Explain the root cause. Did it come from soil? High humidity? Poor ventilation? Nutrient deficiency? Explain scientifically but clearly.\n"
+                "3. THE SPREAD (LIFECYCLE): How does this disease spread? (e.g., wind-borne spores, water-splash, or pests like Thrips/Aphids).\n"
+                "4. KEY SYMPTOMS: List 3 specific indicators visible in the photo that confirm your diagnosis.\n"
+                "5. TREATMENT (IMMEDIATE): Recommend 2 effective chemical treatments with exact dosages (e.g., grams per liter).\n"
+                "6. ORGANIC CURE: Provide 1-2 reliable organic or home-made solutions (e.g., Neem, Trichoderma).\n"
+                "7. LONG-TERM PREVENTION: 3 practical steps to ensure this never happens again (e.g., Crop rotation, Soil solarization).\n\n"
+                f"Tone: Authoritative, Professional, and Caring. Final output language must be only {lang_name}."
+            )
         # Call vision with specific prompt
         result = await _call_openrouter_vision(prompt, state["image_data"])
     else:

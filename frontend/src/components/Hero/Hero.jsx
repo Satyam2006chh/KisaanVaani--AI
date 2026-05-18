@@ -48,6 +48,7 @@ export default function Hero() {
   const chatEndRef       = useRef(null)
   const audioRef         = useRef(new Audio()) 
   const queueActiveRef   = useRef(false) 
+  const prefetchedUrls   = useRef({}) 
 
   // Clean up audio on unmount
   useEffect(() => {
@@ -244,6 +245,7 @@ export default function Hero() {
       // Step 3: TTS — speak in selected language (split into sequential audio chunks to speak long responses flawlessly)
       try {
         const chunks = splitTextIntoChunks(aiText, selectedLang)
+        prefetchedUrls.current = {} // Clear any old prefetch URLs
         if (chunks.length > 0) {
           queueActiveRef.current = true
           playAudioQueue(chunks, 0)
@@ -273,15 +275,28 @@ export default function Hero() {
     try {
       setStatus(S.SPEAKING)
       const chunkText = chunks[index]
-      console.log(`[Audio Queue] Speaking chunk ${index + 1}/${chunks.length}: "${chunkText.substring(0, 40)}..."`)
       
-      const audioUrl = await speakText(chunkText, selectedLang)
+      // Use prefetched URL if available, otherwise fetch it now
+      let audioUrl = prefetchedUrls.current[index]
+      if (!audioUrl) {
+        audioUrl = await speakText(chunkText, selectedLang)
+      }
       
       // Make sure user didn't hit STOP while we were fetching the audio
       if (!queueActiveRef.current) {
         URL.revokeObjectURL(audioUrl)
         setStatus(S.IDLE)
         return
+      }
+      
+      // Trigger background PREFETCH for the NEXT chunk immediately
+      const nextIndex = index + 1
+      if (nextIndex < chunks.length && !prefetchedUrls.current[nextIndex]) {
+        speakText(chunks[nextIndex], selectedLang).then(url => {
+          prefetchedUrls.current[nextIndex] = url
+        }).catch(err => {
+          console.warn('[Prefetch] failed for chunk:', nextIndex, err)
+        })
       }
       
       const audio = audioRef.current
@@ -291,12 +306,14 @@ export default function Hero() {
       
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl)
+        delete prefetchedUrls.current[index] // Clean cache
         playAudioQueue(chunks, index + 1) // Play next chunk
       }
       
       audio.onerror = (e) => {
         console.error('[Audio Queue] Playback error, skipping chunk:', e)
         URL.revokeObjectURL(audioUrl)
+        delete prefetchedUrls.current[index]
         playAudioQueue(chunks, index + 1)
       }
       
@@ -305,6 +322,7 @@ export default function Hero() {
         playPromise.catch(err => {
           console.error('[Audio Queue] Play failed, skipping chunk:', err)
           URL.revokeObjectURL(audioUrl)
+          delete prefetchedUrls.current[index]
           playAudioQueue(chunks, index + 1)
         })
       }
@@ -324,6 +342,11 @@ export default function Hero() {
         audioRef.current.pause()
         audioRef.current.currentTime = 0
       }
+      // Revoke all prefetched URLs to free browser memory
+      Object.values(prefetchedUrls.current).forEach(url => {
+        try { URL.revokeObjectURL(url) } catch (e) {}
+      })
+      prefetchedUrls.current = {}
       setStatus(S.IDLE)
     } else if (status === S.IDLE) {
       startRecording()
