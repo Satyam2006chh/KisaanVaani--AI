@@ -72,6 +72,7 @@ export default function WelcomeSplash({ onEnter }) {
         <p className="splash-subtitle">हर किसान की आवाज़, हर सवाल का जवाब</p>
         
         <div className="dedication-card">
+          <h2 className="motto-text">🇮🇳 जय जवान, जय किसान, जय विज्ञान! 🌾</h2>
           <p className="dedication-text">
             "देश के अन्नदाताओं को समर्पित एक डिजिटल आवाज़, जो वैज्ञानिक कृषि और समृद्धि के नए द्वार खोलेगी।"
           </p>
