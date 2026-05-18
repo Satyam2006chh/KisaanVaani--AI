@@ -49,8 +49,20 @@ async def mandis_nearby(payload: dict):
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    if not settings.openrouter_api_key:
-        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+    if not settings.openrouter_api_key or "your_" in settings.openrouter_api_key:
+        logger.warning("OpenRouter API key not configured. Returning graceful sandbox response.")
+        fallback_msg = (
+            "Namaste! KisaanVaani AI Assistant mein aapka swagat hai. 🌾\n\n"
+            "Abhi hamara AI Sahayak sandbox/demo mode mein chal raha hai kyunki `OPENROUTER_API_KEY` configured nahi hai.\n\n"
+            "Kripya isey activate karne ke liye local `.env` file ya Render Environment Settings mein apni **OpenRouter API Key** darj karein."
+        )
+        try:
+            await save_message(req.farmer_id, req.session_id, "user", req.message)
+            await save_message(req.farmer_id, req.session_id, "assistant", fallback_msg)
+        except Exception as e:
+            logger.warning(f"History save failed: {e}")
+            
+        return ChatResponse(response=fallback_msg, session_id=req.session_id, tool_used="fallback")
 
     sb = get_supabase()
     res = sb.table("users").select("*").eq("phone", req.farmer_id).execute()
