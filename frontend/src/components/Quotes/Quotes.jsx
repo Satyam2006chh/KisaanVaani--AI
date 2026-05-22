@@ -3,21 +3,21 @@ import './Quotes.css'
 
 const quotes = [
   {
-    text: "Pehle scheme ke liye 3 baar tehsil jaata tha. Ab phone pe bolne se sab pata chal jaata hai.",
-    author: "Ramesh Kumar",
-    role: "Wheat Farmer, Haryana",
+    text: "पहले योजना के लिए 3 बार तहसील जाता था। अब फोन पर बोलने से सब पता चल जाता है।",
+    author: "रमेश कुमार",
+    role: "गेहूं किसान, हरियाणा",
     avatar: "🧑‍🌾",
   },
   {
-    text: "Mujhe angrezi nahi aati, par KisaanVaani ne Punjabi mein bataya ki PM Kisan ke paise kab aayenge.",
-    author: "Gurpreet Singh",
-    role: "Rice Farmer, Punjab",
+    text: "मुझे अंग्रेजी नहीं आती, पर किसानवाणी ने मुझे पंजाबी में बताया कि पीएम किसान के पैसे कब आएंगे।",
+    author: "गुरप्रीत सिंह",
+    role: "धान किसान, पंजाब",
     avatar: "👨‍🌾",
   },
   {
-    text: "Mandi ka bhav pehle dalal batata tha, ab khud pata kar leta hoon. Bahut fayda hua.",
-    author: "Sunita Devi",
-    role: "Vegetable Farmer, UP",
+    text: "मंडी का भाव पहले दलाल बताता था, अब खुद पता कर लेता हूँ। बहुत फायदा हुआ।",
+    author: "सुनीता देवी",
+    role: "सब्जी किसान, यूपी",
     avatar: "👩‍🌾",
   },
 ]
@@ -27,9 +27,9 @@ export default function Quotes() {
     <section className="quotes section">
       <div className="container">
         <div className="quotes__header">
-          <span className="section-label">Farmer Stories</span>
+          <span className="section-label">किसानों की कहानी</span>
           <h2 className="section-title">
-            Unki <span className="highlight">Awaaz</span>, Hamara Maqsad
+            उनकी <span className="highlight">आवाज़</span>, हमारा मक़सद
           </h2>
           <div className="divider" />
         </div>
@@ -53,10 +53,10 @@ export default function Quotes() {
         {/* Impact banner */}
         <div className="quotes__impact">
           {[
-            { num: '600M+', label: 'Potential Farmers Helped' },
-            { num: '₹6000',  label: 'Avg PM Kisan Benefit/Year' },
-            { num: '50+',    label: 'Govt Schemes Indexed' },
-            { num: '11',     label: 'Languages Supported' },
+            { num: '600M+', label: 'किसानों की मदद' },
+            { num: '₹6000',  label: 'औसत पीएम किसान लाभ' },
+            { num: '50+',    label: 'सरकारी योजनाएं' },
+            { num: '11',     label: 'भाषाएं उपलब्ध' },
           ].map((s, i) => (
             <div key={i} className="quotes__impact-item">
               <span className="quotes__impact-num">{s.num}</span>

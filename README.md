@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="assets/banner.png" alt="KisaanVaani Banner" width="100%"/>
+  <img src="frontend/public/logo.png" alt="KisaanVaani Logo" width="150" style="border-radius: 20px; box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);"/>
 </p>
 
 <h1 align="center">🌾 KisaanVaani — AI Voice Assistant for Indian Farmers</h1>
 
 <p align="center">
-  <b>Empowering 150M+ Indian farmers with voice-first, multilingual AI — powered by real-time weather, mandi prices, and expert crop advice.</b>
+  <b>Empowering 150M+ Indian farmers with a Seamless Voice-First AI — featuring Real-Time Hybrid Scrapers, Multi-Model Cascades, and Context-Aware Intelligence.</b>
 </p>
 
 <p align="center">
@@ -14,6 +14,7 @@
   <img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
   <img src="https://img.shields.io/badge/Sarvam_AI-Voice-ff6b6b?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/OpenRouter-LLM-orange?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/Firecrawl-Scraper-black?style=for-the-badge"/>
 </p>
 
 ---
@@ -27,7 +28,7 @@
 - [Project Structure](#-project-structure)
 - [Setup & Installation](#-setup--installation)
 - [API Endpoints](#-api-endpoints)
-- [How It Works](#-how-it-works)
+- [How It Works (Mermaid Flow)](#-how-it-works)
 - [Supported Languages](#-supported-languages)
 - [Team](#-team)
 
@@ -35,23 +36,23 @@
 
 ## 🎯 Overview
 
-**KisaanVaani** is a voice-first AI assistant designed specifically for Indian farmers who may have limited literacy or tech experience. Instead of typing, farmers simply **speak** their questions in their native language and receive **spoken answers** — making advanced agricultural intelligence accessible to everyone.
+**KisaanVaani** is a state-of-the-art, voice-first AI assistant designed specifically for Indian farmers. Wrapped in a stunning **Premium Dark Electric Blue Theme**, it provides immediate, real-time agricultural intelligence. Instead of typing, farmers simply **speak** their questions in their native language and receive **spoken answers**. 
 
 > *"Agar kisan bol sakta hai, toh KisaanVaani samajh sakta hai."*
 > — If a farmer can speak, KisaanVaani can understand.
 
 ### 🚀 Problem Statement
 - **70% of Indian farmers** cannot easily navigate text-based apps
-- Weather, market prices, and government schemes are scattered across multiple websites
+- Weather, market prices, and government schemes are scattered and often outdated
 - Language barriers prevent access to expert agricultural advice
 
 ### 💡 Our Solution
 A **single voice command** gives farmers instant access to:
-- 🌤️ Real-time weather forecasts for their district
-- 📊 Live mandi (market) prices for their crops
-- 🌱 Expert crop disease diagnosis via photo upload
-- 📜 Government scheme eligibility & registration help
-- 🗣️ All in their **native language** (11 languages supported)
+- 🌤️ **Real-time weather** forecasts for their district
+- 📊 **Hybrid Mandi Prices** (Official Agmarknet + Live Firecrawl AI Scraper)
+- 🌱 **Expert crop disease diagnosis** via photo upload (OpenRouter Vision Cascade)
+- 📜 **Government schemes** eligibility & registration help
+- 🗣️ All seamlessly delivered with **uninterrupted audio streaming**
 
 ---
 
@@ -59,59 +60,48 @@ A **single voice command** gives farmers instant access to:
 
 | Feature | Description |
 |---------|-------------|
-| 🎙️ **Voice-First Interface** | Speak naturally — no typing needed |
-| 🌐 **11 Indian Languages** | Hindi, Punjabi, Bengali, Tamil, Telugu, Kannada, Malayalam, Marathi, Gujarati, Odia, Assamese |
-| 🌤️ **Live Weather** | Real-time forecasts using Open-Meteo API |
-| 📈 **Mandi Prices** | Current crop prices from Agmarknet/data.gov.in |
-| 📸 **Crop Disease Detection** | Upload a photo → AI identifies disease + treatment |
-| 📜 **Government Schemes** | PM-KISAN, PMFBY, KCC eligibility info |
-| 🧠 **Smart Intent Routing** | AI automatically understands what you need |
-| 🔊 **Text-to-Speech** | AI speaks the answer back to you |
-| 🔐 **OTP Authentication** | Secure phone-based login |
+| 🎙️ **Seamless Voice-First UI** | Speak naturally. Audio streaming supports immediate interruption & smart caching. |
+| 🌐 **11 Indian Languages** | Hindi, Punjabi, Bengali, Tamil, Telugu, Kannada, Malayalam, Marathi, Gujarati, Odia, Assamese. |
+| 🌤️ **Live Weather** | Real-time forecasts using Open-Meteo API. |
+| 📈 **Hybrid Mandi Engine** | Fuses *data.gov.in* base prices with **Firecrawl Live Web Scraping** for 100% free, real-time rates. |
+| 📸 **Crop Disease Detection** | Upload a photo → AI identifies disease + treatment via OpenRouter Vision Cascade. |
+| 🧠 **Context-Aware Logic** | AI automatically detects user's location from their profile if they don't mention a district in their voice query. |
+| 🏪 **Trusted Vendors** | Locates nearby agriculture shops using Geolocation integration. |
+| 🎨 **Premium UI/UX** | Dark Electric Blue theme, glassmorphism UI, audio visualizers, and zero-latency mic interactions. |
+| 🔐 **OTP Authentication** | Secure phone-based login via Supabase. |
 
 ---
 
-## 🏗️ System Architecture
+## 🔄 How It Works
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        FARMER (User)                            │
-│                    🎙️ Speaks in Native Language                  │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    FRONTEND (React + Vite)                       │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────┐             │
-│  │ Mic Input │→ │ Audio Record │→ │ Send to API   │             │
-│  └──────────┘  └──────────────┘  └───────┬───────┘             │
-│  ┌──────────────────────────────────────┐ │                     │
-│  │  Display Answer + Play Voice Back   │◄┘                     │
-│  └──────────────────────────────────────┘                       │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ HTTP/REST API
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   BACKEND (FastAPI + Python)                     │
-│                                                                  │
-│  ┌─────────────┐    ┌──────────────┐    ┌────────────────┐     │
-│  │  Sarvam STT │    │  LangGraph   │    │   Sarvam TTS   │     │
-│  │ (Speech →   │ →  │  AI Agent    │ →  │  (Text →       │     │
-│  │  Text)      │    │  (OpenRouter)│    │   Speech)      │     │
-│  └─────────────┘    └──────┬───────┘    └────────────────┘     │
-│                            │                                     │
-│              ┌─────────────┼─────────────┐                      │
-│              ▼             ▼             ▼                       │
-│     ┌──────────────┐ ┌──────────┐ ┌───────────────┐            │
-│     │ Weather API  │ │ Mandi API│ │ Scheme Search │            │
-│     │ (Open-Meteo) │ │(data.gov)│ │ (Firecrawl)   │            │
-│     └──────────────┘ └──────────┘ └───────────────┘            │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────┐       │
-│  │              Supabase (PostgreSQL)                     │       │
-│  │         Users | Messages | Sessions                   │       │
-│  └──────────────────────────────────────────────────────┘       │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    A[🎙️ Farmer Speaks] --> B[Audio Recorded in Browser]
+    B --> C[Sarvam AI: Speech-to-Text]
+    C --> D[Text Translated to English]
+    D --> E{🧠 Intent Router}
+    
+    E -->|Weather| F[🌤️ Open-Meteo API]
+    E -->|Mandi Prices| G[📊 Agmarknet + Firecrawl Hybrid]
+    E -->|Crop Disease| H[📸 OpenRouter Vision Cascade]
+    E -->|Govt Scheme| I[📜 Firecrawl Scraper + Built-in KB]
+    E -->|Trusted Vendor| O[🏪 Google Maps / Geolocation]
+    E -->|General| J[💬 OpenRouter Text Cascade]
+    
+    F --> K[AI Formats Answer]
+    G --> K
+    H --> K
+    I --> K
+    J --> K
+    O --> K
+    
+    K --> L[Answer in Farmer's Language]
+    L --> M[Sarvam AI: Text-to-Speech]
+    M --> N[🔊 Farmer Hears Seamless Audio]
+    
+    style A fill:#00f0ff,color:#000,stroke:#fff,stroke-width:2px
+    style N fill:#00f0ff,color:#000,stroke:#fff,stroke-width:2px
+    style E fill:#0f172a,stroke:#00f0ff,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -124,7 +114,8 @@ A **single voice command** gives farmers instant access to:
 | **React 18** | UI Framework |
 | **Vite** | Build Tool & Dev Server |
 | **Lucide React** | Icon Library |
-| **Web Audio API** | Microphone Recording & Visualization |
+| **Vanilla CSS** | Premium Dark Glassmorphism Styling |
+| **Web Audio API** | Real-time mic recording & visualizers |
 
 ### Backend
 | Technology | Purpose |
@@ -134,59 +125,9 @@ A **single voice command** gives farmers instant access to:
 | **OpenRouter (Cascade)** | Premium Text & Vision Models |
 | **Sarvam AI** | Speech-to-Text & Text-to-Speech |
 | **Open-Meteo** | Weather Forecasts |
-| **data.gov.in** | Mandi Price Data |
-| **Firecrawl** | Web Scraping for Schemes |
+| **data.gov.in** | Baseline Mandi Price Data |
+| **Firecrawl** | Real-Time Web Scraping for Live Mandi Rates & Schemes |
 | **Supabase** | Database & Authentication |
-
----
-
-## 📁 Project Structure
-
-```
-KisaanVaani--AI/
-│
-├── 📂 frontend/                  # React Frontend
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Hero/             # Main voice assistant UI
-│   │   │   ├── Auth/             # Login & Registration
-│   │   │   ├── Features/         # Feature showcase
-│   │   │   └── Footer/           # Footer component
-│   │   ├── context/
-│   │   │   └── AuthContext.jsx   # Authentication state
-│   │   ├── api.js                # API communication layer
-│   │   └── App.jsx               # Root component
-│   └── package.json
-│
-├── 📂 backend/                   # FastAPI Backend
-│   ├── app/
-│   │   ├── agents/
-│   │   │   ├── graph.py          # LangGraph AI Agent (brain)
-│   │   │   └── tools.py          # Weather, Mandi, Scheme tools
-│   │   ├── routers/
-│   │   │   ├── agent.py          # /api/agent/chat endpoint
-│   │   │   ├── voice.py          # /api/voice/speak & transcribe
-│   │   │   ├── auth.py           # /api/auth/login & register
-│   │   │   └── history.py        # Chat history management
-│   │   ├── lib/
-│   │   │   └── translation.py    # Sarvam AI translation
-│   │   ├── db/
-│   │   │   └── supabase.py       # Database connection
-│   │   ├── models/
-│   │   │   └── schemas.py        # Pydantic data models
-│   │   ├── config.py             # Environment configuration
-│   │   └── main.py               # FastAPI app entry point
-│   ├── .env                      # API keys (not in git)
-│   └── requirements.txt          # Python dependencies
-│
-├── 📂 assets/                    # Project assets
-│   └── banner.png                # README banner
-│
-├── .gitignore
-├── netlify.toml                  # Frontend deployment config
-├── run.ps1                       # Quick start script
-└── README.md                     # You are here! 📍
-```
 
 ---
 
@@ -245,70 +186,6 @@ http://localhost:5173
 
 ---
 
-## 📡 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/send-otp` | Send OTP to phone |
-| `POST` | `/api/auth/verify-otp` | Verify OTP & login |
-| `POST` | `/api/agent/chat` | Send message to AI agent |
-| `POST` | `/api/voice/transcribe` | Convert speech → text |
-| `POST` | `/api/voice/speak` | Convert text → speech |
-| `GET`  | `/api/history/{farmer_id}` | Get chat history |
-
----
-
-## 🔄 How It Works
-
-```mermaid
-graph TD
-    A[🎙️ Farmer Speaks] --> B[Audio Recorded in Browser]
-    B --> C[Sarvam AI: Speech-to-Text]
-    C --> D[Text Translated to English]
-    D --> E{🧠 Intent Router}
-    
-    E -->|Weather| F[🌤️ Open-Meteo API]
-    E -->|Mandi Prices| G[📊 data.gov.in API]
-    E -->|Crop Disease| H[📸 OpenRouter Vision Cascade]
-    E -->|Govt Scheme| I[📜 Firecrawl Scraper]
-    E -->|General| J[💬 OpenRouter Text Cascade]
-    
-    F --> K[AI Formats Answer]
-    G --> K
-    H --> K
-    I --> K
-    J --> K
-    
-    K --> L[Answer in Farmer's Language]
-    L --> M[Sarvam AI: Text-to-Speech]
-    M --> N[🔊 Farmer Hears Answer]
-    
-    style A fill:#4CAF50,color:#fff
-    style N fill:#4CAF50,color:#fff
-    style E fill:#FF9800,color:#fff
-```
-
----
-
-## 🌐 Supported Languages
-
-| Language | Code | Status |
-|----------|------|--------|
-| 🇮🇳 Hindi | `hi-IN` | ✅ Full Support |
-| 🇮🇳 Punjabi | `pa-IN` | ✅ Full Support |
-| 🇮🇳 Bengali | `bn-IN` | ✅ Full Support |
-| 🇮🇳 Tamil | `ta-IN` | ✅ Full Support |
-| 🇮🇳 Telugu | `te-IN` | ✅ Full Support |
-| 🇮🇳 Kannada | `kn-IN` | ✅ Full Support |
-| 🇮🇳 Malayalam | `ml-IN` | ✅ Full Support |
-| 🇮🇳 Marathi | `mr-IN` | ✅ Full Support |
-| 🇮🇳 Gujarati | `gu-IN` | ✅ Full Support |
-| 🇮🇳 Odia | `od-IN` | ✅ Full Support |
-| 🇮🇳 Assamese | `as-IN` | ✅ Full Support |
-| 🇬🇧 English | `en-IN` | ✅ Full Support |
-
----
-
 ## 🛡️ Security
 
 - 🔐 **OTP-based authentication** — No passwords stored
@@ -324,36 +201,8 @@ graph TD
 |--------|-------|
 | Speech-to-Text Latency | ~1.5s |
 | AI Response Time | ~2-3s |
-| Text-to-Speech Latency | ~1-2s |
-| Total Round Trip | ~5-7s |
-| Concurrent Users | 50+ |
-
----
-
-## 🚀 Production Roadmap & Next Steps
-
-To transition KisaanVaani from a successful prototype to a national production-grade platform for farmers, our next step is to integrate official government endpoints and real-time spot price services.
-
-### 🏛️ 1. Official Government Scheme Integration (myScheme API Setu)
-Currently, our schemes engine uses a hybrid search (verified knowledge base + AI web scraping) which is 100% active and free. For a formal production release:
-* **API Setu Subscription**: We will register on MeitY's official **API Setu (apisetu.gov.in)** platform using verified agricultural cooperative/organization details.
-* **myScheme Eligibility API**: We will integrate the official **myScheme Eligibility API** to dynamically match farmers' exact profile attributes (State, District, landholding size, caste, category) directly against the national schemes database, returning official application deep-links and verified checklists instantly.
-
-### 📊 2. Real-Time Spot Price APIs (Agriwatch / NCDEX)
-To provide hourly, high-precision vegetable and commodity spot rates across local wholesale mandis:
-* **B2B Agri APIs**: We will subscribe to premium B2B spot market APIs (like **Agriwatch** or **NCDEX**) that maintain physical agents on-ground to record real transactions as they happen.
-
----
-
-## 👥 Team
-
-Built with ❤️ for Indian farmers by **Team KisaanVaani**
-
----
-
-## 📜 License
-
-This project is built for educational and social impact purposes.
+| Text-to-Speech Streaming | ~1s (Continuous background prefetch) |
+| Total Round Trip | ~4-6s |
 
 ---
 

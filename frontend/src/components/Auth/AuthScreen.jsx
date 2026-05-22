@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Building2, Languages, Loader, Lock, MapPin, Phone, User } from 'lucide-react'
+import { Building2, Loader, Lock, MapPin, Phone, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import './AuthScreen.css'
-import translations from '../../translations.json'
 
 const STEP = { PHONE: 1, OTP: 2, PROFILE: 3 }
 
@@ -16,8 +15,7 @@ const STATES = [
 ]
 
 export default function AuthScreen() {
-  const { sendOTP, verifyOTP, languages: availableLanguages } = useAuth()
-  console.log('[AuthScreen] Rendered with languages:', availableLanguages)
+  const { sendOTP, verifyOTP } = useAuth()
 
   const [step,     setStep]     = useState(STEP.PHONE)
   const [loading,  setLoading]  = useState(false)
@@ -29,13 +27,9 @@ export default function AuthScreen() {
   const [city,     setCity]     = useState('')
   const [district, setDistrict] = useState('')
   const [state,    setState]    = useState('')
-  const [language, setLanguage] = useState('hi-IN')
+  // Hardcode language to Hindi since this is for Indian farmers
+  const language = 'hi-IN'
   const [detectingLoc, setDetectingLoc] = useState(false)
-
-  const t = (key) => {
-    const langDict = translations[language] || translations['hi-IN']
-    return langDict[key] || translations['hi-IN'][key] || key
-  }
 
   const autoDetectLocation = () => {
     if (!navigator.geolocation) {
@@ -48,53 +42,44 @@ export default function AuthScreen() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords
-        console.log('[AuthScreen] Geolocation coordinates:', latitude, longitude)
         
         try {
-          // Query free OpenStreetMap Nominatim Reverse Geocoding API
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`
           )
           if (!response.ok) throw new Error('Location reverse lookup failed')
           const data = await response.json()
-          console.log('[AuthScreen] Reverse geocoding result:', data)
           
           const addr = data.address || {}
           
-          // Match State to Indian States
           const rawState = addr.state || ''
           const matchedState = STATES.find(
             s => s.toLowerCase() === rawState.toLowerCase()
           ) || rawState
           
-          // Match District (County or District field in address)
           const rawDistrict = addr.county || addr.district || addr.state_district || addr.city_district || ''
           const cleanDistrict = rawDistrict.replace(/\b(District|Zila)\b/gi, '').trim()
           
-          // Match Village or City name
           const cityName = addr.city || addr.town || addr.village || addr.suburb || addr.hamlet || cleanDistrict || ''
           
           if (matchedState) setState(matchedState)
           if (cleanDistrict) setDistrict(cleanDistrict)
           if (cityName) setCity(cityName)
           
-          console.log('[AuthScreen] Auto-detected details:', { city: cityName, district: cleanDistrict, state: matchedState })
         } catch (err) {
-          console.error('[AuthScreen] Geocoding failure:', err)
-          setError('Location auto-detect failed. Please type manually.')
+          setError('लोकेशन डिटेक्ट नहीं हो पाई। कृपया मैन्युअल रूप से भरें।')
         } finally {
           setDetectingLoc(false)
         }
       },
       (geoErr) => {
-        console.warn('[AuthScreen] Geolocation prompt error/denied:', geoErr.message)
         setDetectingLoc(false)
-        if (geoErr.code === 1) { // PERMISSION_DENIED
-          setError(t('loc_err_allow'))
-        } else if (geoErr.code === 2 || geoErr.message.includes('unavailable')) { // POSITION_UNAVAILABLE
-          setError(t('loc_err_gps'))
+        if (geoErr.code === 1) { 
+          setError('कृपया \'Allow\' पर क्लिक करें ताकि हम आपकी लोकेशन जान सकें।')
+        } else if (geoErr.code === 2 || geoErr.message.includes('unavailable')) { 
+          setError('कृपया अपने मोबाइल की लोकेशन (GPS) चालू करें और दोबारा कोशिश करें।')
         } else {
-          setError(t('loc_err_fail'))
+          setError('लोकेशन डिटेक्ट नहीं हो पाई। कृपया मैन्युअल रूप से भरें।')
         }
       },
       { timeout: 10000, enableHighAccuracy: true }
@@ -103,7 +88,6 @@ export default function AuthScreen() {
 
   useEffect(() => {
     if (step === STEP.PROFILE) {
-      console.log('[AuthScreen] Step 3 reached. Running geolocation search...')
       autoDetectLocation()
     }
   }, [step])
@@ -112,15 +96,13 @@ export default function AuthScreen() {
 
   async function handleSendOTP(e) {
     e.preventDefault()
-    if (phone.length < 10) return err(t('err_phone'))
+    if (phone.length < 10) return err('सही मोबाइल नंबर भरें।')
     
     setError('')
-    // OPTIMISTIC UI: Move to OTP step instantly for zero delay
     setStep(STEP.OTP)
     
-    // Call backend in background to wake it up/register the intent
     sendOTP(phone).catch(err => {
-      console.warn('[AuthScreen] Background OTP wake-up failed, but demo OTP 123456 will still work.', err)
+      console.warn('[AuthScreen] OTP failed, demo works', err)
     })
   }
 
@@ -134,7 +116,7 @@ export default function AuthScreen() {
       if (e.response?.data?.detail === 'Name required for new users') {
         setStep(STEP.PROFILE)
       } else {
-        err(e.response?.data?.detail || 'Galat OTP. Dobara try karein.')
+        err(e.response?.data?.detail || 'गलत OTP, दोबारा कोशिश करें।')
       }
     } finally {
       setLoading(false)
@@ -143,16 +125,16 @@ export default function AuthScreen() {
 
   async function handleProfile(e) {
     e.preventDefault()
-    if (!name.trim())     return err(t('err_name'))
-    if (!city.trim())     return err(t('err_city'))
-    if (!district.trim()) return err(t('err_district'))
-    if (!state)           return err(t('err_state'))
+    if (!name.trim())     return err('अपना नाम भरें।')
+    if (!city.trim())     return err('शहर / गांव का नाम भरें।')
+    if (!district.trim()) return err('ज़िला का नाम भरें।')
+    if (!state)           return err('राज्य चुनें।')
     setError('')
     setLoading(true)
     try {
       await verifyOTP(phone, otp, name.trim(), language, district.trim(), state, city.trim())
     } catch (e) {
-      err(e.response?.data?.detail || 'Account banane mein error. Dobara try karein.')
+      err(e.response?.data?.detail || 'अकाउंट बनाने में समस्या आई। दोबारा कोशिश करें।')
     } finally {
       setLoading(false)
     }
@@ -163,8 +145,11 @@ export default function AuthScreen() {
       <div className="auth-container">
 
         <div className="auth-header">
-          <h1 className="auth-logo">🎙️ Kisaan<span className="highlight">Vaani</span></h1>
-          <p className="auth-tagline">{t('tagline')}</p>
+          <div className="auth-logo">
+            <img src="/logo.png" alt="KisaanVaani Logo" style={{ width: '48px', marginRight: '14px', verticalAlign: 'middle', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }} />
+            किसान<span className="highlight">वाणी</span>
+          </div>
+          <p className="auth-tagline">बोलो, समझो, बदलो अपनी ज़िंदगी</p>
         </div>
 
         <div className="auth-steps animate-entrance" style={{ animationDelay: '0.2s' }}>
@@ -180,11 +165,11 @@ export default function AuthScreen() {
         <div className="glass-panel auth-card">
           {step === STEP.PHONE && (
             <form onSubmit={handleSendOTP} className="auth-form animate-reveal">
-              <h2>{t('welcome_title_1')}<br /><span className="highlight">{t('welcome_title_2')}</span></h2>
-              <p className="auth-subtitle">{t('welcome_subtitle')}</p>
+              <h2>किसान भाई,<br /><span className="highlight">स्वागत है!</span></h2>
+              <p className="auth-subtitle">शुरू करने के लिए अपना मोबाइल नंबर डालें</p>
               
               <div className="input-field">
-                <label><Phone size={18} /> {t('mobile_label')}</label>
+                <label><Phone size={18} /> मोबाइल नंबर</label>
                 <div className="input-group">
                   <span className="input-prefix">+91</span>
                   <input
@@ -198,21 +183,21 @@ export default function AuthScreen() {
               </div>
 
               <button className="btn-premium w-full" disabled={loading || phone.length < 10}>
-                {loading ? <Loader size={20} className="spin" /> : <>{t('btn_send_otp')}</>}
+                {loading ? <Loader size={20} className="spin" /> : <>OTP भेजें →</>}
               </button>
-              <div className="demo-hint">{t('demo_hint')}</div>
+              <div className="demo-hint">✨ डेमो OTP: 123456</div>
             </form>
           )}
 
           {step === STEP.OTP && (
             <form onSubmit={handleVerifyOTP} className="auth-form animate-reveal">
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                <div style={{ background: 'rgba(255, 103, 31, 0.15)', padding: '24px', borderRadius: '50%', color: 'var(--primary)', boxShadow: '0 0 40px rgba(255,103,31,0.2)' }}>
+                <div style={{ background: 'rgba(0, 240, 255, 0.15)', padding: '24px', borderRadius: '50%', color: 'var(--primary)', boxShadow: '0 0 40px rgba(0, 240, 255, 0.2)' }}>
                   <Lock size={48} strokeWidth={1.5} />
                 </div>
               </div>
-              <h2>{t('otp_title_1')} <span className="highlight">{t('otp_title_2')}</span></h2>
-              <p className="auth-subtitle">{t('otp_subtitle')} {phone}</p>
+              <h2>सुरक्षा <span className="highlight">जांच</span></h2>
+              <p className="auth-subtitle">+91 {phone} पर भेजा गया कोड डालें</p>
               
               <div className="input-field" style={{ marginTop: '10px', marginBottom: '30px' }}>
                 <input
@@ -228,19 +213,19 @@ export default function AuthScreen() {
               </div>
 
               <button className="btn-premium w-full" disabled={loading || otp.length < 6} style={{ padding: '18px', fontSize: '1.2rem' }}>
-                {loading ? <Loader size={24} className="spin" /> : t('btn_verify')}
+                {loading ? <Loader size={24} className="spin" /> : 'आगे बढ़ें →'}
               </button>
               
               <button type="button" className="btn-link" onClick={() => setStep(STEP.PHONE)}>
-                {t('btn_change_num')}
+                ← मोबाइल नंबर बदलें
               </button>
             </form>
           )}
 
           {step === STEP.PROFILE && (
             <form onSubmit={handleProfile} className="auth-form animate-reveal">
-              <h2>{t('profile_title_1')} <span className="highlight">{t('profile_title_2')}</span></h2>
-              <p className="auth-subtitle">{t('profile_subtitle')}</p>
+              <h2>अपनी <span className="highlight">पहचान</span></h2>
+              <p className="auth-subtitle">ताकि AI आपको और आपके खेत को समझ सके</p>
 
               <button
                 type="button"
@@ -253,53 +238,39 @@ export default function AuthScreen() {
                 ) : (
                   <MapPin size={16} />
                 )}
-                <span>{detectingLoc ? t('btn_detecting') : t('btn_detect_loc')}</span>
+                <span>{detectingLoc ? 'लोकेशन डिटेक्ट हो रही है...' : '🎯 ऑटो-डिटेक्ट लोकेशन'}</span>
               </button>
 
               <div className="profile-grid">
                 <div className="input-field">
-                  <label><User size={18} /> {t('name_label')}</label>
+                  <label><User size={18} /> पूरा नाम</label>
                   <input type="text" placeholder=""
                     value={name} onChange={e => setName(e.target.value)} required />
                 </div>
 
                 <div className="input-field">
-                  <label><Building2 size={18} /> {t('city_label')}</label>
+                  <label><Building2 size={18} /> शहर / गांव</label>
                   <input type="text" placeholder=""
                     value={city} onChange={e => setCity(e.target.value)} required />
                 </div>
 
                 <div className="input-field">
-                  <label><MapPin size={18} /> {t('district_label')}</label>
+                  <label><MapPin size={18} /> ज़िला</label>
                   <input type="text" placeholder=""
                     value={district} onChange={e => setDistrict(e.target.value)} required />
                 </div>
 
                 <div className="input-field">
-                  <label><MapPin size={18} /> {t('state_label')}</label>
+                  <label><MapPin size={18} /> राज्य</label>
                   <select value={state} onChange={e => setState(e.target.value)} required>
-                    <option value="">{t('state_select')}</option>
+                    <option value="">चुनें...</option>
                     {STATES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div className="language-selector">
-                <label><Languages size={18} /> {t('lang_label')}</label>
-                <div className="lang-chips">
-                  {availableLanguages.map(l => (
-                    <button key={l.code} type="button"
-                      className={`lang-chip ${language === l.code ? 'active' : ''}`}
-                      onClick={() => setLanguage(l.code)}>
-                      <span>{l.flag}</span>
-                      <span>{l.native}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button className="btn-premium w-full" disabled={loading}>
-                {loading ? <Loader size={20} className="spin" /> : t('btn_start')}
+              <button className="btn-premium w-full" disabled={loading} style={{ marginTop: '20px' }}>
+                {loading ? <Loader size={20} className="spin" /> : 'खेती शुरू करें 🌾'}
               </button>
             </form>
           )}

@@ -5,22 +5,22 @@ const steps = [
   {
     icon: <Mic size={28} />,
     num: '01',
-    title: 'Apni Baat Bolein',
-    desc: 'Mic button dabaaiye aur apni bhasha mein apna sawaal boliye — Hindi, Punjabi ya koi bhi Indian language.',
+    title: 'अपनी बात बोलें',
+    desc: 'माइक बटन दबाइये और अपनी भाषा में अपना सवाल बोलिये — हिंदी, पंजाबी या कोई भी भारतीय भाषा।',
     color: 'saffron',
   },
   {
     icon: <Cpu size={28} />,
     num: '02',
-    title: 'AI Samjhega aur Dhundhega',
-    desc: 'Hamaara smart AI Sahayak aapki baat samajhta hai aur sateek details (yojana, mausam ya mandi bhav) nikaalta hai.',
+    title: 'AI समझेगा और ढूंढेगा',
+    desc: 'हमारा स्मार्ट AI सहायक आपकी बात समझता है और सटीक जानकारी (योजना, मौसम या मंडी भाव) निकालता है।',
     color: 'blue',
   },
   {
     icon: <Volume2 size={28} />,
     num: '03',
-    title: 'Awaaz Mein Jawab Milega',
-    desc: 'KisaanVaani aapko jawab aapki bhasha ki awaaz mein bolkar sunayega. Na padhne ka jhanjhat, na likhne ki takleef.',
+    title: 'आवाज़ में जवाब मिलेगा',
+    desc: 'किसानवाणी आपको जवाब आपकी भाषा की आवाज़ में बोलकर सुनाएगा। ना पढ़ने का झंझट, ना लिखने की तकलीफ।',
     color: 'green',
   },
 ]
@@ -32,11 +32,11 @@ export default function HowItWorks() {
         <div className="hiw__header">
           <span className="section-label">How It Works</span>
           <h2 className="section-title">
-            Sirf <span className="highlight">Teen Steps</span> Mein
+            सिर्फ <span className="highlight">तीन स्टेप्स</span> में
           </h2>
           <div className="divider" />
           <p className="section-sub">
-            Koi technical knowledge ki zaroorat nahi. Ek touch, ek awaaz — bas itna kaafi hai.
+            किसी तकनीकी ज्ञान की जरूरत नहीं। एक टच, एक आवाज़ — बस इतना काफी है।
           </p>
         </div>
 
@@ -56,7 +56,7 @@ export default function HowItWorks() {
 
         {/* Flow diagram */}
         <div className="hiw__flow glass-card">
-          {['🎤 Bolo', '→', '🧠 AI Samjhe', '→', '🔍 Dhundhe', '→', '🔊 Jawab Do'].map((item, i) => (
+          {['🎤 बोलें', '→', '🧠 AI समझे', '→', '🔍 ढूंढे', '→', '🔊 जवाब दे'].map((item, i) => (
             <span key={i} className={item === '→' ? 'hiw__arrow' : 'hiw__flow-step'}>
               {item}
             </span>

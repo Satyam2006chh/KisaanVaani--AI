@@ -4,10 +4,10 @@ import { useAuth } from '../../context/AuthContext'
 import './Navbar.css'
 
 const navLinks = [
-  { label: 'About',    href: '#about' },
-  { label: 'Features', href: '#features' },
-  { label: 'Languages',href: '#languages' },
-  { label: 'How It Works', href: '#how-it-works' },
+  { label: 'हमारे बारे में',    href: '#about' },
+  { label: 'फीचर्स', href: '#features' },
+  { label: 'भाषाएं',href: '#languages' },
+  { label: 'यह कैसे काम करता है', href: '#how-it-works' },
 ]
 
 export default function Navbar() {
@@ -32,9 +32,9 @@ export default function Navbar() {
 
         {/* Logo */}
         <a href="#hero" className="navbar__logo">
-          <span className="navbar__logo-icon"><Mic size={20} /></span>
+          <img src="/logo.png" alt="KisaanVaani Logo" className="navbar__logo-img" />
           <span className="navbar__logo-text">
-            Kisaan<span className="highlight">Vaani</span>
+            किसान<span className="highlight">वाणी</span>
           </span>
         </a>
 
@@ -52,13 +52,13 @@ export default function Navbar() {
               <span className="navbar__user-name">
                 <User size={14} /> {user.name}
               </span>
-              <button onClick={handleLogout} className="navbar__logout" title="Logout">
+              <button onClick={handleLogout} className="navbar__logout" title="लॉग आउट">
                 <LogOut size={16} />
               </button>
             </div>
           )}
           <a href="#hero" className="btn-premium navbar__btn">
-            <Mic size={16} /> Try Now
+            <Mic size={16} /> अभी आज़माएं
           </a>
           <button
             className="navbar__hamburger"
@@ -74,7 +74,7 @@ export default function Navbar() {
       {menuOpen && (
         <div className="navbar__mobile animate-reveal">
           <div className="navbar__mobile-header">
-            <button onClick={() => setMenuOpen(false)} variant="ghost">Close <X size={18} /></button>
+            <button onClick={() => setMenuOpen(false)} variant="ghost">बंद करें <X size={18} /></button>
           </div>
           
           {isAuthenticated && user && (
@@ -95,12 +95,12 @@ export default function Navbar() {
           ))}
           
           <a href="#hero" className="btn-premium" onClick={() => setMenuOpen(false)}>
-            <Mic size={18} /> Try Now
+            <Mic size={18} /> अभी आज़माएं
           </a>
 
           {isAuthenticated && (
             <button onClick={handleLogout} className="btn-outline-premium">
-              <LogOut size={18} /> Logout
+              <LogOut size={18} /> लॉग आउट
             </button>
           )}
         </div>

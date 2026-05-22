@@ -11,8 +11,8 @@
   background-color: var(--bg-primary);
   /* Gentle Tiranga Ambient Corner Glows */
   background-image: 
-    radial-gradient(circle at 10% 10%, rgba(255, 103, 31, 0.12) 0%, transparent 45%),
-    radial-gradient(circle at 90% 90%, rgba(4, 106, 56, 0.15) 0%, transparent 45%);
+    radial-gradient(circle at 10% 10%, rgba(0, 240, 255, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 90% 90%, rgba(0, 100, 255, 0.15) 0%, transparent 45%);
 }
 
 .auth-container {
@@ -90,7 +90,7 @@
 .auth-card {
   padding: 40px 40px 48px 40px;
   border: var(--border-glass);
-  background: rgba(9, 12, 36, 0.8);
+  background: var(--bg-card);
   backdrop-filter: blur(30px);
   border-radius: var(--radius-lg);
   box-shadow: 0 50px 100px -20px rgba(0,0,0,0.7);
@@ -134,10 +134,10 @@
 input[type="tel"], input[type="text"], select {
   width: 100%;
   padding: 20px 24px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
-  color: white;
+  color: var(--text-main);
   font-size: 1.15rem;
   font-family: var(--font-body);
   transition: var(--transition);
@@ -163,7 +163,7 @@ input[type="tel"], input[type="text"], select {
 
 input:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.08);
   border-color: var(--primary);
   box-shadow: 0 0 0 1px var(--primary);
 }
@@ -186,7 +186,7 @@ input:focus {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  color: white;
+  color: var(--text-main);
   font-weight: 600;
   font-size: 0.95rem;
   display: flex;
@@ -199,9 +199,9 @@ input:focus {
 
 .lang-chip.active {
   border-color: var(--primary);
-  background: rgba(255, 103, 31, 0.15);
+  background: rgba(0, 240, 255, 0.15);
   color: var(--primary);
-  box-shadow: inset 0 0 12px rgba(255, 103, 31, 0.1);
+  box-shadow: inset 0 0 12px rgba(0, 240, 255, 0.1);
 }
 
 /* Location Detect Button styling */
@@ -244,7 +244,7 @@ input:focus {
   text-align: center;
   margin-top: 32px;
   padding: 10px 24px;
-  background: rgba(255, 103, 31, 0.1);
+  background: rgba(0, 240, 255, 0.1);
   border-radius: 50px;
   color: var(--primary);
   display: inline-block;
@@ -252,7 +252,7 @@ input:focus {
   transform: translateX(-50%);
   font-weight: 700;
   font-size: 0.9rem;
-  border: 1px solid rgba(255, 103, 31, 0.2);
+  border: 1px solid rgba(0, 240, 255, 0.2);
 }
 
 .btn-link {

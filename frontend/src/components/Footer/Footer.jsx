@@ -10,41 +10,41 @@ export default function Footer() {
           {/* Brand */}
           <div className="footer__brand">
             <div className="footer__logo">
-              <span className="footer__logo-icon"><Mic size={18} /></span>
+              <img src="/logo.png" alt="Logo" className="footer__logo-img" />
               <span className="footer__logo-text">
-                Kisaan<span className="highlight">Vaani</span>
+                किसान<span className="highlight">वाणी</span>
               </span>
             </div>
             <p className="footer__tagline">
-              Kisan Ka Apna AI Dost — bolo aur paao apna haq.
+              किसान का अपना AI दोस्त — बोलें और पाएं अपना हक़।
             </p>
           </div>
 
           {/* Links */}
           <div className="footer__col">
-            <h4 className="footer__col-title">Product</h4>
+            <h4 className="footer__col-title">प्रोडक्ट</h4>
             <ul className="footer__links">
-              <li><a href="#features">Features</a></li>
-              <li><a href="#how-it-works">How It Works</a></li>
-              <li><a href="#languages">Languages</a></li>
+              <li><a href="#features">फीचर्स</a></li>
+              <li><a href="#how-it-works">यह कैसे काम करता है</a></li>
+              <li><a href="#languages">भाषाएं</a></li>
             </ul>
           </div>
 
           <div className="footer__col">
-            <h4 className="footer__col-title">Govt Resources</h4>
+            <h4 className="footer__col-title">सरकारी सुविधाएं</h4>
             <ul className="footer__links">
-              <li><a href="https://pmkisan.gov.in" target="_blank" rel="noreferrer">PM Kisan</a></li>
-              <li><a href="https://pmfby.gov.in" target="_blank" rel="noreferrer">PMFBY</a></li>
-              <li><a href="https://data.gov.in" target="_blank" rel="noreferrer">Data.gov.in</a></li>
-              <li><a href="https://mkisan.gov.in" target="_blank" rel="noreferrer">mKisan</a></li>
+              <li><a href="https://pmkisan.gov.in" target="_blank" rel="noreferrer">पीएम किसान</a></li>
+              <li><a href="https://pmfby.gov.in" target="_blank" rel="noreferrer">फसल बीमा</a></li>
+              <li><a href="https://data.gov.in" target="_blank" rel="noreferrer">डेटा पोर्टल</a></li>
+              <li><a href="https://mkisan.gov.in" target="_blank" rel="noreferrer">एम-किसान</a></li>
             </ul>
           </div>
 
           <div className="footer__col">
-            <h4 className="footer__col-title">Connect</h4>
+            <h4 className="footer__col-title">हमसे जुड़ें</h4>
             <ul className="footer__links">
               <li><a href="https://github.com/Satyam2006chh/KisaanVaani--AI" target="_blank" rel="noreferrer">GitHub</a></li>
-              <li><a href="#about">About Us</a></li>
+              <li><a href="#about">हमारे बारे में</a></li>
             </ul>
           </div>
         </div>

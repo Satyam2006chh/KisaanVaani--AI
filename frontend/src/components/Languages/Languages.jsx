@@ -21,11 +21,11 @@ export default function Languages() {
         <div className="langs__header">
           <span className="section-label">Supported Languages</span>
           <h2 className="section-title">
-            <span className="highlight">11 Bhaashaaon</span> Mein Baat Karein
+            <span className="highlight">11 भाषाओं</span> में बात करें
           </h2>
           <div className="divider" />
           <p className="section-sub">
-            India ki har major bhasha mein bina kisi rukavat ke bolein aur sunein.
+            भारत की हर मुख्य भाषा में बिना किसी रुकावट के बोलें और सुनें।
           </p>
         </div>
 

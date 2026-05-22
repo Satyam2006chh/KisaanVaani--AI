@@ -7,51 +7,51 @@ import './Features.css'
 const features = [
   {
     icon: <Mic size={24} />,
-    title: 'Voice First Interaction',
-    desc: 'Sirf bolne se kaam chale. Koi typing nahi, koi English nahi — 100% awaaz aadharit.',
-    tag: 'Awaaz',
+    title: 'आवाज़ से काम',
+    desc: 'सिर्फ बोलने से काम चले। कोई टाइपिंग नहीं, कोई अंग्रेजी नहीं — 100% आवाज़ आधारित।',
+    tag: 'आवाज़',
   },
   {
     icon: <Brain size={24} />,
-    title: 'Smart AI Sahayak',
-    desc: 'Aapki har baat ko samajh kar turant sahi aur sateek javab dene wala automatic assistant.',
-    tag: 'AI Sahayak',
+    title: 'स्मार्ट AI सहायक',
+    desc: 'आपकी हर बात को समझ कर तुरंत सही और सटीक जवाब देने वाला ऑटोमैटिक असिस्टेंट।',
+    tag: 'AI सहायक',
   },
   {
     icon: <FileText size={24} />,
-    title: 'Sarkaari Yojanaayein',
-    desc: 'PM Kisan, PMFBY aur 50+ sarkaari yojanaon ki poori aur sateek jankari, ek baar mein.',
-    tag: 'Yojana',
+    title: 'सरकारी योजनाएं',
+    desc: 'पीएम किसान, फसल बीमा और 50+ सरकारी योजनाओं की पूरी और सटीक जानकारी, एक बार में।',
+    tag: 'योजना',
   },
   {
     icon: <CloudSun size={24} />,
-    title: 'Mausam Jankari',
-    desc: "Farmer ke district ke hisaab se aaj aur kal ka mausam — khet ke kaam ke liye tailored.",
-    tag: 'Mausam',
+    title: 'मौसम की जानकारी',
+    desc: "किसान के जिले के हिसाब से आज और कल का मौसम — खेत के काम के लिए सटीक।",
+    tag: 'मौसम',
   },
   {
     icon: <TrendingUp size={24} />,
-    title: 'Mandi Bhav',
-    desc: 'Agmarknet se real-time mandi rates. Sahi time pe bechne ka sahi faisla karein.',
-    tag: 'Mandi',
+    title: 'मंडी भाव',
+    desc: 'एगमार्कनेट से रियल-टाइम मंडी रेट। सही समय पर बेचने का सही फैसला करें।',
+    tag: 'मंडी',
   },
   {
     icon: <ShieldCheck size={24} />,
-    title: 'Scheme Eligibility Checker',
-    desc: 'Apna profile dalo — AI batayega kaun si yojana ke liye aap eligible hain.',
-    tag: 'Eligibility',
+    title: 'योजना पात्रता जांचें',
+    desc: 'अपनी प्रोफाइल डालें — AI बताएगा कि आप किस योजना के लिए पात्र हैं।',
+    tag: 'पात्रता',
   },
   {
     icon: <MessageSquare size={24} />,
-    title: 'Voice Chat History',
-    desc: 'Purani baatein yaad rahengi. "Dobara Suno" button se koi bhi jawab dubara sunein.',
-    tag: 'Itihaas',
+    title: 'वॉयस चैट इतिहास',
+    desc: 'पुरानी बातें याद रहेंगी। "दोबारा सुनो" बटन से कोई भी जवाब फिर से सुनें।',
+    tag: 'इतिहास',
   },
   {
     icon: <Zap size={24} />,
-    title: 'Fasal Salah',
-    desc: 'Season, mausam aur location ke hisaab se best crop recommendation paayein.',
-    tag: 'Fasal',
+    title: 'फसल की सलाह',
+    desc: 'मौसम और लोकेशन के हिसाब से सबसे अच्छी फसल की सलाह पाएं।',
+    tag: 'फसल',
   },
 ]
 
@@ -62,11 +62,11 @@ export default function Features() {
         <div className="features__header">
           <span className="section-label">Features</span>
           <h2 className="section-title">
-            Sab Kuch Ek Jagah, <span className="highlight">Sirf Awaaz Mein</span>
+            सब कुछ एक जगह, <span className="highlight">सिर्फ आवाज़ में</span>
           </h2>
           <div className="divider" />
           <p className="section-sub">
-            8 powerful features jo milkar banate hain India ka sabse helpful farmers' assistant.
+            8 शानदार फीचर्स जो मिलकर बनाते हैं भारत का सबसे मददगार किसान असिस्टेंट।
           </p>
         </div>
 
@@ -91,11 +91,11 @@ export default function Features() {
               <div className="diag-showcase__glow" />
             </div>
             <div className="diag-showcase__text">
-              <span className="section-label accent-badge">📸 AI Visual Analysis</span>
-              <h3 className="diag-showcase__title">Aankh Se Dekhein, Fasal Ka Ilaaj Paayein</h3>
+              <span className="section-label accent-badge">📸 AI विजुअल एनालिसिस</span>
+              <h3 className="diag-showcase__title">आंख से देखें, फसल का इलाज पाएं</h3>
               <p className="diag-showcase__desc">
-                Humara premium vision pipeline (Claude 3.5 Sonnet aadharit) fasal ke rogon ko sirf ek photo se pehchanta hai. 
-                Patti ke dhabbe, keede, aur nutrient deficiency ko millimeter precision se scan karke instant sateek ilaaj aur doses batata hai.
+                हमारा एडवांस विजन AI फसल के रोगों को सिर्फ एक फोटो से पहचानता है। 
+                पत्ती के धब्बे, कीड़े और पोषक तत्वों की कमी को स्कैन करके तुरंत सटीक इलाज बताता है।
               </p>
               <div className="diag-showcase__badges">
                 <div className="diag-badge">🔬 Senior Plant Pathology AI</div>

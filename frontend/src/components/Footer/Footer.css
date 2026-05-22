@@ -22,14 +22,11 @@
   margin-bottom: 12px;
 }
 
-.footer__logo-icon {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  background: var(--primary);
-  color: white;
-  border-radius: 8px;
+.footer__logo-img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 6px;
 }
 
 .footer__tagline {

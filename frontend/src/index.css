@@ -1,37 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap');
 
 :root {
-  /* === CORE PALETTE: Royal Tiranga Dark Ashok Navy === */
-  --bg-primary: #050716;      /* Royal Ashok Chakra Deep Navy */
-  --bg-secondary: #090c24;    /* Deep Ashok Navy Slate */
-  --bg-deep: #03040e;         /* Absolute Indigo Void */
-  --bg-card: rgba(9, 12, 36, 0.8); /* Premium Glassmorphic Deep Card */
-  --bg-glass: rgba(255, 255, 255, 0.02);
+  /* === CORE PALETTE: Premium Dark Ocean Blue === */
+  --bg-primary: #050505;      /* Pure black base */
+  --bg-secondary: #0a0a0a;    /* Deep dark */
+  --bg-deep: #000000;         /* Absolute black */
+  --bg-card: rgba(20, 20, 20, 0.7); /* Dark Glass */
+  --bg-glass: rgba(255, 255, 255, 0.03);
 
-  /* Tiranga Accent Palette */
-  --primary: #ff671f;          /* Saffron (Kesari) */
-  --primary-rgb: 255, 103, 31;
-  --primary-glow: rgba(var(--primary-rgb), 0.18);
+  /* Modern Ocean Palette */
+  --primary: #3b82f6;          /* Bright Blue for Dark Mode */
+  --primary-rgb: 59, 130, 246;
+  --primary-glow: rgba(var(--primary-rgb), 0.15);
 
-  --accent: #046a38;           /* Indian Green (Hara) */
-  --accent-rgb: 4, 106, 56;
-  --accent-glow: rgba(var(--accent-rgb), 0.25);
+  --accent: #0ea5e9;           /* Vibrant Sky Blue */
+  --accent-rgb: 14, 165, 233;
+  --accent-glow: rgba(var(--accent-rgb), 0.15);
 
-  --highlight: #2563eb;        /* Ashok Chakra Blue */
-  --highlight-rgb: 37, 99, 235;
-  --highlight-glow: rgba(var(--highlight-rgb), 0.4);
+  --highlight: #60a5fa;        /* Lighter Blue */
+  --highlight-rgb: 96, 165, 250;
+  --highlight-glow: rgba(var(--highlight-rgb), 0.2);
 
   /* Text */
-  --text-main: #f8fafc;        /* Brilliant Slate White */
-  --text-primary: #f8fafc;
-  --text-dim: #94a3b8;        /* Soft Slate */
+  --text-main: #f8fafc;        /* White */
+  --text-primary: #f1f5f9;     /* Off-White */
+  --text-dim: #94a3b8;         /* Light Gray */
   --text-secondary: #64748b;
   --text-muted: #475569;
 
   /* Border & Glass */
-  --border-glass: 1px solid rgba(255, 255, 255, 0.08);
-  --glass: blur(25px);
-  --glow-border: rgba(var(--primary-rgb), 0.3);
+  --border-glass: 1px solid rgba(255, 255, 255, 0.06);
+  --glass: blur(20px);
+  --glow-border: rgba(var(--primary-rgb), 0.2);
 
   /* Radius */
   --radius-md: 16px;
@@ -39,12 +39,12 @@
   --radius-full: 100px;
 
   /* Font */
-  --font-heading: 'Bricolage Grotesque', sans-serif;
-  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
 
   /* Transitions & Smooth Effects */
   --transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  --shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.06);
 }
 
 * {
@@ -60,9 +60,9 @@ body {
   font-family: var(--font-body);
   background-color: var(--bg-primary);
   background-image: 
-    radial-gradient(circle at 15% 25%, rgba(255, 103, 31, 0.14) 0%, transparent 45%),
-    radial-gradient(circle at 85% 75%, rgba(4, 106, 56, 0.18) 0%, transparent 45%),
-    radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.08) 0%, transparent 45%),
+    radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 28px 28px;
   background-attachment: fixed;
   color: var(--text-main);
@@ -149,7 +149,7 @@ ul { list-style: none; }
 .glass-card:hover {
   transform: translateY(-4px) scale(1.008);
   border-color: rgba(var(--primary-rgb), 0.35);
-  box-shadow: 0 30px 60px -15px rgba(15, 23, 42, 0.12), 0 0 25px rgba(var(--primary-rgb), 0.03);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.1), 0 0 20px rgba(var(--primary-rgb), 0.05);
 }
 
 /* === BUTTONS === */
@@ -237,6 +237,7 @@ ul { list-style: none; }
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  font-weight: 800;
 }
 
 .hero-subtitle {

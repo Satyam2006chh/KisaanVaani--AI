@@ -119,6 +119,22 @@ export default function Hero() {
     setError('')
     chunksRef.current = []
 
+    // 🔴 FORCIBLY STOP ANY ONGOING AI SPEECH 🔴
+    queueActiveRef.current = false
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause()
+        audioRef.current.removeAttribute('src')
+        audioRef.current.load()
+      } catch (e) {
+        console.warn('[Audio] Stop failed:', e)
+      }
+    }
+    Object.values(prefetchedUrls.current).forEach(url => {
+      try { URL.revokeObjectURL(url) } catch (e) {}
+    })
+    prefetchedUrls.current = {}
+
     let stream
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -143,15 +159,6 @@ export default function Hero() {
     setReply('')
     setChatHistory([])
     setError('')
-    
-    // Stop any currently playing audio immediately
-    try {
-      audioRef.current.pause()
-      audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
-      audioRef.current.load()
-    } catch (e) {
-      console.warn('[Audio] Stop failed:', e)
-    }
 
     startVisualizer(stream)
 
@@ -336,19 +343,22 @@ export default function Hero() {
   const handleMicClick = () => {
     if (status === S.RECORDING) {
       stopRecording()
-    } else if (status === S.SPEAKING) {
-      queueActiveRef.current = false // Stop the audio queue
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current.currentTime = 0
+    } else if (status === S.SPEAKING || status === S.IDLE) {
+      // If it was speaking, halt the playback queue entirely
+      if (status === S.SPEAKING) {
+        queueActiveRef.current = false
+        if (audioRef.current) {
+          try {
+            audioRef.current.pause()
+            audioRef.current.removeAttribute('src')
+          } catch(e) {}
+        }
+        Object.values(prefetchedUrls.current).forEach(url => {
+          try { URL.revokeObjectURL(url) } catch (e) {}
+        })
+        prefetchedUrls.current = {}
       }
-      // Revoke all prefetched URLs to free browser memory
-      Object.values(prefetchedUrls.current).forEach(url => {
-        try { URL.revokeObjectURL(url) } catch (e) {}
-      })
-      prefetchedUrls.current = {}
-      setStatus(S.IDLE)
-    } else if (status === S.IDLE) {
+      // Instantly start listening to the new question
       startRecording()
     }
   }
@@ -359,8 +369,8 @@ export default function Hero() {
 
       {/* ── Welcome ── */}
       <div className="welcome-msg">
-        <h1>Namaste <span className="farmer-name">{user?.name || 'Kisaan'}</span> ji 🌾</h1>
-        <p className="hero-subtitle">Mausam, Mandi, aur Fasal ki AI-powered jankari — sirf aapke liye.</p>
+        <h1>नमस्ते <span className="farmer-name">{user?.name || 'किसान'}</span> जी 🌾</h1>
+        <p className="hero-subtitle">मौसम, मंडी, और फसल की AI-पॉवर्ड जानकारी — सिर्फ आपके लिए।</p>
       </div>
 
       {/* ── Error banner ── */}
@@ -377,7 +387,7 @@ export default function Hero() {
         <div className="img-preview-container">
           <img src={imgPreview} alt="Fasal preview" />
           <button className="img-remove-btn" onClick={clearImage}><X size={16} /></button>
-          <p className="img-hint">📸 Fasal ki photo AI analyze karegi</p>
+          <p className="img-hint">📸 AI फसल की फोटो का विश्लेषण करेगा</p>
         </div>
       )}
 
@@ -387,7 +397,7 @@ export default function Hero() {
           {/* User Side */}
           {transcript && (
             <div className="chat-bubble user-bubble active-bubble">
-              <div className="chat-bubble-label">🎤 AAPNE KAHA</div>
+              <div className="chat-bubble-label">🎤 आपने कहा</div>
               <p>{transcript}</p>
             </div>
           )}
@@ -395,14 +405,14 @@ export default function Hero() {
           {/* AI Side */}
           {status === S.PROCESSING && (
             <div className="chat-bubble ai-bubble typing-bubble active-bubble">
-              <div className="chat-bubble-label">AI Soch raha hai...</div>
+              <div className="chat-bubble-label">AI सोच रहा है...</div>
               <div className="typing-dots"><span /><span /><span /></div>
             </div>
           )}
 
           {reply && status !== S.PROCESSING && (
             <div className="chat-bubble ai-bubble active-bubble response-highlight">
-              <div className="chat-bubble-label">🤖 AI JAWAB</div>
+              <div className="chat-bubble-label">🤖 AI का जवाब</div>
               <p>{reply}</p>
             </div>
           )}
@@ -442,10 +452,10 @@ export default function Hero() {
         </button>
 
         <p className="status-text">
-          {status === S.RECORDING  ? '🔴 RECORDING — DOBARA DABAYEIN BAND KARNE KE LIYE' :
-           status === S.PROCESSING ? '⚙️ AI JAWAB TAIYAAR KAR RAHA HAI...' :
-           status === S.SPEAKING   ? '🔊 AI BOL RAHA HAI...' :
-                                     '🎙️ BOLNE KE LIYE DABAYEIN'}
+          {status === S.RECORDING  ? '🔴 रिकॉर्डिंग — बंद करने के लिए दोबारा दबाएं' :
+           status === S.PROCESSING ? '⚙️ AI जवाब तैयार कर रहा है...' :
+           status === S.SPEAKING   ? '🔊 AI बोल रहा है...' :
+                                     '🎙️ बोलने के लिए दबाएं'}
         </p>
 
         {/* Controls row */}
@@ -453,7 +463,7 @@ export default function Hero() {
           {/* Image upload */}
           <label className="image-upload-btn" id="image-upload-label">
             <ImageIcon size={18} />
-            <span>{imgPreview ? 'Photo Badlein' : 'Fasal ki Photo'}</span>
+            <span>{imgPreview ? 'फोटो बदलें' : 'फसल की फोटो'}</span>
             <input type="file" accept="image/*" onChange={handleImage} hidden />
           </label>
 
@@ -563,9 +573,9 @@ function splitTextIntoChunks(text, lang) {
   
   const finalSegments = [];
   
-  // Further split any raw sentence that is too long (>= 120 chars) to prevent TTS latency spikes
+  // Further split any raw sentence that is too long (>= 450 chars) to prevent TTS limits
   for (let sentence of rawSentences) {
-    if (sentence.length < 120) {
+    if (sentence.length < 450) {
       finalSegments.push(sentence);
     } else {
       // Split by clause punctuation (commas, semicolons, dashes)
@@ -578,17 +588,17 @@ function splitTextIntoChunks(text, lang) {
         if (!clause) continue;
         
         const fullClause = clause + punct;
-        if ((currentSubChunk + fullClause).length < 120) {
+        if ((currentSubChunk + fullClause).length < 450) {
           currentSubChunk += (currentSubChunk ? " " : "") + fullClause;
         } else {
           if (currentSubChunk) finalSegments.push(currentSubChunk.trim());
           
           // If a single clause is still too long, split by spaces
-          if (fullClause.length >= 120) {
+          if (fullClause.length >= 450) {
             const words = fullClause.split(/\s+/);
             let wordChunk = "";
             for (let word of words) {
-              if ((wordChunk + word).length < 100) {
+              if ((wordChunk + word).length < 400) {
                 wordChunk += (wordChunk ? " " : "") + word;
               } else {
                 if (wordChunk) finalSegments.push(wordChunk.trim());
@@ -607,12 +617,12 @@ function splitTextIntoChunks(text, lang) {
     }
   }
   
-  // Group small segments together so they aren't TOO short (keep chunks between 40 and 120 chars)
+  // Group small segments together so they aren't TOO short (keep chunks around 350-450 chars)
   const chunks = [];
   let currentChunk = "";
   
   for (let segment of finalSegments) {
-    if ((currentChunk + segment).length < 120) {
+    if ((currentChunk + segment).length < 450) {
       currentChunk += (currentChunk ? " " : "") + segment;
     } else {
       if (currentChunk) chunks.push(currentChunk.trim());
