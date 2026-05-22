@@ -1,7 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth'
-import { auth } from '../firebase'
 
 const AuthContext = createContext(null)
 
@@ -23,7 +21,6 @@ const LANGUAGES = [
 export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null)
   const [loading, setLoading] = useState(true)
-  const [confirmationResult, setConfirmationResult] = useState(null)
   const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
   useEffect(() => {
@@ -70,31 +67,14 @@ export function AuthProvider({ children }) {
     timeout: 15000,
   }), [API_BASE_URL])
 
-  const setupRecaptcha = () => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response) => {
-          console.log('[AuthContext] reCAPTCHA solved');
-        },
-        'expired-callback': () => {
-          console.warn('[AuthContext] reCAPTCHA expired');
-        }
-      });
-    }
-  }
-
   const sendOTP = async (phone) => {
-    console.log('[AuthContext] Sending Firebase OTP to:', `+91${phone}`)
+    console.log('[AuthContext] Sending OTP to:', `${API_BASE_URL}/api/auth/otp/send`)
     try {
-      setupRecaptcha()
-      const appVerifier = window.recaptchaVerifier
-      const confirmation = await signInWithPhoneNumber(auth, `+91${phone}`, appVerifier)
-      setConfirmationResult(confirmation)
-      console.log('[AuthContext] Firebase OTP sent successfully')
-      return { success: true }
+      const { data } = await api.post('/api/auth/otp/send', { phone })
+      console.log('[AuthContext] OTP Response:', data)
+      return data
     } catch (err) {
-      console.error('[AuthContext] Firebase OTP Error:', err)
+      console.error('[AuthContext] OTP Error:', err.response?.data || err.message)
       throw err
     }
   }
@@ -102,15 +82,6 @@ export function AuthProvider({ children }) {
   const verifyOTP = async (phone, otp, name, language, district, state, city) => {
     console.log('[AuthContext] Verifying OTP for:', phone)
     try {
-      // 1. Verify with Firebase First
-      if (otp !== '123456' && confirmationResult) {
-         await confirmationResult.confirm(otp)
-         console.log('[AuthContext] Firebase OTP verified successfully')
-      } else if (otp !== '123456' && !confirmationResult) {
-         throw new Error('Please request OTP first')
-      }
-
-      // 2. Sync with backend for DB saving
       const payload = { phone, otp, name, language, district, state, city }
       const verifyPromise = api.post('/api/auth/otp/verify', payload)
       const timeoutPromise = new Promise((_, reject) => {
@@ -124,7 +95,7 @@ export function AuthProvider({ children }) {
       setUser(data.user)
       return data.user
     } catch (err) {
-      console.error('[AuthContext] Verify Error:', err.response?.data || err.message || err)
+      console.error('[AuthContext] Verify Error:', err.response?.data || err.message)
       
       // GOD MODE FALLBACK: If it's the demo OTP, keep login/profile flow usable even if backend is slow.
       if (otp === '123456') {

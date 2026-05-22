@@ -305,7 +305,6 @@ export default function AuthScreen() {
           )}
         </div>
 
-        <div id="recaptcha-container"></div>
       </div>
     </div>
   )
