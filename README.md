@@ -166,22 +166,21 @@ DATAGOV_API_KEY=your_datagov_key
 FIRECRAWL_API_KEY=your_firecrawl_key
 ```
 
-### 4️⃣ Start Backend
-```bash
-cd backend
-uvicorn app.main:app --reload --port 8000
-```
+### 4️⃣ Fast Start (Windows)
+Instead of starting the backend and frontend manually in separate terminals, we have provided a 1-click fast start script!
 
-### 5️⃣ Start Frontend
-```bash
-cd frontend
-npm install
-npm run dev
+Run this in your PowerShell terminal at the root of the project:
+```powershell
+.\run.ps1
 ```
+This will automatically:
+1. Clear any stuck ports (8000, 5174)
+2. Open a new terminal and start the FastAPI Backend
+3. Open a new terminal and start the React Frontend
 
-### 6️⃣ Open in Browser
+### 5️⃣ Open in Browser
 ```
-http://localhost:5173
+http://localhost:5174
 ```
 
 ---

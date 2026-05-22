@@ -1,4 +1,4 @@
-﻿# KisaanVaani Fast Start Script
+# KisaanVaani Fast Start Script
 # Usage: ./run.ps1
 
 Write-Host "🚀 Cleaning up existing ports (8000, 5174)..." -ForegroundColor Cyan
@@ -16,7 +16,7 @@ if ($p5174) { Stop-Process -Id $p5174.OwningProcess -Force }
 Write-Host "✅ Ports cleared." -ForegroundColor Green
 
 Write-Host "📦 Starting Backend Server (Port 8000)..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; .\.venv\Scripts\activate; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 Write-Host "🌐 Starting Frontend Server (Port 5174)..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd frontend; npm run dev -- --host"
