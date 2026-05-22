@@ -22,6 +22,17 @@ env/
 test_apis.py
 full_test.py
 manual_test.py
+test_live_chat.py
+test_mandi.py
+test_mandi_specific.py
+manual_agent_test.py
+manual_mandi_test.py
+output.txt
+update_trans.py
+backend/test_*.py
+backend/manual_*.py
+backend/output.txt
+backend/test_mandi.py
 
 # ─── Audio / Binary test files ────────────────
 *.wav
