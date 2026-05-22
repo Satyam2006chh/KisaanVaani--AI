@@ -51,10 +51,7 @@ TEXT_MODELS = [
 
 VISION_MODELS = [
     "google/gemini-2.5-flash",             # Extremely fast, highly accurate, and very cost-effective
-    "google/gemini-2.5-flash:free",        # 100% Free Gemini fallback vision
-    "anthropic/claude-3.5-sonnet",         # Premium high precision
     "openai/gpt-4o",                       # Premium high stability
-    "meta-llama/llama-3.2-11b-vision-instruct:free" # 100% Free Llama fallback vision
 ]
 
 
