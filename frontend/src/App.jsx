@@ -10,11 +10,9 @@ import Languages from './components/Languages/Languages'
 import Quotes from './components/Quotes/Quotes'
 import Footer from './components/Footer/Footer'
 import AuthScreen from './components/Auth/AuthScreen'
-import WelcomeSplash from './components/Splash/WelcomeSplash'
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth()
-  const [showSplash, setShowSplash] = useState(true)
 
   if (loading) {
     return (
@@ -22,10 +20,6 @@ function AppContent() {
         <div className="loading-spinner" style={{ fontSize: '2rem' }}>🌾 Loading KisaanVaani...</div>
       </div>
     )
-  }
-
-  if (showSplash) {
-    return <WelcomeSplash onEnter={() => setShowSplash(false)} />
   }
 
   if (!isAuthenticated) {

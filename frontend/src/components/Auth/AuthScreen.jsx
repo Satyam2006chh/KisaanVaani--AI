@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Building2, Languages, Loader, Lock, MapPin, Phone, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import './AuthScreen.css'
+import translations from '../../translations.json'
 
 const STEP = { PHONE: 1, OTP: 2, PROFILE: 3 }
 
@@ -30,6 +31,11 @@ export default function AuthScreen() {
   const [state,    setState]    = useState('')
   const [language, setLanguage] = useState('hi-IN')
   const [detectingLoc, setDetectingLoc] = useState(false)
+
+  const t = (key) => {
+    const langDict = translations[language] || translations['hi-IN']
+    return langDict[key] || translations['hi-IN'][key] || key
+  }
 
   const autoDetectLocation = () => {
     if (!navigator.geolocation) {
@@ -83,6 +89,13 @@ export default function AuthScreen() {
       (geoErr) => {
         console.warn('[AuthScreen] Geolocation prompt error/denied:', geoErr.message)
         setDetectingLoc(false)
+        if (geoErr.code === 1) { // PERMISSION_DENIED
+          setError(t('loc_err_allow'))
+        } else if (geoErr.code === 2 || geoErr.message.includes('unavailable')) { // POSITION_UNAVAILABLE
+          setError(t('loc_err_gps'))
+        } else {
+          setError(t('loc_err_fail'))
+        }
       },
       { timeout: 10000, enableHighAccuracy: true }
     )
@@ -99,7 +112,7 @@ export default function AuthScreen() {
 
   async function handleSendOTP(e) {
     e.preventDefault()
-    if (phone.length < 10) return err('Sahi mobile number bharein.')
+    if (phone.length < 10) return err(t('err_phone'))
     
     setError('')
     // OPTIMISTIC UI: Move to OTP step instantly for zero delay
@@ -130,10 +143,10 @@ export default function AuthScreen() {
 
   async function handleProfile(e) {
     e.preventDefault()
-    if (!name.trim())     return err('Apna naam bharein.')
-    if (!city.trim())     return err('Shehar / gaon ka naam bharein.')
-    if (!district.trim()) return err('Zila ka naam bharein.')
-    if (!state)           return err('Rajya chunein.')
+    if (!name.trim())     return err(t('err_name'))
+    if (!city.trim())     return err(t('err_city'))
+    if (!district.trim()) return err(t('err_district'))
+    if (!state)           return err(t('err_state'))
     setError('')
     setLoading(true)
     try {
@@ -151,7 +164,7 @@ export default function AuthScreen() {
 
         <div className="auth-header">
           <h1 className="auth-logo">🎙️ Kisaan<span className="highlight">Vaani</span></h1>
-          <p className="auth-tagline">Bolo, Samjho, Badlo Apni Zindagi</p>
+          <p className="auth-tagline">{t('tagline')}</p>
         </div>
 
         <div className="auth-steps animate-entrance" style={{ animationDelay: '0.2s' }}>
@@ -167,11 +180,11 @@ export default function AuthScreen() {
         <div className="glass-panel auth-card">
           {step === STEP.PHONE && (
             <form onSubmit={handleSendOTP} className="auth-form animate-reveal">
-              <h2>Kisan Bhai,<br /><span className="highlight">Welcome!</span></h2>
-              <p className="auth-subtitle">Apna mobile number daalen shuru karne ke liye</p>
+              <h2>{t('welcome_title_1')}<br /><span className="highlight">{t('welcome_title_2')}</span></h2>
+              <p className="auth-subtitle">{t('welcome_subtitle')}</p>
               
               <div className="input-field">
-                <label><Phone size={18} /> Mobile Number</label>
+                <label><Phone size={18} /> {t('mobile_label')}</label>
                 <div className="input-group">
                   <span className="input-prefix">+91</span>
                   <input
@@ -185,44 +198,49 @@ export default function AuthScreen() {
               </div>
 
               <button className="btn-premium w-full" disabled={loading || phone.length < 10}>
-                {loading ? <Loader size={20} className="spin" /> : <>Bhejo OTP <span className="arrow">→</span></>}
+                {loading ? <Loader size={20} className="spin" /> : <>{t('btn_send_otp')}</>}
               </button>
-              <div className="demo-hint">✨ Demo OTP: 123456</div>
+              <div className="demo-hint">{t('demo_hint')}</div>
             </form>
           )}
 
           {step === STEP.OTP && (
             <form onSubmit={handleVerifyOTP} className="auth-form animate-reveal">
-              <h2>Suraksha <span className="highlight">Jaanch</span></h2>
-              <p className="auth-subtitle">+91 {phone} par bheja gaya code daalen</p>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                <div style={{ background: 'rgba(255, 103, 31, 0.15)', padding: '24px', borderRadius: '50%', color: 'var(--primary)', boxShadow: '0 0 40px rgba(255,103,31,0.2)' }}>
+                  <Lock size={48} strokeWidth={1.5} />
+                </div>
+              </div>
+              <h2>{t('otp_title_1')} <span className="highlight">{t('otp_title_2')}</span></h2>
+              <p className="auth-subtitle">{t('otp_subtitle')} {phone}</p>
               
-              <div className="input-field">
-                <label><Lock size={18} /> 6-Digit Verification Code</label>
+              <div className="input-field" style={{ marginTop: '10px', marginBottom: '30px' }}>
                 <input
                   type="text"
                   placeholder="• • • • • •"
                   value={otp}
                   onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   required autoFocus
+                  autoComplete="one-time-code"
                   className="otp-input"
-                  style={{ textAlign: 'center', letterSpacing: '12px', fontSize: '1.8rem', fontWeight: '800' }}
+                  style={{ textAlign: 'center', letterSpacing: '24px', fontSize: '2.2rem', fontWeight: '800', background: 'rgba(0,0,0,0.4)', padding: '25px', borderRadius: '20px' }}
                 />
               </div>
 
-              <button className="btn-premium w-full" disabled={loading || otp.length < 6}>
-                {loading ? <Loader size={20} className="spin" /> : 'Aage Badhein →'}
+              <button className="btn-premium w-full" disabled={loading || otp.length < 6} style={{ padding: '18px', fontSize: '1.2rem' }}>
+                {loading ? <Loader size={24} className="spin" /> : t('btn_verify')}
               </button>
               
               <button type="button" className="btn-link" onClick={() => setStep(STEP.PHONE)}>
-                ← Mobile number badlein
+                {t('btn_change_num')}
               </button>
             </form>
           )}
 
           {step === STEP.PROFILE && (
             <form onSubmit={handleProfile} className="auth-form animate-reveal">
-              <h2>Apni <span className="highlight">Pehchaan</span></h2>
-              <p className="auth-subtitle">Taki AI aapko aur aapke khet ko samajh sake</p>
+              <h2>{t('profile_title_1')} <span className="highlight">{t('profile_title_2')}</span></h2>
+              <p className="auth-subtitle">{t('profile_subtitle')}</p>
 
               <button
                 type="button"
@@ -235,39 +253,39 @@ export default function AuthScreen() {
                 ) : (
                   <MapPin size={16} />
                 )}
-                <span>{detectingLoc ? 'Location detect ho raha hai...' : '🎯 Auto-Detect Location'}</span>
+                <span>{detectingLoc ? t('btn_detecting') : t('btn_detect_loc')}</span>
               </button>
 
               <div className="profile-grid">
                 <div className="input-field">
-                  <label><User size={18} /> Poora Naam</label>
-                  <input type="text" placeholder="Ramesh Kumar"
+                  <label><User size={18} /> {t('name_label')}</label>
+                  <input type="text" placeholder=""
                     value={name} onChange={e => setName(e.target.value)} required />
                 </div>
 
                 <div className="input-field">
-                  <label><Building2 size={18} /> Shehar / Gaon</label>
-                  <input type="text" placeholder="Gaon ka naam"
+                  <label><Building2 size={18} /> {t('city_label')}</label>
+                  <input type="text" placeholder=""
                     value={city} onChange={e => setCity(e.target.value)} required />
                 </div>
 
                 <div className="input-field">
-                  <label><MapPin size={18} /> Zila (District)</label>
-                  <input type="text" placeholder="Zila"
+                  <label><MapPin size={18} /> {t('district_label')}</label>
+                  <input type="text" placeholder=""
                     value={district} onChange={e => setDistrict(e.target.value)} required />
                 </div>
 
                 <div className="input-field">
-                  <label><MapPin size={18} /> Rajya (State)</label>
+                  <label><MapPin size={18} /> {t('state_label')}</label>
                   <select value={state} onChange={e => setState(e.target.value)} required>
-                    <option value="">Chunein...</option>
+                    <option value="">{t('state_select')}</option>
                     {STATES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
               </div>
 
               <div className="language-selector">
-                <label><Languages size={18} /> Bhasha (Language)</label>
+                <label><Languages size={18} /> {t('lang_label')}</label>
                 <div className="lang-chips">
                   {availableLanguages.map(l => (
                     <button key={l.code} type="button"
@@ -281,7 +299,7 @@ export default function AuthScreen() {
               </div>
 
               <button className="btn-premium w-full" disabled={loading}>
-                {loading ? <Loader size={20} className="spin" /> : 'Kheti Shuru Karein 🌾'}
+                {loading ? <Loader size={20} className="spin" /> : t('btn_start')}
               </button>
             </form>
           )}
