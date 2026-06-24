@@ -5,7 +5,7 @@ from typing import List, TypedDict
 import httpx
 from langgraph.graph import END, StateGraph
 
-from app.agents.tools import get_mandi_price, get_weather, scrape_agricultural_news, get_nearby_services
+from app.agents.tools import get_mandi_price, get_weather, scrape_agricultural_news
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -239,10 +239,8 @@ def _system_prompt(state: AgentState) -> str:
 async def intent_router(state: AgentState) -> AgentState:
     msg = state["messages"][-1]["content"].lower().strip()
 
-    # 0. VISION PRIORITY: image present → always vision
-    img = state.get("image_data")
-    if img and len(str(img)) > 100:
-        return {**state, "intent": "vision"}
+    # The image is held in state["image_data"]. We no longer force "vision" intent just because an image exists.
+    # The image will only be sent to the expensive Vision LLM if the user's text explicitly asks about it (saving cost).
 
     # 1. FOLLOW-UP DETECTION — check BOTH English (msg) AND original language
     # This handles: "firse batao" (Hindi), "explain again" (English), etc.
@@ -287,11 +285,10 @@ async def intent_router(state: AgentState) -> AgentState:
     keywords = {
         "weather":        ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature", "tapman"],
         "mandi":          ["bhav", "mandi", "rate", "keemat", "price", "daam", "bikri", "sell"],
-        "vision":         ["bimari kya hai", "photo", "image", "pesticide", "fungus"],
+        "vision":         ["bimari kya hai", "photo", "image", "tasveer", "picture", "dekho", "pesticide", "fungus", "disease", "bimari"],
         "crop_advice":    ["fasal", "crop", "ugao", "kheti", "kya lagao", "beej", "seed", "fertilizer", "khad", "keet"],
         "news":           ["news", "samachar", "khabar", "taza", "yojana", "scheme", "labh", "benefit", "subsidy", "latest"],
         "eligibility":    ["eligible", "patrata", "apply", "registration"],
-        "trusted_vendor": ["vendor", "dealer", "shop", "doctor", "hospital", "clinic", "soil lab", "agri officer", "nearby"],
         "lang_switch":    ["punjabi mein", "hindi mein", "english mein", "tamil mein", "gujarati mein",
                            "bengali mein", "marathi mein", "bhasha badlo", "language change", "mein bolo", "mein jawab do"],
         # General: geography, greetings — NOTE: removed 'batao'/'bata do' (too broad, causes false positives)
@@ -312,9 +309,9 @@ async def intent_router(state: AgentState) -> AgentState:
         "Classify the user message into EXACTLY ONE of these labels:\n"
         "  weather        — asking about rain, temperature, forecast\n"
         "  mandi          — asking about crop prices, market rates\n"
+        "  vision         — asking to analyze a photo, image, or identifying a crop disease\n"
         "  crop_advice    — asking about crop care, fertilizers, seeds, pests\n"
         "  news           — asking about government schemes, subsidies, agri news\n"
-        "  trusted_vendor — asking about nearby shops, doctors, agri offices\n"
         "  general        — geography, greetings, off-topic, general knowledge\n\n"
         "Return ONLY the label. No punctuation, no explanation.\n"
         f"Message: {msg}"
@@ -322,7 +319,7 @@ async def intent_router(state: AgentState) -> AgentState:
     try:
         raw    = await _call_openrouter_text([{"role": "system", "content": intent_prompt}], max_tokens=10)
         intent = raw.strip().lower().replace(".", "").replace("`", "").split()[0]
-        valid  = {"weather", "mandi", "crop_advice", "news", "trusted_vendor", "general"}
+        valid  = {"weather", "mandi", "vision", "crop_advice", "news", "general"}
         if intent not in valid:
             intent = "general"
     except Exception:
@@ -332,37 +329,64 @@ async def intent_router(state: AgentState) -> AgentState:
 
 
 
-async def weather_node(state: AgentState) -> AgentState:
-    district = state["district"]
-    state_name = state["state_name"]
-
-    # Check if user asked about a DIFFERENT city
-    messages = [
-        {"role": "system", "content": (
-            "Identify whether user asked weather for a specific city different from current location. "
-            "Return strict JSON only: {\"city\": \"<name>\"} OR {\"city\": null}. "
-        )},
-        {"role": "user", "content": state["messages"][-1]["content"]},
-    ]
+async def _extract_location_or_fallback(user_msg: str, original_msg: str, profile_district: str, profile_state: str) -> tuple[str, str]:
+    """
+    Extracts District/City and State from the user message, falling back to profile location if not specified.
+    """
+    prompt = (
+        "You are an expert geographical location extractor for Indian agriculture.\n"
+        f"Farmer Profile Location: District/Mandi='{profile_district}', State='{profile_state}'.\n\n"
+        "From the user query (provided in both translated English and original language), extract the target location "
+        "the user is asking about (District/City/Tehsil/Mandi and State).\n\n"
+        "Rules:\n"
+        "1. If the user mentions a specific district, city, town, tehsil, or mandi (e.g. 'Jaipur', 'Patiala', 'Ludhiana', 'Azadpur', 'Bilaspur'), "
+        "extract it as 'district'. Always return the clean proper name in English.\n"
+        "2. If the user mentions a specific state (e.g. 'Rajasthan', 'Punjab', 'Uttar Pradesh'), extract it as 'state'. Always return the clean proper name in English.\n"
+        "3. If the user asks about their own area ('mere yahan', 'apne yahan', 'my district', 'my state', 'local', etc.) or does NOT specify any location, "
+        "fall back to the profile's district and state.\n"
+        "4. If a district/city is specified but state is missing, try to infer the correct state based on well-known geography (e.g., 'Jaipur' -> 'Rajasthan', 'Patiala' -> 'Punjab', 'Ludhiana' -> 'Punjab', 'Karnal' -> 'Haryana', 'Azadpur' -> 'Delhi'), "
+        "otherwise use the profile's state.\n"
+        "5. Ignore generic words like 'mandi', 'mausam', 'weather', 'bhav', etc. as locations.\n\n"
+        "Return ONLY a valid JSON object in this format:\n"
+        "{\"district\": \"<extracted or fallback district>\", \"state\": \"<extracted or fallback state>\"}\n"
+        "Do not include any explanation or markdown formatting.\n\n"
+        f"Translated English Query: \"{user_msg}\"\n"
+        f"Original Query: \"{original_msg}\""
+    )
+    dist = profile_district
+    st = profile_state
     try:
-        raw = await _call_openrouter_text(messages, max_tokens=30)
+        raw = await _call_openrouter_text([{"role": "system", "content": prompt}], max_tokens=60)
+        clean = raw.strip().strip("```json").strip("```").strip()
         import json
-        params = json.loads(raw.strip())
-        asked_city = params.get("city")
-        if asked_city and asked_city not in ("null", "None", None, ""):
-            weather_data = await get_weather(asked_city, state_name)
-            location_label = asked_city
-        else:
-            weather_data = await get_weather(district, state_name)
-            location_label = district
-    except Exception:
-        weather_data = await get_weather(district, state_name)
-        location_label = district
+        params = json.loads(clean)
+        extracted_dist = _clean_location(params.get("district", dist))
+        extracted_st = _clean_location(params.get("state", st))
+        if extracted_dist and extracted_dist.lower() not in ("null", "none", "n/a", "na", ""):
+            dist = extracted_dist
+        if extracted_st and extracted_st.lower() not in ("null", "none", "n/a", "na", ""):
+            st = extracted_st
+    except Exception as e:
+        logger.warning(f"Location extraction failed: {e}. Using profile location.")
+    
+    return dist, st
+
+
+async def weather_node(state: AgentState) -> AgentState:
+    user_msg = state["messages"][-1]["content"]
+    original_msg = state.get("original_message", "")
+    profile_district = _clean_location(state.get("district", "")) or "Delhi"
+    profile_state    = _clean_location(state.get("state_name", "")) or "Delhi"
+
+    dist, st = await _extract_location_or_fallback(user_msg, original_msg, profile_district, profile_state)
+    weather_data = await get_weather(dist, st)
+    
+    overridden_state = {**state, "district": dist, "state_name": st}
 
     messages = [
         {"role": "system", "content": (
-            f"{_system_prompt(state)}\n\n"
-            f"Location: {location_label}\n"
+            f"{_system_prompt(overridden_state)}\n\n"
+            f"Location: {dist}, {st}\n"
             f"Weather Data: {weather_data}\n"
             "Include: current condition, rain probability, risk level, and 2 concrete farm actions."
         )},
@@ -378,6 +402,7 @@ async def mandi_node(state: AgentState) -> AgentState:
     import json
 
     user_msg   = state["messages"][-1]["content"]
+    original_msg = state.get("original_message", "")
     profile_district = _clean_location(state.get("district", "")) or "Delhi"
     profile_state    = _clean_location(state.get("state_name", "")) or "Delhi"
 
@@ -385,7 +410,7 @@ async def mandi_node(state: AgentState) -> AgentState:
     extract_prompt = (
         "You are a mandi price analyst for Indian agriculture.\n"
         f"Farmer profile: district='{profile_district}', state='{profile_state}'.\n\n"
-        "From the user message below, extract:\n"
+        "From the user message below (both translated and original), extract:\n"
         "  - commodity : the crop/commodity in English (e.g. wheat, rice, sarson, soybean)\n"
         "  - district  : the mandi/district the user is asking about.\n"
         "    * If user says 'mere zile' / 'apne ilake' / 'my district' / no specific place → use the profile district above.\n"
@@ -393,7 +418,8 @@ async def mandi_node(state: AgentState) -> AgentState:
         "  - state     : the state the district belongs to. Use profile state if unknown.\n\n"
         "Return ONLY valid JSON like: {\"commodity\": \"wheat\", \"district\": \"Patiala\", \"state\": \"Punjab\"}\n"
         "No explanation. No markdown.\n\n"
-        f"User message: {user_msg}"
+        f"Translated English Query: \"{user_msg}\"\n"
+        f"Original Query: \"{original_msg}\""
     )
 
     dist = profile_district
@@ -401,22 +427,26 @@ async def mandi_node(state: AgentState) -> AgentState:
     crop = "wheat"
     try:
         raw  = await _call_openrouter_text([{"role": "system", "content": extract_prompt}], max_tokens=60)
-        # Strip any markdown code fences if present
         clean = raw.strip().strip("```json").strip("```").strip()
         params = json.loads(clean)
         crop = params.get("commodity", crop).lower().strip()
-        dist = params.get("district", dist) or dist
-        st   = params.get("state",     st)   or st
+        extracted_dist = _clean_location(params.get("district", dist))
+        extracted_st   = _clean_location(params.get("state", st))
+        if extracted_dist and extracted_dist.lower() not in ("null", "none", "n/a", "na", ""):
+            dist = extracted_dist
+        if extracted_st and extracted_st.lower() not in ("null", "none", "n/a", "na", ""):
+            st = extracted_st
     except Exception as parse_err:
         logger.warning(f"Mandi param extraction failed: {parse_err} | raw='{raw[:80]}'")
 
     # Step 2: Fetch mandi price data
     mandi_data = await get_mandi_price(crop, dist, st)
 
-    # Step 3: Compose final answer
+    # Step 3: Compose final answer using overridden location
+    overridden_state = {**state, "district": dist, "state_name": st}
     advice_msg = [
         {"role": "system", "content": (
-            f"{_system_prompt(state)}\n\n"
+            f"{_system_prompt(overridden_state)}\n\n"
             f"MANDI DATA — {crop.title()} in {dist}, {st}:\n{mandi_data}\n\n"
             "TASK: Give a clear, practical mandi price report to the farmer.\n"
             "Include: (a) current price / MSP reference, (b) whether it's a good time to sell, "
@@ -619,34 +649,6 @@ async def crop_advice_node(state: AgentState) -> AgentState:
     return {**state, "tool_result": result}
 
 
-async def trusted_vendor_node(state: AgentState) -> AgentState:
-    district = state["district"]
-    state_name = state["state_name"]
-
-    services = await get_nearby_services(district, state_name)
-    if not services:
-        return {
-            **state,
-            "tool_result": (
-                f"Adarniya ji, {city} ke aas paas verified services abhi nahi mili. "
-                "Main nearby mandi ya agriculture office details se madad kar sakta hoon."
-            ),
-        }
-
-    messages = [
-        {"role": "system", "content": (
-            f"{_system_prompt(state)}\n\n"
-            f"User location: {city} ({lat}, {lon}).\n"
-            f"Nearby trusted services data: {services}\n"
-            "Return a concise list with: name, type, distance (km), and phone if available. "
-            "Also add one safety note: user should verify by call before visiting."
-        )},
-        {"role": "user", "content": state["messages"][-1]["content"]},
-    ]
-    result = await _call_openrouter_text(messages)
-    return {**state, "tool_result": result}
-
-
 async def general_node(state: AgentState) -> AgentState:
     """Handles general knowledge, geography, greetings and off-topic questions.
     Always answers the actual question; remembers conversation context for follow-ups."""
@@ -689,7 +691,6 @@ def _route(state: AgentState) -> str:
         "scheme":         "news_node",
         "vision":         "llm_node",
         "crop_advice":    "crop_advice_node",
-        "trusted_vendor": "trusted_vendor_node",
         "lang_switch":    "lang_switch_node",
         "general":        "general_node",
         "eligibility":    "general_node",
@@ -704,7 +705,6 @@ def _build_agent():
     g.add_node("news_node",           news_node)
     g.add_node("llm_node",            llm_node)
     g.add_node("crop_advice_node",    crop_advice_node)
-    g.add_node("trusted_vendor_node", trusted_vendor_node)
     g.add_node("lang_switch_node",    lang_switch_node)
     g.add_node("general_node",        general_node)
     g.add_node("format_answer",       format_answer)
@@ -715,12 +715,11 @@ def _build_agent():
         "news_node":           "news_node",
         "llm_node":            "llm_node",
         "crop_advice_node":    "crop_advice_node",
-        "trusted_vendor_node": "trusted_vendor_node",
         "lang_switch_node":    "lang_switch_node",
         "general_node":        "general_node",
     })
     for node in ["weather_node", "mandi_node", "news_node", "llm_node",
-                 "crop_advice_node", "trusted_vendor_node", "lang_switch_node", "general_node"]:
+                 "crop_advice_node", "lang_switch_node", "general_node"]:
         g.add_edge(node, "format_answer")
     g.add_edge("format_answer", END)
     return g.compile()

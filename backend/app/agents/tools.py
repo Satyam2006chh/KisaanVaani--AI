@@ -22,14 +22,34 @@ async def get_weather(district: str, state: str) -> str:
         async with httpx.AsyncClient(timeout=10) as client:
             geo = await client.get(
                 "https://geocoding-api.open-meteo.com/v1/search",
-                params={"name": district, "count": 1, "language": "en", "format": "json"}
+                params={"name": district, "count": 10, "language": "en", "format": "json"}
             )
         if geo.status_code != 200 or not geo.json().get("results"):
             return f"{district} ka mausam abhi uplabdh nahi hai."
 
-        loc = geo.json()["results"][0]
-        actual_lat, actual_lon = loc["latitude"], loc["longitude"]
-        loc_label = f"{district}, {state}"
+        results = geo.json()["results"]
+        
+        # Look for a match in the correct state
+        selected_loc = None
+        for res in results:
+            admin1 = res.get("admin1") or ""
+            if state.lower() in admin1.lower() or admin1.lower() in state.lower():
+                selected_loc = res
+                break
+        
+        # If no state match found, fallback to the first result in India
+        if not selected_loc:
+            for res in results:
+                if (res.get("country") or "").lower() == "india":
+                    selected_loc = res
+                    break
+                    
+        # Otherwise fallback to the very first result
+        if not selected_loc:
+            selected_loc = results[0]
+
+        actual_lat, actual_lon = selected_loc["latitude"], selected_loc["longitude"]
+        loc_label = f"{selected_loc.get('name')}, {selected_loc.get('admin1') or state}"
 
         # Fetch High-Precision Forecast
         async with httpx.AsyncClient(timeout=10) as client:

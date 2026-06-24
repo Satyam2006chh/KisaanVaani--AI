@@ -29,6 +29,7 @@
 - [Setup & Installation](#-setup--installation)
 - [API Endpoints](#-api-endpoints)
 - [How It Works (Mermaid Flow)](#-how-it-works)
+- [Node Deep-Dives](#-node-deep-dives)
 - [Supported Languages](#-supported-languages)
 - [Team](#-team)
 
@@ -66,7 +67,6 @@ A **single voice command** gives farmers instant access to:
 | 📈 **Hybrid Mandi Engine** | Fuses *data.gov.in* base prices with **Firecrawl Live Web Scraping** for 100% free, real-time rates. |
 | 📸 **Crop Disease Detection** | Upload a photo → AI identifies disease + treatment via OpenRouter Vision Cascade. |
 | 🧠 **Context-Aware Logic** | AI automatically detects user's location from their profile if they don't mention a district in their voice query. |
-| 🏪 **Trusted Vendors** | Locates nearby agriculture shops using Geolocation integration. |
 | 🎨 **Premium UI/UX** | Dark Electric Blue theme, glassmorphism UI, audio visualizers, and zero-latency mic interactions. |
 | 🔐 **OTP Authentication** | Secure phone-based login via Supabase. |
 
@@ -79,29 +79,90 @@ graph TD
     A[🎙️ Farmer Speaks] --> B[Audio Recorded in Browser]
     B --> C[Sarvam AI: Speech-to-Text]
     C --> D[Text Translated to English]
-    D --> E{🧠 Intent Router}
+    D --> E{🧠 Intent Router <br> OpenRouter: Gemini 2.5 Flash}
     
     E -->|Weather| F[🌤️ Open-Meteo API]
     E -->|Mandi Prices| G[📊 Agmarknet + Firecrawl Hybrid]
-    E -->|Crop Disease| H[📸 OpenRouter Vision Cascade]
-    E -->|Govt Scheme| I[📜 Firecrawl Scraper + Built-in KB]
-    E -->|Trusted Vendor| O[🏪 Google Maps / Geolocation]
-    E -->|General| J[💬 OpenRouter Text Cascade]
+    E -->|Crop Disease| H[📸 Vision Node <br> OpenRouter: Gemini 2.5 Flash / GPT-4o]
+    E -->|Govt Scheme| I[📜 News Node <br> Firecrawl Scraper]
+    E -->|Crop Care| P[🌿 Crop Advice Node <br> OpenRouter: Gemini 2.5 Flash]
+    E -->|General| J[💬 General Node <br> OpenRouter: Gemini 2.5 Flash]
     
-    F --> K[AI Formats Answer]
+    F --> K[AI Formats Answer in Regional Language <br> OpenRouter: Gemini 2.5 Flash]
     G --> K
     H --> K
     I --> K
+    P --> K
     J --> K
-    O --> K
     
-    K --> L[Answer in Farmer's Language]
-    L --> M[Sarvam AI: Text-to-Speech]
+    K --> M[Sarvam AI: Text-to-Speech]
     M --> N[🔊 Farmer Hears Seamless Audio]
     
     style A fill:#00f0ff,color:#000,stroke:#fff,stroke-width:2px
     style N fill:#00f0ff,color:#000,stroke:#fff,stroke-width:2px
     style E fill:#0f172a,stroke:#00f0ff,stroke-width:2px,color:#fff
+```
+
+---
+
+## 🔍 Node Deep-Dives
+
+Detailed architectural flows for how each core AI node processes information before returning it to the user.
+
+### 🌤️ Weather Node
+```mermaid
+graph TD
+    A[Farmer Asks: 'Aaj barish hogi?'] --> B[Intent Router routes to Weather Node]
+    B --> C[Extract Location from Profile or Audio]
+    C --> D[Fetch Lat/Lon using Open-Meteo Geocoding API]
+    D --> E[Fetch 7-Day Forecast using Open-Meteo Weather API]
+    E --> F[Send raw weather data to OpenRouter <br> Gemini 2.5 Flash]
+    F --> G[Gemini generates regional audio-friendly response]
+```
+
+### 📊 Mandi Node
+```mermaid
+graph TD
+    A[Farmer Asks: 'Lahsun ka rate?'] --> B[Intent Router routes to Mandi Node]
+    B --> C[Extract Crop and Location]
+    C --> D{Check Official Data}
+    D -->|Agmarknet API| E[Get Base Govt Prices]
+    D -->|Firecrawl AI Scraper| F[Scrape Live Market Websites]
+    E --> G[Merge Data]
+    F --> G
+    G --> H[Send data to OpenRouter <br> Gemini 2.5 Flash]
+    H --> I[Gemini generates regional audio-friendly response]
+```
+
+### 🌿 Crop Advice Node
+```mermaid
+graph TD
+    A[Farmer Asks: 'Kapas me phool jhad rahe hai'] --> B[Intent Router routes to Crop Advice Node]
+    B --> C[Format highly detailed Expert Agronomist System Prompt]
+    C --> D[Send query directly to OpenRouter <br> Gemini 2.5 Flash]
+    D --> E[Gemini generates expert advice with exact dosage/chemicals]
+```
+
+### 📜 News & Scheme Node
+```mermaid
+graph TD
+    A[Farmer Asks: 'PM Kusum me subsidy kitni hai?'] --> B[Intent Router routes to News Node]
+    B --> C[Firecrawl AI Search API]
+    C --> D[Scrape live internet for latest scheme details & news]
+    D --> E[Send raw scraped articles to OpenRouter <br> Gemini 2.5 Flash]
+    E --> F[Gemini summarizes scheme eligibility and benefits]
+```
+
+### 📸 Vision Node (LLM Cascade)
+```mermaid
+graph TD
+    A[Farmer uploads crop image] --> B[Direct route to Vision Node]
+    B --> C[Send Base64 Image to OpenRouter]
+    C --> D{Cascade Routing}
+    D -->|Primary| E[Gemini 2.5 Flash Vision]
+    D -->|Fallback if fail| F[GPT-4o Vision]
+    E --> G[AI Diagnoses Disease and prescribes treatment]
+    F --> G
 ```
 
 ---
@@ -159,7 +220,6 @@ Create `backend/.env`:
 ```env
 OPENROUTER_API_KEY=your_openrouter_key
 SARVAM_API_KEY=your_sarvam_key
-OPENWEATHER_API_KEY=your_openweather_key
 SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_KEY=your_supabase_key
 DATAGOV_API_KEY=your_datagov_key
