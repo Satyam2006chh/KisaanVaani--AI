@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Mic, Square, Loader, AlertCircle, TrendingUp, Image as ImageIcon, X, Volume2 } from 'lucide-react'
+import { Mic, Square, Loader, AlertCircle, TrendingUp, Image as ImageIcon, X, Volume2, Play } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { chatWithAgent, transcribeAudio, speakText } from '../../api'
 import './Hero.css'
@@ -37,6 +37,9 @@ export default function Hero() {
   const [selectedLang, setSelectedLang]   = useState(user?.language || 'hi-IN')
   const [chatHistory, setChatHistory]     = useState([]) // [{role, text}]
   const [volume, setVolume]               = useState(0)
+  
+  const [introLang, setIntroLang]         = useState('hi-IN')
+  const [isPlayingIntro, setIsPlayingIntro] = useState(false)
 
   const mediaRecorderRef = useRef(null)
   const mediaStreamRef   = useRef(null)
@@ -47,6 +50,7 @@ export default function Hero() {
   const animFrameRef     = useRef(null)
   const chatEndRef       = useRef(null)
   const audioRef         = useRef(new Audio()) 
+  const introAudioRef    = useRef(new Audio())
   const queueActiveRef   = useRef(false) 
   const prefetchedUrls   = useRef({}) 
 
@@ -56,6 +60,10 @@ export default function Hero() {
       if (audioRef.current) {
         audioRef.current.pause()
         audioRef.current.src = ""
+      }
+      if (introAudioRef.current) {
+        introAudioRef.current.pause()
+        introAudioRef.current.src = ""
       }
     }
   }, [])
@@ -359,6 +367,11 @@ export default function Hero() {
 
   // ─── Single mic toggle ────────────────────────────────────────────────────
   const handleMicClick = () => {
+    if (isPlayingIntro) {
+      introAudioRef.current.pause()
+      setIsPlayingIntro(false)
+    }
+
     if (status === S.RECORDING) {
       stopRecording()
     } else if (status === S.SPEAKING || status === S.IDLE) {
@@ -380,6 +393,55 @@ export default function Hero() {
       }
       // Instantly start listening to the new question
       startRecording()
+    }
+  }
+
+  const getIntroText = (langCode) => {
+    const greetings = "नमस्कार, ਸਤਿ ਸ਼੍ਰੀ ਅਕਾਲ, Hello, வணக்கம்! ";
+    switch(langCode) {
+      case 'hi-IN': return greetings + "किसान वाणी में आपका स्वागत है। यह ऐप 12 अलग-अलग भाषाओं में काम करता है। आप बोलकर मौसम की जानकारी, लाइव मंडी भाव, फसल की बीमारियों का इलाज, और खेती-बाड़ी की ताज़ा खबरें जान सकते हैं। बस माइक बटन दबाइए और अपना सवाल पूछिए!";
+      case 'pa-IN': return greetings + "ਕਿਸਾਨ ਵਾਣੀ ਵਿੱਚ ਤੁਹਾਡਾ ਸਵਾਗਤ ਹੈ। ਇਹ ਐਪ 12 ਵੱਖ-ਵੱਖ ਭਾਸ਼ਾਵਾਂ ਵਿੱਚ ਕੰਮ ਕਰਦਾ ਹੈ। ਤੁਸੀਂ ਬੋਲ ਕੇ ਮੌਸਮ ਦੀ ਜਾਣਕਾਰੀ, ਲਾਈਵ ਮੰਡੀ ਭਾਅ, ਫਸਲਾਂ ਦੀਆਂ ਬਿਮਾਰੀਆਂ ਦਾ ਇਲਾਜ, ਅਤੇ ਖੇਤੀਬਾੜੀ ਦੀਆਂ ਤਾਜ਼ਾ ਖ਼ਬਰਾਂ ਜਾਣ ਸਕਦੇ ਹੋ। ਬੱਸ ਮਾਈਕ ਬਟਨ ਦਬਾਓ ਅਤੇ ਆਪਣਾ ਸਵਾਲ ਪੁੱਛੋ!";
+      case 'en-IN': return greetings + "Welcome to Kisaan Vaani. This app works in 12 different languages. You can ask for weather updates, live mandi prices, crop disease treatments, and latest farming news using voice. Just press the mic button and ask your question!";
+      case 'mr-IN': return greetings + "किसान वाणी मध्ये आपले स्वागत आहे. हे ॲप 12 वेगवेगळ्या भाषांमध्ये काम करते. तुम्ही बोलून हवामानाची माहिती, थेट बाजारभाव, पिकांच्या आजारांवर उपाय, आणि शेतीविषयक ताज्या बातम्या जाणून घेऊ शकता. फक्त माईक बटण दाबा आणि तुमचा प्रश्न विचारा!";
+      case 'gu-IN': return greetings + "કિસાન વાણીમાં તમારું સ્વાગત છે. આ એપ 12 વિવિધ ભાષાઓમાં કામ કરે છે. તમે બોલીને હવામાનની માહિતી, લાઇવ મંડી ભાવ, પાકના રોગોની સારવાર, અને ખેતી વિશેના તાજા સમાચાર જાણી શકો છો. બસ માઇક બટન દબાવો અને તમારો પ્રશ્ન પૂછો!";
+      case 'ta-IN': return greetings + "கிசான் வாணிக்கு உங்களை வரவேற்கிறோம். இந்த செயலி 12 வெவ்வேறு மொழிகளில் வேலை செய்கிறது. வானிலை தகவல், நேரடி மண்டி விலைகள், பயிர் நோய்களுக்கான சிகிச்சை மற்றும் விவசாய செய்திகளை குரல் மூலம் நீங்கள் கேட்கலாம். மைக் பட்டனை அழுத்தி உங்கள் கேள்வியைக் கேளுங்கள்!";
+      case 'te-IN': return greetings + "కిసాన్ వాణికి స్వాగతం. ఈ యాప్ 12 విభిన్న భాషలలో పనిచేస్తుంది. మీరు వాతావరణ సమాచారం, లైవ్ మండి ధరలు, పంట వ్యాధుల చికిత్స మరియు వ్యవసాయ వార్తలను వాయిస్ ద్వారా అడగవచ్చు. మైక్ బటన్ నొక్కి మీ ప్రశ్న అడగండి!";
+      case 'bn-IN': return greetings + "কিসান বাণীতে আপনাকে স্বাগত। এই অ্যাপটি 12টি ভিন্ন ভাষায় কাজ করে। আপনি ভয়েসের মাধ্যমে আবহাওয়ার তথ্য, লাইভ মান্ডি দাম, ফসলের রোগের চিকিৎসা এবং কৃষির খবর জানতে পারেন। শুধু মাইক বোতামটি চাপুন এবং আপনার প্রশ্ন করুন!";
+      default: return greetings + "किसान वाणी में आपका स्वागत है। यह ऐप 12 अलग-अलग भाषाओं में काम करता है। आप बोलकर मौसम की जानकारी, लाइव मंडी भाव, फसल की बीमारियों का इलाज, और खेती-बाड़ी की ताज़ा खबरें जान सकते हैं। बस माइक बटन दबाइए और अपना सवाल पूछिए!";
+    }
+  }
+
+  const handlePlayIntro = async () => {
+    if (isPlayingIntro) {
+      introAudioRef.current.pause();
+      setIsPlayingIntro(false);
+      return;
+    }
+    
+    // Stop main audio if playing
+    if (status === S.SPEAKING && audioRef.current) {
+       audioRef.current.pause();
+       setStatus(S.IDLE);
+       queueActiveRef.current = false;
+    }
+
+    try {
+      setIsPlayingIntro(true);
+      const text = getIntroText(introLang);
+      const url = await speakText(text, introLang);
+      introAudioRef.current.src = url;
+      introAudioRef.current.play();
+      introAudioRef.current.onended = () => {
+        setIsPlayingIntro(false);
+        URL.revokeObjectURL(url);
+      };
+      introAudioRef.current.onerror = () => {
+        setIsPlayingIntro(false);
+        URL.revokeObjectURL(url);
+      };
+    } catch (e) {
+      console.error(e);
+      setIsPlayingIntro(false);
     }
   }
 
@@ -493,6 +555,38 @@ export default function Hero() {
               id="language-selector"
               value={selectedLang}
               onChange={(e) => setSelectedLang(e.target.value)}
+              className="voice-lang-select"
+            >
+              {LANGUAGES.map(l => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* ── App Intro Audio ── */}
+      <div className="intro-audio-card">
+        <h3>🎧 नए यूज़र्स यहाँ सुनें: यह ऐप क्या करता है?</h3>
+        <div className="intro-audio-controls">
+          <button 
+            onClick={handlePlayIntro} 
+            className={`play-intro-btn ${isPlayingIntro ? 'playing' : ''}`}
+          >
+            {isPlayingIntro ? <Square size={18} fill="white" /> : <Play size={18} fill="white" />}
+            {isPlayingIntro ? 'रोकें' : 'सुनें'}
+          </button>
+          
+          <div className="lang-selector-wrapper" style={{ flex: 'none', width: '180px' }}>
+            <select
+              value={introLang}
+              onChange={(e) => {
+                setIntroLang(e.target.value)
+                if (isPlayingIntro) {
+                  introAudioRef.current.pause();
+                  setIsPlayingIntro(false);
+                }
+              }}
               className="voice-lang-select"
             >
               {LANGUAGES.map(l => (
