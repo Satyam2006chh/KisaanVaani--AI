@@ -503,10 +503,13 @@ async def news_node(state: AgentState) -> AgentState:
             "Use the information below to give a COMPLETE, SPECIFIC answer:\n"
             f"--- LIVE SCRAPED DATA ---\n{raw_content[:1500]}\n\n"
             f"--- SCHEME KNOWLEDGE BASE ---\n{SCHEME_KB}\n\n"
-            "TASK: Give a COMPLETE answer based on the user's question.\n"
-            "- If the user asks about a GOVERNMENT SCHEME, include: specific name, eligibility, documents, how to apply.\n"
-            "- If the user asks about GENERAL NEWS, summarize the latest updates clearly from the live scraped data.\n"
-            f"Answer in {lang_name}. Be specific. Never give vague generic answers."
+            "TASK: Give a highly structured, professional answer based on the user's question, exactly like a News Anchor or a Premium AI Overview.\n"
+            "FORMATTING RULES (Use emojis like ✅, 👉 instead of Markdown asterisks/hash):\n"
+            "1. Start with a clear headline summarizing the top news.\n"
+            "2. Break down the information into neat, easy-to-read points (e.g., 'Details:', 'Beneficiaries:', 'How to Apply:').\n"
+            "3. If the user asks about a GOVERNMENT SCHEME, you MUST include: Exact Scheme Name, Eligibility, Required Documents, and Application Process.\n"
+            "4. If the user asks about GENERAL NEWS, summarize the top updates clearly point-by-point.\n"
+            f"Answer completely in {lang_name}. Be extremely specific, detailed, and professional. Avoid long generic paragraphs."
         )},
         {"role": "user", "content": user_question},
     ]
