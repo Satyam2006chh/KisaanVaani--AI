@@ -247,24 +247,38 @@ export default function Hero() {
       )
 
       const aiText = chatRes.response
-      setReply(aiText)
-      // Add AI bubble
-      setChatHistory(h => [...h, { role: 'ai', text: aiText }].slice(-MAX_DISPLAY_MSGS))
-      setImg(null)
-      setImgPreview(null)
 
-      // Step 3: TTS — speak in selected language (split into sequential audio chunks to speak long responses flawlessly)
+      // Step 3: TTS — Pre-fetch first audio chunk to sync text and voice perfectly
       try {
         const chunks = splitTextIntoChunks(aiText, selectedLang)
-        prefetchedUrls.current = {} // Clear any old prefetch URLs
+        prefetchedUrls.current = {} 
+
         if (chunks.length > 0) {
+          // Keep showing typing dots while fetching the first audio chunk
+          const firstAudioUrl = await speakText(chunks[0], selectedLang)
+          prefetchedUrls.current[0] = firstAudioUrl
+
+          // Audio is ready! Now show the text and start playing instantly
+          setReply(aiText)
+          setChatHistory(h => [...h, { role: 'ai', text: aiText }].slice(-MAX_DISPLAY_MSGS))
+          setImg(null)
+          setImgPreview(null)
+          
           queueActiveRef.current = true
           playAudioQueue(chunks, 0)
         } else {
+          setReply(aiText)
+          setChatHistory(h => [...h, { role: 'ai', text: aiText }].slice(-MAX_DISPLAY_MSGS))
+          setImg(null)
+          setImgPreview(null)
           setStatus(S.IDLE)
         }
       } catch (ttsErr) {
         console.warn('[TTS] failed:', ttsErr)
+        setReply(aiText)
+        setChatHistory(h => [...h, { role: 'ai', text: aiText }].slice(-MAX_DISPLAY_MSGS))
+        setImg(null)
+        setImgPreview(null)
         setError('Awaaz nahi chal saki, lekin jawab upar likha hai.')
         setStatus(S.IDLE)
       }
