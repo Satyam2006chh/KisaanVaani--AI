@@ -455,8 +455,8 @@ async def mandi_node(state: AgentState) -> AgentState:
             f"MANDI DATA — {crop.title()} in {dist}, {st}:\n{mandi_data}\n\n"
             "TASK: Give a clear, practical mandi price report to the farmer.\n"
             "Include: (a) current price / MSP reference, (b) whether it's a good time to sell, "
-            "(c) one negotiation tip. If data is unavailable, say so clearly and suggest "
-            f"checking nearby mandis or calling the local APMC in {dist}."
+            "(c) one negotiation tip.\n"
+            "CRITICAL: If the live MANDI DATA above is missing, empty, or doesn't contain exact prices (because Government servers are down), DO NOT just say 'data is unavailable'. Instead, provide the approximate Government MSP (Minimum Support Price) for the crop as a reference, and give general market trends for it."
         )},
         {"role": "user", "content": user_msg},
     ]
@@ -503,12 +503,9 @@ async def news_node(state: AgentState) -> AgentState:
             "Use the information below to give a COMPLETE, SPECIFIC answer:\n"
             f"--- LIVE SCRAPED DATA ---\n{raw_content[:1500]}\n\n"
             f"--- SCHEME KNOWLEDGE BASE ---\n{SCHEME_KB}\n\n"
-            "TASK: Give a COMPLETE answer that includes:\n"
-            "  1. Specific scheme name(s) relevant to the question\n"
-            "  2. Exact eligibility criteria\n"
-            "  3. Required documents (list them specifically)\n"
-            "  4. How to apply / where to go\n"
-            "  5. Deadline/important dates if asked\n"
+            "TASK: Give a COMPLETE answer based on the user's question.\n"
+            "- If the user asks about a GOVERNMENT SCHEME, include: specific name, eligibility, documents, how to apply.\n"
+            "- If the user asks about GENERAL NEWS, summarize the latest updates clearly from the live scraped data.\n"
             f"Answer in {lang_name}. Be specific. Never give vague generic answers."
         )},
         {"role": "user", "content": user_question},
