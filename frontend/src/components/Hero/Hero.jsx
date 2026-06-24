@@ -40,6 +40,7 @@ export default function Hero() {
   
   const [introLang, setIntroLang]         = useState('hi-IN')
   const [isPlayingIntro, setIsPlayingIntro] = useState(false)
+  const [isIntroLoading, setIsIntroLoading] = useState(false)
 
   const mediaRecorderRef = useRef(null)
   const mediaStreamRef   = useRef(null)
@@ -426,9 +427,12 @@ export default function Hero() {
     }
 
     try {
-      setIsPlayingIntro(true);
+      setIsIntroLoading(true);
       const text = getIntroText(introLang);
       const url = await speakText(text, introLang);
+      
+      setIsIntroLoading(false);
+      setIsPlayingIntro(true);
       introAudioRef.current.src = url;
       introAudioRef.current.play();
       introAudioRef.current.onended = () => {
@@ -441,6 +445,7 @@ export default function Hero() {
       };
     } catch (e) {
       console.error(e);
+      setIsIntroLoading(false);
       setIsPlayingIntro(false);
     }
   }
@@ -571,10 +576,13 @@ export default function Hero() {
         <div className="intro-audio-controls">
           <button 
             onClick={handlePlayIntro} 
-            className={`play-intro-btn ${isPlayingIntro ? 'playing' : ''}`}
+            disabled={isIntroLoading}
+            className={`play-intro-btn ${isPlayingIntro ? 'playing' : ''} ${isIntroLoading ? 'loading' : ''}`}
+            style={{ opacity: isIntroLoading ? 0.7 : 1 }}
           >
-            {isPlayingIntro ? <Square size={18} fill="white" /> : <Play size={18} fill="white" />}
-            {isPlayingIntro ? 'रोकें' : 'सुनें'}
+            {isIntroLoading ? <Loader size={18} className="spin" color="white" /> :
+             isPlayingIntro ? <Square size={18} fill="white" /> : <Play size={18} fill="white" />}
+            {isIntroLoading ? 'तैयार कर रहा है...' : isPlayingIntro ? 'रोकें' : 'सुनें'}
           </button>
           
           <div className="lang-selector-wrapper" style={{ flex: 'none', width: '180px' }}>
