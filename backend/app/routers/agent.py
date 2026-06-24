@@ -85,7 +85,7 @@ async def chat(req: ChatRequest):
     name       = user.get("name", "Kisaan") if user else "Kisaan"
 
     # Final fallbacks if still empty
-    if not district:   district   = "Delhi"
+    if not district:   district   = city or "Delhi"
     if not state_name: state_name = "Delhi"
     if not city:       city       = district
 

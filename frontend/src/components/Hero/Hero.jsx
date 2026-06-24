@@ -123,6 +123,8 @@ export default function Hero() {
     queueActiveRef.current = false
     if (audioRef.current) {
       try {
+        audioRef.current.onended = null
+        audioRef.current.onerror = null
         audioRef.current.pause()
         audioRef.current.removeAttribute('src')
         audioRef.current.load()
@@ -154,10 +156,9 @@ export default function Hero() {
     isRecordingRef.current = true
     setStatus(S.RECORDING)
     
-    // Reset conversation states for new question
+    // Keep previous chat history so it doesn't look like the app restarted
     setTranscript('')
     setReply('')
-    setChatHistory([])
     setError('')
 
     startVisualizer(stream)
@@ -204,9 +205,12 @@ export default function Hero() {
 
     // Pre-unlock audio context for later AI speech with SILENCE, not the old audio
     try {
-      // Set to a tiny silent WAV to unlock the context without replaying the old answer
-      audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
-      audioRef.current.play().catch(() => {})
+      if (audioRef.current) {
+        audioRef.current.onended = null
+        audioRef.current.onerror = null
+        audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
+        audioRef.current.play().catch(() => {})
+      }
     } catch (e) {
       console.warn('[Audio] Unlock failed:', e)
     }
@@ -349,6 +353,8 @@ export default function Hero() {
         queueActiveRef.current = false
         if (audioRef.current) {
           try {
+            audioRef.current.onended = null
+            audioRef.current.onerror = null
             audioRef.current.pause()
             audioRef.current.removeAttribute('src')
           } catch(e) {}

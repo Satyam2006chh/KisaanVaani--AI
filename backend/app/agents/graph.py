@@ -200,9 +200,14 @@ def _clean_location(val: str) -> str:
 def _system_prompt(state: AgentState) -> str:
     lang_name = LANG_MAP.get(state["language"], "Hindi")
 
+    city     = _clean_location(state.get("city", ""))
     district = _clean_location(state.get("district", ""))
     st       = _clean_location(state.get("state_name", ""))
-    loc_str  = f"{district}, {st}" if district and st else (district or st or "India")
+    
+    loc_parts = [p for p in [city, district, st] if p]
+    seen = set()
+    unique_parts = [x for x in loc_parts if not (x in seen or seen.add(x))]
+    loc_str  = ", ".join(unique_parts) if unique_parts else "India"
 
     # Sanitize name — strip test/empty/invalid values, NEVER let old history names through
     name = (state.get("farmer_name") or "").strip()
