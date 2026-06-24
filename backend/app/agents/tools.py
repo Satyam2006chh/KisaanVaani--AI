@@ -375,7 +375,7 @@ async def scrape_agricultural_news(query: str) -> str:
                 "https://api.firecrawl.dev/v1/search",
                 headers=headers,
                 json={
-                    "query": f"{query} (agriculture OR kheti OR yojana) (site:krishijagran.com OR site:aajtak.in OR site:news18.com)",
+                    "query": f"{query} latest agriculture news hindi krishi jagran aaj tak",
                     "limit": 4,
                 },
             )
