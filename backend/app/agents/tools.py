@@ -121,23 +121,29 @@ async def get_live_mandi_price_scraper(crop: str, district: str, state: str) -> 
     today_str = date.today().strftime("%d %B %Y")
     
     def _fetch_live():
-        with httpx.Client(timeout=10) as client:
+        with httpx.Client(timeout=12) as client:
             r = client.post(
                 "https://api.firecrawl.dev/v1/search",
                 headers=headers,
                 json={
-                    "query": f"live mandi price {today_str} {crop} in {district} {state}",
-                    "limit": 1,
+                    "query": f"exact price rate {crop} in {district} mandi {state} today mandibhav.net OR krishijagran OR commodityonline",
+                    "limit": 3,
                 },
             )
             if r.status_code == 200:
                 payload = r.json()
                 items = payload.get("data") or payload.get("results") or []
                 if items:
-                    item = items[0]
-                    desc = item.get("description") or ""
-                    title = item.get("title") or "Live Price"
-                    return f"\n\n**🌐 Live Internet Update (Real-Time):**\n{title}: {desc}"
+                    results_text = []
+                    for item in items:
+                        title = item.get("title") or ""
+                        desc = item.get("description") or ""
+                        if title or desc:
+                            results_text.append(f"- {title}: {desc}")
+                    
+                    if results_text:
+                        combined = "\n".join(results_text)
+                        return f"\n\n**🌐 Live Internet Market Scraper (Real-Time):**\n{combined}"
         return ""
     
     try:
