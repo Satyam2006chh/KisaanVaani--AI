@@ -34,6 +34,10 @@ export async function chatWithAgent(message, englishMessage = null, language = n
       english_message: englishMessage,
       language:   language || user?.language || 'hi-IN',
       image:      image,
+      name:       user?.name || '',
+      city:       user?.city || '',
+      district:   user?.district || '',
+      state:      user?.state || '',
     })
     console.log('[API] chatWithAgent response:', { hasResponse: !!data.response })
     return data // Return full data object

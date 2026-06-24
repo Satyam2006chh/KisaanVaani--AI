@@ -77,12 +77,11 @@ async def chat(req: ChatRequest):
     city       = user.get("city", "")     if user else ""
     name       = user.get("name", "Kisaan") if user else "Kisaan"
 
-    # ── Location Handling (Profile Only) ─────────────────────────────
-    # Use profile data
-    district   = user.get("district", "") if user else ""
-    state_name = user.get("state", "")    if user else ""
-    city       = user.get("city", "")     if user else ""
-    name       = user.get("name", "Kisaan") if user else "Kisaan"
+    # Use profile data from DB if available, otherwise from request payload
+    district   = user.get("district", "") if user else (req.district or "")
+    state_name = user.get("state", "")    if user else (req.state or "")
+    city       = user.get("city", "")     if user else (req.city or "")
+    name       = user.get("name", "Kisaan") if user else (req.name or "Kisaan")
 
     # Final fallbacks if still empty
     if not district:   district   = city or "Delhi"

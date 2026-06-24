@@ -40,6 +40,10 @@ class ChatRequest(BaseModel):
     language: str = "hi-IN"
     image: Optional[str] = None  # Base64 string
     location: Optional[dict] = None # {lat, lon, city}
+    name: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
