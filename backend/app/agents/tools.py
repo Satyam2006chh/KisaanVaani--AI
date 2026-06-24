@@ -363,7 +363,7 @@ async def get_nearest_mandis(district: str, state: str):
 async def scrape_agricultural_news(query: str) -> str:
     """Uses Firecrawl to get the latest agricultural news or scheme details."""
     if not settings.firecrawl_api_key or "your_" in settings.firecrawl_api_key:
-        return "Firecrawl API key missing. News fetch nahi ho sakta."
+        return "System configuration missing. News fetch nahi ho sakta."
     headers = {
         "Authorization": f"Bearer {settings.firecrawl_api_key}",
         "Content-Type": "application/json",
@@ -393,13 +393,13 @@ async def scrape_agricultural_news(query: str) -> str:
                         lines.append(f"- {title}: {desc[:220]}{'...' if len(desc) > 220 else ''} {url}".strip())
                     return "Latest agriculture web results:\n" + "\n".join(lines)
 
-            return f"Firecrawl API error ({r.status_code}). News fetch nahi ho pa raha."
+            return "Internet server error. News fetch nahi ho pa raha."
 
     try:
         return await asyncio.to_thread(_fetch_news)
     except Exception as e:
-        logger.warning(f"Firecrawl request failed: {repr(e)}")
-        return "Firecrawl se news fetch karne mein samasya aa rahi hai."
+        logger.warning(f"Internet request failed: {repr(e)}")
+        return "Internet se news fetch karne mein samasya aa rahi hai."
 
 
 async def get_nearby_services(district: str, state: str):
