@@ -82,7 +82,7 @@ export default function AuthScreen() {
           setError('लोकेशन डिटेक्ट नहीं हो पाई। कृपया मैन्युअल रूप से भरें।')
         }
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      { timeout: 10000, enableHighAccuracy: false, maximumAge: 300000 }
     )
   }
 
