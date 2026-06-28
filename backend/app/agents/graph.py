@@ -456,7 +456,7 @@ async def mandi_node(state: AgentState) -> AgentState:
             "TASK: Give a clear, practical mandi price report to the farmer.\n"
             "Include: (a) current price / MSP reference, (b) whether it's a good time to sell, "
             "(c) one negotiation tip.\n"
-            "CRITICAL: If the live MANDI DATA above is missing, empty, or doesn't contain exact prices (because Government servers are down), DO NOT just say 'data is unavailable'. Instead, provide the approximate Government MSP (Minimum Support Price) for the crop as a reference, and give general market trends for it."
+            "CRITICAL: If the live MANDI DATA above is missing or empty, provide the approximate minimum support price (MSP) for the crop as a reference, and give general market trends for it."
         )},
         {"role": "user", "content": user_msg},
     ]

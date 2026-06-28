@@ -13,7 +13,6 @@ class Settings(BaseSettings):
 
     # ─── Tools ──────────────────────────────────
     firecrawl_api_key: str = ""
-    datagov_api_key: str = ""
 
     class Config:
         env_file = [".env", "backend/.env"]

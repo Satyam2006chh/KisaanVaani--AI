@@ -126,7 +126,7 @@ async def get_live_mandi_price_scraper(crop: str, district: str, state: str) -> 
                 "https://api.firecrawl.dev/v1/search",
                 headers=headers,
                 json={
-                    "query": f"latest wholesale mandi price rate of {crop} in {district} {state} today",
+                    "query": f"latest wholesale mandi price rate of {crop} in {district} {state} today napanta kisandeals indiamart",
                     "limit": 3,
                 },
             )
@@ -153,47 +153,11 @@ async def get_live_mandi_price_scraper(crop: str, district: str, state: str) -> 
         return ""
 
 async def get_mandi_price(crop: str, district: str, state: str) -> str:
-    """Gets real-time mandi prices using a HYBRID approach: Agmarknet + AI Web Scraping"""
-    from app.config import settings
-    
-    official_data = ""
-    # Try fetching official data from data.gov.in
-    if settings.datagov_api_key and "your_" not in settings.datagov_api_key:
-        try:
-            url = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"
-            params = {
-                "api-key": settings.datagov_api_key,
-                "format": "json",
-                "limit": 5,
-                "filters[state]": state,
-                "filters[district]": district,
-            }
-            async with httpx.AsyncClient(timeout=10) as client:
-                r = await client.get(url, params=params)
-            
-            if r.status_code == 200:
-                data = r.json().get("records", [])
-                if data:
-                    crop_data = [d for d in data if crop.lower() in d.get("commodity", "").lower()]
-                    if not crop_data:
-                        crop_data = [data[0]] 
-                    d = crop_data[0]
-                    official_data = (
-                        f"**Sarkari Mandi Rate (Agmarknet):**\n"
-                        f"Mandi: {d['market']}, {d['district']}\n"
-                        f"Fasal: {d['commodity']}\n"
-                        f"Price: Rs {d['min_price']} - Rs {d['max_price']} (Average: Rs {d['modal_price']})\n"
-                        f"Date: {d['arrival_date']}"
-                    )
-        except Exception as e:
-            logger.error(f"Agmarknet Error: {e}")
-
-    # Fire up the Live Scraper (Free Real-Time)
+    """Gets real-time mandi prices using AI Web Scraping (Firecrawl)"""
     live_data = await get_live_mandi_price_scraper(crop, district, state)
     
-    if official_data or live_data:
-        response = official_data + live_data
-        return response.strip()
+    if live_data:
+        return live_data.strip()
     
     return (
         f"Adarniya kisaan bhaai, abhi {district} mein {crop} ke live rates fetch karne mein dikkat aa rahi hai. "
