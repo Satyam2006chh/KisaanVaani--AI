@@ -23,4 +23,4 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd frontend; npm 
 
 Write-Host "Servers are starting! Check the new terminal windows." -ForegroundColor Green
 Write-Host "Frontend: http://localhost:5174" -ForegroundColor White
-Write-Host "Backend:  http://localhost:8000" -ForegroundColor White
+Write-Host "Backend: http://localhost:8000" -ForegroundColor White
