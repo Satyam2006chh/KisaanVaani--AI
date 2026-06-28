@@ -44,7 +44,7 @@ export default function About() {
             <div className="about__solution">
               <div className="about__solution-icon">🌾</div>
               <p>
-                <strong>स्वदेशी AI क्रांति:</strong> किसान अपनी बोली में बोलेगा, DeepSeek-R1 और Claude 3.5 Sonnet उसे समझकर सटीक लाइव सरकारी डेटा के साथ जवाब देंगे। कोई मुश्किल फॉर्म नहीं, कोई अंग्रेजी सीखने की जरूरत नहीं।
+                <strong>स्वदेशी AI क्रांति:</strong> किसान अपनी बोली में बोलेगा, Google Gemini 2.5 Flash और Sarvam AI उसे समझकर सटीक लाइव डेटा के साथ जवाब देंगे। कोई मुश्किल फॉर्म नहीं, कोई अंग्रेजी सीखने की जरूरत नहीं।
               </p>
             </div>
           </div>
