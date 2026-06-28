@@ -438,43 +438,25 @@ async def news_node(state: AgentState) -> AgentState:
     # Keep original question for the prompt context
     user_question = state.get("original_message") or search_query
 
-    # Built-in scheme knowledge base (fallback when scraping fails/is vague)
-    SCHEME_KB = """
-    PM-KISAN: Rs 6000/year in 3 installments. Eligibility: small/marginal farmers with land < 2 hectares.
-      Documents: Aadhaar, land records (khasra/khatauni), bank passbook. Register at pmkisan.gov.in or CSC.
-    PMFBY (Fasal Bima Yojana): Crop insurance. Premium: 2% for Kharif, 1.5% for Rabi, 5% for commercial.
-      Last date: Usually 10-15 days before sowing cutoff date (varies by state and crop).
-      Documents: Aadhaar, land records, bank account, sowing certificate from patwari.
-      Check state agriculture dept website or call 1800-180-1551.
-    PM-KUSUM (Solar Pump): 60-90% subsidy on solar pumps (30% central + 30% state + farmer pays 10-40%).
-      Eligibility: Any farmer with agricultural land and own water source.
-      Documents: Aadhaar, land records, bank account, water source proof.
-      Apply: State DISCOM office or state agriculture portal.
-    Kisan Credit Card (KCC): Short-term crop loan at 4% interest (2% subvention + 3% prompt repayment incentive).
-      Limit: Based on crop + land. Apply at any nationalized bank or cooperative bank.
-    e-NAM (Mandi Portal): Online mandi platform. Register at enam.gov.in for better price discovery.
-    """
-
     # 1. Scrape live content
     raw_content = await scrape_agricultural_news(search_query)
 
-    # 2. Compose answer using BOTH scraped data AND built-in KB
+    # 2. Compose answer using ONLY scraped data
     messages = [
         {"role": "system", "content": (
             f"{_system_prompt(state)}\n\n"
             "You are an expert on Indian agricultural government schemes and policies.\n"
             f"FARMER'S QUESTION: {user_question}\n\n"
-            "Use the information below to give a COMPLETE, SPECIFIC answer:\n"
-            f"--- LIVE SCRAPED DATA ---\n{raw_content[:1500]}\n\n"
-            f"--- SCHEME KNOWLEDGE BASE ---\n{SCHEME_KB}\n\n"
+            "Use the LIVE information below to give a COMPLETE, SPECIFIC answer:\n"
+            f"--- LIVE SCRAPED DATA ---\n{raw_content[:2000]}\n\n"
             "TASK: Give a highly structured, professional answer based on the user's question, exactly like a News Anchor or a Premium AI Overview.\n"
             "FORMATTING RULES (Use emojis like ✅, 👉 instead of Markdown asterisks/hash):\n"
             "1. Start with a clear headline summarizing the top news.\n"
-            "2. Break down the information into neat, easy-to-read points (e.g., 'Details:', 'Beneficiaries:', 'How to Apply:').\n"
-            "3. If the user asks about a GOVERNMENT SCHEME, you MUST include: Exact Scheme Name, Eligibility, Required Documents, and Application Process.\n"
-            "4. If the user asks about GENERAL NEWS, summarize the top updates clearly point-by-point.\n"
-            "5. ZERO-FAIL GUARANTEE: If the LIVE SCRAPED DATA is empty, vague, or irrelevant to the question, you MUST use your own internal pre-trained AI knowledge and the SCHEME_KB to answer the farmer's question accurately. NEVER say 'I don't have this data' or 'The internet didn't provide this'. Always provide a highly accurate, helpful answer.\n"
-            f"Answer completely in {lang_name}. Be extremely specific, detailed, and professional. Avoid long generic paragraphs."
+            "2. Break down the information into neat, easy-to-read points.\n"
+            "3. If the user asks about a GOVERNMENT SCHEME, extract the Exact Scheme Name, Eligibility, and Application Process from the LIVE SCRAPED DATA.\n"
+            "4. STRICT RULE: You MUST rely ONLY on the LIVE SCRAPED DATA provided above. Do not use your own pre-trained knowledge to hallucinate schemes that are not in the scraped data.\n"
+            "5. If the LIVE SCRAPED DATA is completely empty or completely irrelevant to the question, politely inform the user that live news/data is currently unavailable for their query.\n"
+            f"Answer completely in {lang_name}. Be extremely specific, detailed, and professional."
         )},
         {"role": "user", "content": user_question},
     ]
