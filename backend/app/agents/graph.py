@@ -242,94 +242,48 @@ def _system_prompt(state: AgentState) -> str:
 
 
 async def intent_router(state: AgentState) -> AgentState:
-    msg = state["messages"][-1]["content"].lower().strip()
-
-    # The image is held in state["image_data"]. We no longer force "vision" intent just because an image exists.
-    # The image will only be sent to the expensive Vision LLM if the user's text explicitly asks about it (saving cost).
-
-    # 1. FOLLOW-UP DETECTION — check BOTH English (msg) AND original language
-    # This handles: "firse batao" (Hindi), "explain again" (English), etc.
-    original = state.get("original_message", "").lower().strip()
-    check_in  = msg + " " + original  # combined — match in either language
-
-    FOLLOWUP_PHRASES = [
-        # Hindi follow-up phrases
-        "firse batao", "fir se batao", "samajh nahi aaya", "samajh nahi aya",
-        "dobara batao", "phir batao", "repeat karo", "wahi batao",
-        "aur detail", "thoda aur", "aur samjhao", "aur samjhaao",
-        "pehle wala", "jo bataya tha", "iska matlab", "matlab kya",
-        "clear nahi", "aur bata", "aur batao",
-        # English follow-up phrases
-        "explain again", "again please", "repeat that", "say again",
-        "didn't understand", "not understand", "not clear", "more detail",
-        "tell me more", "elaborate", "i don't understand", "can you explain",
-        "what do you mean", "what does that mean", "please repeat",
-    ]
-    if any(phrase in check_in for phrase in FOLLOWUP_PHRASES):
-        prev_intents = []
+    msg = state["messages"][-1]["content"].strip()
+    
+    # Construct conversation history for context
+    history_text = ""
+    if len(state["messages"]) > 1:
+        history_text = "CONVERSATION HISTORY:\n"
         for m in state["messages"][:-1]:
-            content_lower = m.get("content", "").lower()
-            if m.get("role") == "user":
-                if any(w in content_lower for w in ["mausam", "baarish", "rain", "weather", "tapman", "forecast"]):
-                    prev_intents.append("weather")
-                elif any(w in content_lower for w in ["bhav", "mandi", "rate", "keemat", "price", "daam", "market"]):
-                    prev_intents.append("mandi")
-                elif any(w in content_lower for w in ["fasal", "crop", "ugao", "kheti", "beej", "khad",
-                                                       "fertilizer", "keet", "grow", "cultivate", "harvest",
-                                                       "soil", "mitti", "disease", "bimari"]):
-                    prev_intents.append("crop_advice")
-                elif any(w in content_lower for w in ["news", "yojana", "scheme", "subsidy", "samachar", "government"]):
-                    prev_intents.append("news")
-        if prev_intents:
-            inherited = prev_intents[-1]
-            logger.info(f"Follow-up detected — inheriting: {inherited}")
-            return {**state, "intent": inherited}
-
-
-    # 2. Fast keyword match for specific tool intents
-    keywords = {
-        "weather":        ["mausam", "mousam", "mosam", "baarish", "rain", "weather", "barsat", "temperature", "tapman"],
-        "mandi":          ["bhav", "mandi", "rate", "keemat", "price", "daam", "bikri", "sell"],
-        "vision":         ["bimari kya hai", "photo", "image", "tasveer", "picture", "dekho", "pesticide", "fungus", "disease", "bimari"],
-        "news":           ["news", "samachar", "khabar", "taza", "yojana", "scheme", "labh", "benefit", "subsidy", "latest"],
-        "crop_advice":    ["fasal", "crop", "ugao", "kheti", "kya lagao", "beej", "seed", "fertilizer", "khad", "keet"],
-        "eligibility":    ["eligible", "patrata", "apply", "registration"],
-        "lang_switch":    ["punjabi mein", "hindi mein", "english mein", "tamil mein", "gujarati mein",
-                           "bengali mein", "marathi mein", "bhasha badlo", "language change", "mein bolo", "mein jawab do"],
-        # General: geography, greetings — NOTE: removed 'batao'/'bata do' (too broad, causes false positives)
-        "general":        ["kahan hai", "kahan par hai", "kahaan h", "where is", "where are", "location of",
-                           "kitni door", "distance", "kaun sa state", "which state", "capital of",
-                           "kya hota hai", "what is", "what are",
-                           "namaste", "hello", "hi ", "shukriya", "dhanyawad", "thanks",
-                           "aap kaun", "who are you", "kisaanvaani kya"],
-    }
-
-    for intent, words in keywords.items():
-        if any(w in msg for w in words):
-            return {**state, "intent": intent}
-
-    # 3. LLM fallback
-    intent_prompt = (
-        "You are an intent classifier for KisaanVaani, an AI assistant for Indian farmers.\n"
-        "Classify the user message into EXACTLY ONE of these labels:\n"
-        "  weather        — asking about rain, temperature, forecast\n"
-        "  mandi          — asking about crop prices, market rates\n"
-        "  vision         — asking to analyze a photo, image, or identifying a crop disease\n"
-        "  crop_advice    — asking about crop care, fertilizers, seeds, pests\n"
-        "  news           — asking about government schemes, subsidies, agri news\n"
-        "  general        — geography, greetings, off-topic, general knowledge\n\n"
-        "Return ONLY the label. No punctuation, no explanation.\n"
-        f"Message: {msg}"
+            role = "Farmer" if m["role"] == "user" else "AI"
+            history_text += f"{role}: {m['content']}\n"
+    
+    # Strong, Context-Aware LLM Router Prompt
+    router_prompt = (
+        "You are the MASTER ROUTER for KisaanVaani, an AI assistant for Indian farmers.\n"
+        "You have full knowledge of the entire system architecture. Your job is to assign the farmer's question to the EXACT CORRECT NODE.\n"
+        "If you route incorrectly, the whole system will fail.\n\n"
+        "AVAILABLE NODES AND THEIR KNOWLEDGE:\n"
+        "1. weather      -> Use this for ANY questions about rain, temperature, forecast, or weather conditions.\n"
+        "2. mandi        -> Use this for ANY questions about market rates, crop prices, bhav, or selling prices.\n"
+        "3. vision       -> Use this ONLY if the farmer explicitly asks you to look at a photo/image/picture to diagnose a disease.\n"
+        "4. crop_advice  -> Use this for ANY questions about farming techniques, fertilizers, pests, seeds, diseases (without photo), or crop care.\n"
+        "5. news         -> Use this for ANY questions about Government Schemes (Yojna), subsidies, PM Kisan, agri news, or loans.\n"
+        "6. lang_switch  -> Use this ONLY if the farmer asks to change the language (e.g., 'Speak in Punjabi', 'Hindi me bolo').\n"
+        "7. general      -> Use this for geography, greetings (hello, namaste), 'who are you', or off-topic non-farming questions.\n\n"
+        f"{history_text}\n"
+        f"LATEST FARMER MESSAGE: {msg}\n\n"
+        "CRITICAL RULE FOR FOLLOW-UPS: If the latest message is a follow-up (e.g., 'explain again', 'firse batao', 'aur batao'), you MUST route it to the SAME node as the previous topic discussed in the history.\n\n"
+        "OUTPUT FORMAT: Return ONLY the exact node name (e.g., 'weather' or 'mandi'). Do NOT output any other text or punctuation."
     )
+    
     try:
-        raw    = await _call_openrouter_text([{"role": "system", "content": intent_prompt}], max_tokens=10)
-        intent = raw.strip().lower().replace(".", "").replace("`", "").split()[0]
-        valid  = {"weather", "mandi", "vision", "crop_advice", "news", "general"}
-        if intent not in valid:
+        raw_intent = await _call_openrouter_text([{"role": "system", "content": router_prompt}], max_tokens=15)
+        intent = raw_intent.strip().lower().replace(".", "").replace("`", "").replace("'", "").split()[0]
+        
+        valid_intents = {"weather", "mandi", "vision", "crop_advice", "news", "lang_switch", "general"}
+        if intent not in valid_intents:
+            logger.warning(f"Router returned invalid intent '{intent}', falling back to general.")
             intent = "general"
-    except Exception:
+    except Exception as e:
+        logger.error(f"LLM Router failed: {e}. Falling back to general.")
         intent = "general"
-
+        
+    logger.info(f"LLM Router assigned intent: {intent}")
     return {**state, "intent": intent}
 
 

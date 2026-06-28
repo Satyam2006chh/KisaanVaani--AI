@@ -79,16 +79,16 @@ graph TD
     A[🎙️ Farmer Speaks] --> B[Audio Recorded in Browser]
     B --> C[Sarvam AI: Speech-to-Text]
     C --> D[Text Translated to English]
-    D --> E{🧠 Intent Router <br> OpenRouter: Gemini 2.5 Flash}
+    D --> E{🧠 Context-Aware LLM Router <br> Gemini 2.5 Flash}
     
-    E -->|Weather| F[🌤️ Open-Meteo API]
-    E -->|Mandi Prices| G[📊 Agmarknet + Firecrawl Hybrid]
-    E -->|Crop Disease| H[📸 Vision Node <br> OpenRouter: Gemini 2.5 Flash / GPT-4o]
-    E -->|Govt Scheme| I[📜 News Node <br> Firecrawl Scraper]
-    E -->|Crop Care| P[🌿 Crop Advice Node <br> OpenRouter: Gemini 2.5 Flash]
-    E -->|General| J[💬 General Node <br> OpenRouter: Gemini 2.5 Flash]
+    E -->|Weather| F[🌤️ Weather Intelligence Engine]
+    E -->|Mandi Prices| G[📊 Firecrawl Live Scraper (Top 3 Domains)]
+    E -->|Crop Disease| H[📸 Vision Node <br> Gemini 2.5 Flash / GPT-4o]
+    E -->|Govt Scheme| I[📜 News Node <br> Zero-Fail Firecrawl (Top 4 Domains)]
+    E -->|Crop Care| P[🌿 Crop Advice Node <br> Gemini 2.5 Flash]
+    E -->|General| J[💬 General Node <br> Gemini 2.5 Flash]
     
-    F --> K[AI Formats Answer in Regional Language <br> OpenRouter: Gemini 2.5 Flash]
+    F --> K[AI Formats Answer in Regional Language <br> Gemini 2.5 Flash]
     G --> K
     H --> K
     I --> K
@@ -112,26 +112,24 @@ Detailed architectural flows for how each core AI node processes information bef
 ### 🌤️ Weather Node
 ```mermaid
 graph TD
-    A[Farmer Asks: 'Aaj barish hogi?'] --> B[Intent Router routes to Weather Node]
+    A[Farmer Asks: 'Aaj barish hogi?'] --> B[LLM Router routes to Weather Node]
     B --> C[Extract Location from Profile or Audio]
     C --> D[Fetch Lat/Lon using Open-Meteo Geocoding API]
-    D --> E[Fetch 7-Day Forecast using Open-Meteo Weather API]
-    E --> F[Send raw weather data to OpenRouter <br> Gemini 2.5 Flash]
-    F --> G[Gemini generates regional audio-friendly response]
+    D --> E[Fetch Agronomic Variables using Open-Meteo Forecast]
+    E --> F[🧠 Weather Intelligence Engine computes Irrigation/Spraying Needs]
+    F --> G[Send PROCESSED JSON to OpenRouter <br> Gemini 2.5 Flash]
+    G --> H[Gemini generates regional actionable advice without jargon]
 ```
 
 ### 📊 Mandi Node
 ```mermaid
 graph TD
-    A[Farmer Asks: 'Lahsun ka rate?'] --> B[Intent Router routes to Mandi Node]
+    A[Farmer Asks: 'Lahsun ka rate?'] --> B[LLM Router routes to Mandi Node]
     B --> C[Extract Crop and Location]
-    C --> D{Check Official Data}
-    D -->|Agmarknet API| E[Get Base Govt Prices]
-    D -->|Firecrawl AI Scraper| F[Scrape Live Market Websites]
-    E --> G[Merge Data]
-    F --> G
-    G --> H[Send data to OpenRouter <br> Gemini 2.5 Flash]
-    H --> I[Gemini generates regional audio-friendly response]
+    C --> D[Firecrawl AI Scraper (Strictly Top 3 Premium Domains)]
+    D --> E[Scrape 100% Live Market Websites Parallelly]
+    E --> F[Send unstructured live data to OpenRouter <br> Gemini 2.5 Flash]
+    F --> G[Gemini generates regional audio-friendly response]
 ```
 
 ### 🌿 Crop Advice Node
@@ -146,11 +144,14 @@ graph TD
 ### 📜 News & Scheme Node
 ```mermaid
 graph TD
-    A[Farmer Asks: 'PM Kusum me subsidy kitni hai?'] --> B[Intent Router routes to News Node]
-    B --> C[Firecrawl AI Search API]
+    A[Farmer Asks: 'PM Kusum me subsidy kitni hai?'] --> B[LLM Router routes to News Node]
+    B --> C[Firecrawl AI Search API (Strictly Top 4 News Domains)]
     C --> D[Scrape live internet for latest scheme details & news]
-    D --> E[Send raw scraped articles to OpenRouter <br> Gemini 2.5 Flash]
-    E --> F[Gemini summarizes scheme eligibility and benefits]
+    D --> E{Zero-Fail Guarantee Check}
+    E -->|Data Found| F[Send scraped articles to LLM]
+    E -->|Data Missing/Vague| G[Use Internal KB & Pre-trained Knowledge]
+    F --> H[Gemini summarizes scheme with Emoji Bullet Points]
+    G --> H
 ```
 
 ### 📸 Vision Node (LLM Cascade)
@@ -163,6 +164,53 @@ graph TD
     D -->|Fallback if fail| F[GPT-4o Vision]
     E --> G[AI Diagnoses Disease and prescribes treatment]
     F --> G
+```
+
+---
+
+## 🛠️ Tool Output Samples (Behind the Scenes)
+
+Below are exact examples of the data our backend tools generate and pass to the AI LLM. This structured intelligence allows the AI to provide highly accurate, hallucination-free advice.
+
+### 1. Weather Intelligence Engine Output (`get_weather`)
+```json
+{
+  "temperature": 38.1,
+  "humidity": 40,
+  "rain_probability": 33,
+  "wind_speed": 9.6,
+  "uv_index": 6.15,
+  "soil_temperature": 31.5,
+  "soil_moisture": 0.13,
+  "evapotranspiration": 3.2,
+  "irrigation_needed": false,
+  "spraying_recommended": false,
+  "harvest_recommended": false,
+  "fungal_disease_risk": "Low",
+  "heat_stress": "High",
+  "wind_risk": "Low",
+  "crop_water_requirement": "Medium",
+  "weather_confidence": 92
+}
+```
+
+### 2. Live Mandi Scraper Output (`get_mandi_price`)
+```text
+(Live Extracted Text from Top 3 Trusted Domains via Firecrawl)
+...
+"Mustard (Sarson) market price in Ludhiana Mandi today is ₹5,470 per quintal.
+Arrivals are expected to be normal. Market trend is stable."
+...
+```
+
+### 3. Scheme & News Scraper Output (`scrape_agricultural_news`)
+```text
+(Live Extracted Text from Top 4 Trusted Domains + Zero Fail Internal KB)
+...
+"PM Kisan 17th Installment Date: The 17th installment of PM Kisan Samman Nidhi
+will be released on 18th June 2024. e-KYC is mandatory before 15th June.
+Farmers can complete e-KYC via CSC centers or PM Kisan Portal."
+...
 ```
 
 ---
