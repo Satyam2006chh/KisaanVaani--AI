@@ -433,8 +433,10 @@ async def mandi_node(state: AgentState) -> AgentState:
 
 async def news_node(state: AgentState) -> AgentState:
     lang_name   = LANG_MAP.get(state["language"], "Hindi")
-    # Use original language message for scraping (more accurate keywords)
-    user_question = state.get("original_message") or state["messages"][-1]["content"]
+    # Use English translated message for scraping (gives 100x better results on search engines)
+    search_query = state["messages"][-1]["content"]
+    # Keep original question for the prompt context
+    user_question = state.get("original_message") or search_query
 
     # Built-in scheme knowledge base (fallback when scraping fails/is vague)
     SCHEME_KB = """
@@ -454,7 +456,7 @@ async def news_node(state: AgentState) -> AgentState:
     """
 
     # 1. Scrape live content
-    raw_content = await scrape_agricultural_news(user_question)
+    raw_content = await scrape_agricultural_news(search_query)
 
     # 2. Compose answer using BOTH scraped data AND built-in KB
     messages = [

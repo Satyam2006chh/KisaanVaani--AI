@@ -140,7 +140,7 @@ async def chat(req: ChatRequest):
             # Quick check: if answer is mostly ASCII (English), translate it
             ascii_chars = sum(1 for c in answer if ord(c) < 128)
             total_chars = len(answer)
-            if total_chars > 0 and (ascii_chars / total_chars) > 0.8:
+            if total_chars > 0 and (ascii_chars / total_chars) > 0.95:
                 logger.info(f"Response appears English, translating to {language}")
                 try:
                     answer = await translate_text(answer, "en-IN", language)

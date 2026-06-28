@@ -745,12 +745,12 @@ function splitTextIntoChunks(text, lang) {
     }
   }
   
-  // Group small segments together so they aren't TOO short (keep chunks around 350-450 chars)
+  // Group small segments together so they aren't TOO short (keep chunks around 400-480 chars)
   const chunks = [];
   let currentChunk = "";
   
   for (let segment of finalSegments) {
-    if ((currentChunk + segment).length < 450) {
+    if ((currentChunk + segment).length < 480) {
       currentChunk += (currentChunk ? " " : "") + segment;
     } else {
       if (currentChunk) chunks.push(currentChunk.trim());
@@ -758,7 +758,12 @@ function splitTextIntoChunks(text, lang) {
     }
   }
   if (currentChunk) {
-    chunks.push(currentChunk.trim());
+    // Merge tiny trailing segments (< 30 chars) into the previous chunk to avoid stutter
+    if (currentChunk.length < 30 && chunks.length > 0) {
+      chunks[chunks.length - 1] += " " + currentChunk;
+    } else {
+      chunks.push(currentChunk.trim());
+    }
   }
   
   return chunks;

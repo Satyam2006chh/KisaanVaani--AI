@@ -38,8 +38,8 @@ async def translate_text(text: str, source_lang: str, target_lang: str) -> str:
                     "input": text,
                     "source_language_code": source_lang,
                     "target_language_code": target_lang,
-                    "model": "mayura:v1",
-                    "enable_preprocessing": False,
+                    "model": "mayura:v2",
+                    "enable_preprocessing": True,
                 }
             )
             if r.status_code == 200:

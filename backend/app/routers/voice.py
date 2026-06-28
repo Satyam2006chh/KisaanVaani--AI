@@ -7,6 +7,7 @@ import re
 import struct
 import subprocess
 import tempfile
+import wave
 
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -221,8 +222,8 @@ async def speak(req: TTSRequest):
     if len(text) <= 500:
         chunks = [text]
     else:
-        # Split on sentence endings
-        parts = re.split(r'(?<=[।.!?])\s+', text)
+        # Split on sentence endings (using Unicode code point for Hindi danda ।)
+        parts = re.split(r'(?<=[\u0964.!?])\s+', text)
         chunks = []
         current = ""
         for part in parts:
@@ -276,15 +277,53 @@ async def speak(req: TTSRequest):
         if not combined_audio:
             raise HTTPException(status_code=502, detail="No audio generated")
 
-        # Fix WAV header sizes for proper playback
+        # Properly rebuild the WAV file from raw PCM data using the wave module
+        # This is necessary because simple header patching causes stuttering on some players
         if combined_audio[:4] == b'RIFF' and len(combined_audio) > 44:
-            combined_audio = (
-                combined_audio[:4]
-                + struct.pack('<I', len(combined_audio) - 8)
-                + combined_audio[8:40]
-                + struct.pack('<I', len(combined_audio) - 44)
-                + combined_audio[44:]
-            )
+            try:
+                # Read the first chunk to extract audio parameters
+                with wave.open(io.BytesIO(combined_audio), 'rb') as first_wav:
+                    n_channels   = first_wav.getnchannels()
+                    sampwidth    = first_wav.getsampwidth()
+                    framerate    = first_wav.getframerate()
+
+                # Collect all raw PCM frames from every chunk
+                all_pcm = b""
+                offset = 0
+                while offset < len(combined_audio):
+                    # Find next RIFF header
+                    riff_pos = combined_audio.find(b'RIFF', offset)
+                    if riff_pos == -1:
+                        break
+                    try:
+                        chunk_buf = io.BytesIO(combined_audio[riff_pos:])
+                        with wave.open(chunk_buf, 'rb') as chunk_wav:
+                            all_pcm += chunk_wav.readframes(chunk_wav.getnframes())
+                    except Exception:
+                        pass
+                    # Move past this RIFF header (at least 8 bytes forward)
+                    next_riff = combined_audio.find(b'RIFF', riff_pos + 8)
+                    offset = next_riff if next_riff != -1 else len(combined_audio)
+
+                if all_pcm:
+                    # Write a clean, properly-formed WAV file
+                    out_buf = io.BytesIO()
+                    with wave.open(out_buf, 'wb') as out_wav:
+                        out_wav.setnchannels(n_channels)
+                        out_wav.setsampwidth(sampwidth)
+                        out_wav.setframerate(framerate)
+                        out_wav.writeframes(all_pcm)
+                    combined_audio = out_buf.getvalue()
+            except Exception as wav_err:
+                logger.warning(f"WAV rebuild failed, using raw bytes: {wav_err}")
+                # Fallback: simple header patch (old behaviour)
+                combined_audio = (
+                    combined_audio[:4]
+                    + struct.pack('<I', len(combined_audio) - 8)
+                    + combined_audio[8:40]
+                    + struct.pack('<I', len(combined_audio) - 44)
+                    + combined_audio[44:]
+                )
 
         logger.info(f"TTS DONE: {len(combined_audio)} bytes")
         return StreamingResponse(io.BytesIO(combined_audio), media_type="audio/wav")
