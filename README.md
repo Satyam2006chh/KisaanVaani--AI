@@ -76,27 +76,27 @@ A **single voice command** gives farmers instant access to:
 
 ```mermaid
 graph TD
-    A[🎙️ Farmer Speaks] --> B[Audio Recorded in Browser]
-    B --> C[Sarvam AI: Speech-to-Text]
-    C --> D[Text Translated to English]
-    D --> E{🧠 Context-Aware LLM Router <br> Gemini 2.5 Flash}
+    A["🎙️ Farmer Speaks"] --> B["Audio Recorded in Browser"]
+    B --> C["Sarvam AI: Speech-to-Text"]
+    C --> D["Text Translated to English"]
+    D --> E{"🧠 Context-Aware LLM Router <br> Gemini 2.5 Flash"}
     
-    E -->|Weather| F[🌤️ Weather Intelligence Engine]
-    E -->|Mandi Prices| G[📊 Firecrawl Live Scraper (Top 3 Domains)]
-    E -->|Crop Disease| H[📸 Vision Node <br> Gemini 2.5 Flash / GPT-4o]
-    E -->|Govt Scheme| I[📜 News Node <br> Zero-Fail Firecrawl (Top 4 Domains)]
-    E -->|Crop Care| P[🌿 Crop Advice Node <br> Gemini 2.5 Flash]
-    E -->|General| J[💬 General Node <br> Gemini 2.5 Flash]
+    E -->|Weather| F["🌤️ Weather Intelligence Engine"]
+    E -->|Mandi Prices| G["📊 Firecrawl Live Scraper (Top 3 Domains)"]
+    E -->|Crop Disease| H["📸 Vision Node <br> Gemini 2.5 Flash / GPT-4o"]
+    E -->|Govt Scheme| I["📜 News Node <br> Zero-Fail Firecrawl (Top 4 Domains)"]
+    E -->|Crop Care| P["🌿 Crop Advice Node <br> Gemini 2.5 Flash"]
+    E -->|General| J["💬 General Node <br> Gemini 2.5 Flash"]
     
-    F --> K[AI Formats Answer in Regional Language <br> Gemini 2.5 Flash]
+    F --> K["AI Formats Answer in Regional Language <br> Gemini 2.5 Flash"]
     G --> K
     H --> K
     I --> K
     P --> K
     J --> K
     
-    K --> M[Sarvam AI: Text-to-Speech]
-    M --> N[🔊 Farmer Hears Seamless Audio]
+    K --> M["Sarvam AI: Text-to-Speech"]
+    M --> N["🔊 Farmer Hears Seamless Audio"]
     
     style A fill:#00f0ff,color:#000,stroke:#fff,stroke-width:2px
     style N fill:#00f0ff,color:#000,stroke:#fff,stroke-width:2px
@@ -112,57 +112,57 @@ Detailed architectural flows for how each core AI node processes information bef
 ### 🌤️ Weather Node
 ```mermaid
 graph TD
-    A[Farmer Asks: 'Aaj barish hogi?'] --> B[LLM Router routes to Weather Node]
-    B --> C[Extract Location from Profile or Audio]
-    C --> D[Fetch Lat/Lon using Open-Meteo Geocoding API]
-    D --> E[Fetch Agronomic Variables using Open-Meteo Forecast]
-    E --> F[🧠 Weather Intelligence Engine computes Irrigation/Spraying Needs]
-    F --> G[Send PROCESSED JSON to OpenRouter <br> Gemini 2.5 Flash]
-    G --> H[Gemini generates regional actionable advice without jargon]
+    A["Farmer Asks: 'Aaj barish hogi?'"] --> B["LLM Router routes to Weather Node"]
+    B --> C["Extract Location from Profile or Audio"]
+    C --> D["Fetch Lat/Lon using Open-Meteo Geocoding API"]
+    D --> E["Fetch Agronomic Variables using Open-Meteo Forecast"]
+    E --> F["🧠 Weather Intelligence Engine computes Irrigation/Spraying Needs"]
+    F --> G["Send PROCESSED JSON to OpenRouter <br> Gemini 2.5 Flash"]
+    G --> H["Gemini generates regional actionable advice without jargon"]
 ```
 
 ### 📊 Mandi Node
 ```mermaid
 graph TD
-    A[Farmer Asks: 'Lahsun ka rate?'] --> B[LLM Router routes to Mandi Node]
-    B --> C[Extract Crop and Location]
-    C --> D[Firecrawl AI Scraper (Strictly Top 3 Premium Domains)]
-    D --> E[Scrape 100% Live Market Websites Parallelly]
-    E --> F[Send unstructured live data to OpenRouter <br> Gemini 2.5 Flash]
-    F --> G[Gemini generates regional audio-friendly response]
+    A["Farmer Asks: 'Lahsun ka rate?'"] --> B["LLM Router routes to Mandi Node"]
+    B --> C["Extract Crop and Location"]
+    C --> D["Firecrawl AI Scraper (Strictly Top 3 Premium Domains)"]
+    D --> E["Scrape 100% Live Market Websites Parallelly"]
+    E --> F["Send unstructured live data to OpenRouter <br> Gemini 2.5 Flash"]
+    F --> G["Gemini generates regional audio-friendly response"]
 ```
 
 ### 🌿 Crop Advice Node
 ```mermaid
 graph TD
-    A[Farmer Asks: 'Kapas me phool jhad rahe hai'] --> B[Intent Router routes to Crop Advice Node]
-    B --> C[Format highly detailed Expert Agronomist System Prompt]
-    C --> D[Send query directly to OpenRouter <br> Gemini 2.5 Flash]
-    D --> E[Gemini generates expert advice with exact dosage/chemicals]
+    A["Farmer Asks: 'Kapas me phool jhad rahe hai'"] --> B["Intent Router routes to Crop Advice Node"]
+    B --> C["Format highly detailed Expert Agronomist System Prompt"]
+    C --> D["Send query directly to OpenRouter <br> Gemini 2.5 Flash"]
+    D --> E["Gemini generates expert advice with exact dosage/chemicals"]
 ```
 
 ### 📜 News & Scheme Node
 ```mermaid
 graph TD
-    A[Farmer Asks: 'PM Kusum me subsidy kitni hai?'] --> B[LLM Router routes to News Node]
-    B --> C[Firecrawl AI Search API (Strictly Top 4 News Domains)]
-    C --> D[Scrape live internet for latest scheme details & news]
-    D --> E{Zero-Fail Guarantee Check}
-    E -->|Data Found| F[Send scraped articles to LLM]
-    E -->|Data Missing/Vague| G[Use Internal KB & Pre-trained Knowledge]
-    F --> H[Gemini summarizes scheme with Emoji Bullet Points]
+    A["Farmer Asks: 'PM Kusum me subsidy kitni hai?'"] --> B["LLM Router routes to News Node"]
+    B --> C["Firecrawl AI Search API (Strictly Top 4 News Domains)"]
+    C --> D["Scrape live internet for latest scheme details & news"]
+    D --> E{"Zero-Fail Guarantee Check"}
+    E -->|Data Found| F["Send scraped articles to LLM"]
+    E -->|Data Missing/Vague| G["Use Internal KB & Pre-trained Knowledge"]
+    F --> H["Gemini summarizes scheme with Emoji Bullet Points"]
     G --> H
 ```
 
 ### 📸 Vision Node (LLM Cascade)
 ```mermaid
 graph TD
-    A[Farmer uploads crop image] --> B[Direct route to Vision Node]
-    B --> C[Send Base64 Image to OpenRouter]
-    C --> D{Cascade Routing}
-    D -->|Primary| E[Gemini 2.5 Flash Vision]
-    D -->|Fallback if fail| F[GPT-4o Vision]
-    E --> G[AI Diagnoses Disease and prescribes treatment]
+    A["Farmer uploads crop image"] --> B["Direct route to Vision Node"]
+    B --> C["Send Base64 Image to OpenRouter"]
+    C --> D{"Cascade Routing"}
+    D -->|Primary| E["Gemini 2.5 Flash Vision"]
+    D -->|Fallback if fail| F["GPT-4o Vision"]
+    E --> G["AI Diagnoses Disease and prescribes treatment"]
     F --> G
 ```
 
