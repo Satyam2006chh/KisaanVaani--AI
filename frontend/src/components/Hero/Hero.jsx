@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Mic, Square, Loader, AlertCircle, TrendingUp, Image as ImageIcon, X, Volume2, Play } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { chatWithAgent, transcribeAudio, speakText } from '../../api'
+import { introAudioMap } from '../../assets/audioMapping'
 import './Hero.css'
 
 // All 11 languages supported by Sarvam TTS/STT
@@ -428,8 +429,8 @@ export default function Hero() {
 
     try {
       setIsPlayingIntro(true);
-      // Play local static file instantly (0 latency, 0 API calls)
-      const url = `/intro_audio/${introLang}.wav`;
+      // Play local static file instantly via Vite Bundler
+      const url = introAudioMap[introLang];
       
       introAudioRef.current.src = url;
       introAudioRef.current.play();
