@@ -126,7 +126,7 @@ async def get_live_mandi_price_scraper(crop: str, district: str, state: str) -> 
                 "https://api.firecrawl.dev/v1/search",
                 headers=headers,
                 json={
-                    "query": f"latest mandi bhav {crop} in {district} {state} today mandibhav commodityonline",
+                    "query": f"latest wholesale mandi price rate of {crop} in {district} {state} today",
                     "limit": 3,
                 },
             )
