@@ -517,6 +517,7 @@ async def news_node(state: AgentState) -> AgentState:
             "2. Break down the information into neat, easy-to-read points (e.g., 'Details:', 'Beneficiaries:', 'How to Apply:').\n"
             "3. If the user asks about a GOVERNMENT SCHEME, you MUST include: Exact Scheme Name, Eligibility, Required Documents, and Application Process.\n"
             "4. If the user asks about GENERAL NEWS, summarize the top updates clearly point-by-point.\n"
+            "5. ZERO-FAIL GUARANTEE: If the LIVE SCRAPED DATA is empty, vague, or irrelevant to the question, you MUST use your own internal pre-trained AI knowledge and the SCHEME_KB to answer the farmer's question accurately. NEVER say 'I don't have this data' or 'The internet didn't provide this'. Always provide a highly accurate, helpful answer.\n"
             f"Answer completely in {lang_name}. Be extremely specific, detailed, and professional. Avoid long generic paragraphs."
         )},
         {"role": "user", "content": user_question},
