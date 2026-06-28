@@ -17,6 +17,9 @@ WMO_CODES = {
 
 
 async def get_weather(district: str, state: str) -> str:
+    import json
+    from app.agents.weather_engine import analyze_weather
+    
     try:
         # Geocode using district name
         async with httpx.AsyncClient(timeout=10) as client:
@@ -37,67 +40,40 @@ async def get_weather(district: str, state: str) -> str:
                 selected_loc = res
                 break
         
-        # If no state match found, fallback to the first result in India
         if not selected_loc:
             for res in results:
                 if (res.get("country") or "").lower() == "india":
                     selected_loc = res
                     break
                     
-        # Otherwise fallback to the very first result
         if not selected_loc:
             selected_loc = results[0]
 
         actual_lat, actual_lon = selected_loc["latitude"], selected_loc["longitude"]
-        loc_label = f"{selected_loc.get('name')}, {selected_loc.get('admin1') or state}"
 
-        # Fetch High-Precision Forecast
+        # Fetch High-Precision Forecast with Agricultural Variables
         async with httpx.AsyncClient(timeout=10) as client:
             w = await client.get(
                 "https://api.open-meteo.com/v1/forecast",
                 params={
                     "latitude": actual_lat, "longitude": actual_lon,
-                    "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation",
+                    "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,uv_index",
+                    "hourly": "soil_temperature_0cm,soil_moisture_0_to_1cm,evapotranspiration",
                     "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max",
                     "timezone": "Asia/Kolkata", "forecast_days": 1,
                 }
             )
         
         if w.status_code != 200:
-            return f"{loc_label} ka mausam abhi uplabdh nahi hai."
-
-        cur = w.json()["current"]
-        daily = w.json().get("daily", {})
-        temp = cur["temperature_2m"]
-        humidity = cur["relative_humidity_2m"]
-        wind = cur["wind_speed_10m"]
-        rain = cur["precipitation"]
-        # PREDICTIVE RAIN PROBABILITY (POP)
-        rain_prob = daily.get("precipitation_probability_max", [0])[0]
-        
-        desc = WMO_CODES.get(cur["weather_code"], "Mausam saaf hai")
-        max_t = daily.get("temperature_2m_max", [temp])[0]
-        min_t = daily.get("temperature_2m_min", [temp])[0]
-
-        result = (
-            f"**Data for {loc_label}:**\n"
-            f"Abhi temperature {temp}°C hai (Dopahar ka max {max_t}°C, Raat ka min {min_t}°C).\n"
-            f"Sthiti: {desc}. Namee (Humidity): {humidity}%. Hawa ki gati: {wind} km/h.\n"
-            f"Baarish ki sambhavna (POP): {rain_prob}%.\n"
-        )
-        
-        # EXPERT ADVICE BASED ON DATA
-        if rain_prob > 70:
-            result += "🚨 ALERT: Baarish ke 70% se zyada chances hain. Kripya dhaan ya mandi mein rakhi fasal ko turant dhak dein (Cover your crops)."
-        elif rain_prob > 30:
-            result += "Badal chhaye reh sakte hain, halki bauchhaar ki umeed hai."
-        
-        if temp > 42:
-            result += " 🔥 Bahut garam hawaayein chalne ka darr hai, fasal ki light sinchai (irrigation) dopahar se pehle zaroori hai."
-        elif temp < 8:
-            result += " ❄️ Thandi ka pekhop hai, pala (frost) padne ka darr hai. Dhuan karke ya halka pani dekar fasal bachayein."
+            return f"{district} ka mausam abhi uplabdh nahi hai."
             
-        return result
+        raw_weather = w.json()
+        
+        # Process data using Weather Intelligence Engine
+        insights = analyze_weather(raw_weather)
+        
+        # Return as JSON string so LLM can parse it easily
+        return json.dumps(insights, indent=2)
 
     except Exception as e:
         logger.error(f"Weather Tool Error: {e}")

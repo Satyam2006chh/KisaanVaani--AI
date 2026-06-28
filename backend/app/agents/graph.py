@@ -392,8 +392,16 @@ async def weather_node(state: AgentState) -> AgentState:
         {"role": "system", "content": (
             f"{_system_prompt(overridden_state)}\n\n"
             f"Location: {dist}, {st}\n"
-            f"Weather Data: {weather_data}\n"
-            "Include: current condition, rain probability, risk level, and 2 concrete farm actions."
+            f"PROCESSED WEATHER INTELLIGENCE JSON: {weather_data}\n\n"
+            "TASK: Act as an expert agricultural advisor. You have received processed weather intelligence JSON.\n"
+            "Analyze the data and give simple, actionable advice to the farmer in their selected language.\n"
+            "RULES:\n"
+            "1. DO NOT use heavy technical words (like evapotranspiration, UV index, humidity percentages). Speak like a helpful local farmer.\n"
+            "2. Tell them EXACTLY what to do today and tomorrow (e.g., 'Aaj khet mein dawai na chhidkein kyunki hawa tez hai').\n"
+            "3. Mention if irrigation is needed based on the JSON.\n"
+            "4. Warn them about fungal disease or heat/wind risk if the JSON says High or Medium.\n"
+            "5. Do NOT invent or calculate fake data. Only rely on the JSON provided.\n"
+            "6. Keep it conversational, caring, and highly practical."
         )},
     ]
     for m in state["messages"]:
