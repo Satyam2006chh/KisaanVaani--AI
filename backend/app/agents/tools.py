@@ -102,7 +102,7 @@ async def get_live_mandi_price_scraper(crop: str, district: str, state: str) -> 
                 "https://api.firecrawl.dev/v1/search",
                 headers=headers,
                 json={
-                    "query": f"latest wholesale mandi price rate of {crop} in {district} {state} today napanta kisandeals indiamart",
+                    "query": f"{crop} mandi price {district} {state} today 2026",
                     "limit": 3,
                 },
             )
@@ -157,7 +157,7 @@ async def scrape_agricultural_news(query: str) -> str:
                 "https://api.firecrawl.dev/v1/search",
                 headers=headers,
                 json={
-                    "query": f"{query} agriculture news scheme update hindi (site:krishijagran.com OR site:aajtak.in OR site:news18.com OR site:kisansamadhan.com)",
+                    "query": f"{query} India agriculture news 2026 site:krishijagran.com OR site:aajtak.in OR site:kisansamadhan.com OR site:pmkisan.gov.in",
                     "limit": 4,
                 },
             )
