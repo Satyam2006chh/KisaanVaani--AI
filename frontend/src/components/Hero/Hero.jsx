@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Mic, Square, Loader, AlertCircle, TrendingUp, Image as ImageIcon, X, Volume2, Play } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { chatWithAgent, transcribeAudio, speakText } from '../../api'
-import { introAudioMap } from '../../assets/audioMapping'
 import './Hero.css'
 
 // All 11 languages supported by Sarvam TTS/STT
@@ -55,6 +54,7 @@ export default function Hero() {
   const introAudioRef    = useRef(new Audio())
   const queueActiveRef   = useRef(false) 
   const prefetchedUrls   = useRef({}) 
+  const introCacheRef    = useRef({})
 
   // Clean up audio on unmount
   useEffect(() => {
@@ -428,21 +428,30 @@ export default function Hero() {
     }
 
     try {
-      setIsPlayingIntro(true);
-      // Play local static file instantly via Vite Bundler
-      const url = introAudioMap[introLang];
+      setIsIntroLoading(true);
       
+      let url = introCacheRef.current[introLang];
+      if (!url) {
+        const text = getIntroText(introLang);
+        url = await speakText(text, introLang);
+        introCacheRef.current[introLang] = url; // Cache it in memory for zero latency next time
+      }
+      
+      setIsIntroLoading(false);
+      setIsPlayingIntro(true);
       introAudioRef.current.src = url;
       introAudioRef.current.play();
       introAudioRef.current.onended = () => {
         setIsPlayingIntro(false);
+        // Do not revoke the URL because we are caching it!
       };
       introAudioRef.current.onerror = () => {
         setIsPlayingIntro(false);
-        setError("Intro audio file missing for this language.");
+        delete introCacheRef.current[introLang]; // Remove bad cache
       };
     } catch (e) {
       console.error(e);
+      setIsIntroLoading(false);
       setIsPlayingIntro(false);
     }
   }
