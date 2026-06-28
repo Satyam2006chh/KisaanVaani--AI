@@ -427,25 +427,21 @@ export default function Hero() {
     }
 
     try {
-      setIsIntroLoading(true);
-      const text = getIntroText(introLang);
-      const url = await speakText(text, introLang);
-      
-      setIsIntroLoading(false);
       setIsPlayingIntro(true);
+      // Play local static file instantly (0 latency, 0 API calls)
+      const url = `/intro_audio/${introLang}.wav`;
+      
       introAudioRef.current.src = url;
       introAudioRef.current.play();
       introAudioRef.current.onended = () => {
         setIsPlayingIntro(false);
-        URL.revokeObjectURL(url);
       };
       introAudioRef.current.onerror = () => {
         setIsPlayingIntro(false);
-        URL.revokeObjectURL(url);
+        setError("Intro audio file missing for this language.");
       };
     } catch (e) {
       console.error(e);
-      setIsIntroLoading(false);
       setIsPlayingIntro(false);
     }
   }
