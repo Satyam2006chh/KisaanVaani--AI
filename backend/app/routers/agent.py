@@ -2,7 +2,6 @@ import logging
 import re
 from fastapi import APIRouter, HTTPException
 from app.agents.graph import agent
-from app.agents.tools import get_nearest_mandis
 from app.config import settings
 from app.db.supabase import get_supabase
 from app.models.schemas import ChatRequest, ChatResponse
@@ -38,13 +37,6 @@ def _is_name_recall_question(message: str) -> bool:
         or ("what is my name" in msg)
         or ("tell me my name" in msg)
     )
-
-
-@router.post("/mandis/nearby")
-async def mandis_nearby(payload: dict):
-    district = payload.get("district", "Delhi")
-    state = payload.get("state", "Delhi")
-    return await get_nearest_mandis(district, state)
 
 
 @router.post("/chat", response_model=ChatResponse)
