@@ -97,7 +97,7 @@ async def get_live_mandi_price_scraper(crop: str, district: str, state: str) -> 
     today_str = date.today().strftime("%d %B %Y")
     
     def _fetch_live():
-        with httpx.Client(timeout=12) as client:
+        with httpx.Client(timeout=25) as client:
             r = client.post(
                 "https://api.firecrawl.dev/v1/search",
                 headers=headers,
@@ -151,7 +151,8 @@ async def scrape_agricultural_news(query: str) -> str:
     }
 
     def _fetch_news() -> str:
-        with httpx.Client(timeout=12) as client:
+        # Increased timeout to 25s — Render free tier needs extra time for outbound Firecrawl requests
+        with httpx.Client(timeout=25) as client:
             r = client.post(
                 "https://api.firecrawl.dev/v1/search",
                 headers=headers,
@@ -174,12 +175,25 @@ async def scrape_agricultural_news(query: str) -> str:
                         lines.append(f"- {title}: {desc[:220]}{'...' if len(desc) > 220 else ''} {url}".strip())
                     return "Latest agriculture web results:\n" + "\n".join(lines)
 
-            return "Internet server error. News fetch nahi ho pa raha."
+            # Log actual status so we can diagnose rate limits vs server errors
+            logger.error(f"Firecrawl news scraper HTTP {r.status_code}: {r.text[:150]}")
+            return ""
 
-    try:
-        return await asyncio.to_thread(_fetch_news)
-    except Exception as e:
-        logger.warning(f"Internet request failed: {repr(e)}")
-        return "Internet se news fetch karne mein samasya aa rahi hai."
+    # Retry once on failure (handles transient Render free-tier slowness)
+    for attempt in range(2):
+        try:
+            result = await asyncio.to_thread(_fetch_news)
+            if result:
+                return result
+            if attempt == 0:
+                logger.warning("Firecrawl news: first attempt returned empty, retrying in 2s...")
+                await asyncio.sleep(2)
+        except Exception as e:
+            logger.warning(f"Firecrawl news attempt {attempt + 1} failed: {repr(e)}")
+            if attempt == 0:
+                await asyncio.sleep(2)
+
+    logger.error("Firecrawl news: both attempts failed, falling back to AI knowledge")
+    return ""
 
 
