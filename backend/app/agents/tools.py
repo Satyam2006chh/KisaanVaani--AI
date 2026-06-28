@@ -157,7 +157,7 @@ async def scrape_agricultural_news(query: str) -> str:
                 "https://api.firecrawl.dev/v1/search",
                 headers=headers,
                 json={
-                    "query": f"{query} India kisan farmer government scheme news 2026",
+                    "query": f"{query} India agriculture farming budget yojana scheme news 2026",
                     "limit": 4,
                 },
             )
