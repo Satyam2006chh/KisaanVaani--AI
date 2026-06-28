@@ -22,5 +22,5 @@ Write-Host "🌐 Starting Frontend Server (Port 5174)..." -ForegroundColor Yello
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd frontend; npm run dev -- --host"
 
 Write-Host "Servers are starting! Check the new terminal windows." -ForegroundColor Green
-Write-Host "Frontend: http://localhost:5174" -ForegroundColor White
-Write-Host "Backend: http://localhost:8000" -ForegroundColor White
+Write-Host "Frontend: http://localhost:5174"
+Write-Host "Backend: http://localhost:8000"
