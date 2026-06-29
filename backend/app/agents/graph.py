@@ -42,8 +42,10 @@ class AgentState(TypedDict):
 
 
 TEXT_MODELS = [
-    "google/gemini-2.5-flash",             # 1. Fast and stable conversational model (extremely fast)
-    "deepseek/deepseek-r1",                # 2. Reasoning Model (fallback when Gemini is busy)
+    "google/gemini-2.5-flash",             # Extremely fast, highly accurate, and very cost-effective
+    "anthropic/claude-3.5-sonnet",         # Very smart, moderate speed
+    "deepseek/deepseek-r1",                # Reasoning model, highest latency
+    "openai/gpt-4o",                       # Premium high stability
 ]
 
 VISION_MODELS = [
